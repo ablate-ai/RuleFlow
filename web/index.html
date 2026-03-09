@@ -249,6 +249,12 @@
           <div class="pt">控制台</div>
           <div class="ps">系统概览与快速入口</div>
         </div>
+        <div class="phr">
+          <button class="btn btn-s" id="btn-clear-cache" onclick="clearAllCache()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            清除所有缓存
+          </button>
+        </div>
       </div>
 
       <!-- 统计卡片 -->
@@ -439,6 +445,28 @@
   </div>
 
   <script>
+    // 清除所有缓存
+    async function clearAllCache() {
+      const btn = document.getElementById('btn-clear-cache');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/cache', { method: 'DELETE' });
+        if (res.ok) {
+          btn.textContent = '已清除';
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> 清除所有缓存';
+          }, 2000);
+        } else {
+          btn.disabled = false;
+          alert('清除失败');
+        }
+      } catch {
+        btn.disabled = false;
+        alert('请求失败');
+      }
+    }
+
     // 异步加载统计数据
     async function loadStats() {
       // 加载订阅数
