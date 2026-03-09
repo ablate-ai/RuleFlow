@@ -133,7 +133,6 @@ func TestSubscriptionService(t *testing.T) {
 		sub := &database.Subscription{
 			Name:        "test-sub",
 			URL:         stringPtr("https://example.com/new-sub"),
-			Target:      "stash",
 			Enabled:     false,
 			Description: "更新后的订阅",
 		}
@@ -145,8 +144,8 @@ func TestSubscriptionService(t *testing.T) {
 
 		// 验证更新
 		updated, _ := repo.GetByName(ctx, "test-sub")
-		if updated.Target != "stash" {
-			t.Errorf("目标类型未更新: got %s, want stash", updated.Target)
+		if updated.Description != "更新后的订阅" {
+			t.Errorf("描述未更新: got %s, want 更新后的订阅", updated.Description)
 		}
 	})
 

@@ -13,7 +13,6 @@ type Subscription struct {
 	ID              int        `json:"id"`
 	Name            string     `json:"name"`
 	URL             *string    `json:"url"`
-	Target          string     `json:"target"`
 	Enabled         bool       `json:"enabled"`
 	AutoRefresh     bool       `json:"auto_refresh"`
 	RefreshInterval int        `json:"refresh_interval"`
@@ -39,13 +38,13 @@ func NewSubscriptionRepo(db *DB) *SubscriptionRepo {
 // Create 创建订阅
 func (r *SubscriptionRepo) Create(ctx context.Context, sub *Subscription) error {
 	query := `
-		INSERT INTO subscriptions (name, url, target, enabled, auto_refresh, refresh_interval, description, tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO subscriptions (name, url, enabled, auto_refresh, refresh_interval, description, tags)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
-		sub.Name, sub.URL, sub.Target, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval, sub.Description, sub.Tags,
+		sub.Name, sub.URL, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval, sub.Description, sub.Tags,
 	).Scan(&sub.ID, &sub.CreatedAt, &sub.UpdatedAt)
 
 	if err != nil {
@@ -58,7 +57,7 @@ func (r *SubscriptionRepo) Create(ctx context.Context, sub *Subscription) error 
 // GetByName 根据名称获取订阅
 func (r *SubscriptionRepo) GetByName(ctx context.Context, name string) (*Subscription, error) {
 	query := `
-		SELECT id, name, url, target, enabled, auto_refresh, refresh_interval, description, tags,
+		SELECT id, name, url, enabled, auto_refresh, refresh_interval, description, tags,
 		       last_fetched_at, last_fetch_error, node_count, created_at, updated_at
 		FROM subscriptions
 		WHERE name = $1
@@ -69,7 +68,6 @@ func (r *SubscriptionRepo) GetByName(ctx context.Context, name string) (*Subscri
 		&sub.ID,
 		&sub.Name,
 		&sub.URL,
-		&sub.Target,
 		&sub.Enabled,
 		&sub.AutoRefresh,
 		&sub.RefreshInterval,
@@ -92,10 +90,46 @@ func (r *SubscriptionRepo) GetByName(ctx context.Context, name string) (*Subscri
 	return sub, nil
 }
 
+// GetByID 根据 ID 获取订阅
+func (r *SubscriptionRepo) GetByID(ctx context.Context, id int) (*Subscription, error) {
+	query := `
+		SELECT id, name, url, enabled, auto_refresh, refresh_interval, description, tags,
+		       last_fetched_at, last_fetch_error, node_count, created_at, updated_at
+		FROM subscriptions
+		WHERE id = $1
+	`
+
+	sub := &Subscription{}
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&sub.ID,
+		&sub.Name,
+		&sub.URL,
+		&sub.Enabled,
+		&sub.AutoRefresh,
+		&sub.RefreshInterval,
+		&sub.Description,
+		&sub.Tags,
+		&sub.LastFetchedAt,
+		&sub.LastFetchError,
+		&sub.NodeCount,
+		&sub.CreatedAt,
+		&sub.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("订阅不存在: %d", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询订阅失败: %w", err)
+	}
+
+	return sub, nil
+}
+
 // List 列出所有订阅
 func (r *SubscriptionRepo) List(ctx context.Context) ([]Subscription, error) {
 	query := `
-		SELECT id, name, url, target, enabled, auto_refresh, refresh_interval, description, tags,
+		SELECT id, name, url, enabled, auto_refresh, refresh_interval, description, tags,
 		       last_fetched_at, last_fetch_error, node_count, created_at, updated_at
 		FROM subscriptions
 		ORDER BY created_at DESC
@@ -114,7 +148,6 @@ func (r *SubscriptionRepo) List(ctx context.Context) ([]Subscription, error) {
 			&sub.ID,
 			&sub.Name,
 			&sub.URL,
-			&sub.Target,
 			&sub.Enabled,
 			&sub.AutoRefresh,
 			&sub.RefreshInterval,
@@ -143,17 +176,17 @@ func (r *SubscriptionRepo) List(ctx context.Context) ([]Subscription, error) {
 func (r *SubscriptionRepo) Update(ctx context.Context, sub *Subscription) error {
 	query := `
 		UPDATE subscriptions
-		SET url = $2, target = $3, enabled = $4, auto_refresh = $5, refresh_interval = $6, description = $7, tags = $8
-		WHERE name = $1
+		SET name = $2, url = $3, enabled = $4, auto_refresh = $5, refresh_interval = $6, description = $7, tags = $8
+		WHERE id = $1
 		RETURNING updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
-		sub.Name, sub.URL, sub.Target, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval, sub.Description, sub.Tags,
+		sub.ID, sub.Name, sub.URL, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval, sub.Description, sub.Tags,
 	).Scan(&sub.UpdatedAt)
 
 	if err == pgx.ErrNoRows {
-		return fmt.Errorf("订阅不存在: %s", sub.Name)
+		return fmt.Errorf("订阅不存在: %d", sub.ID)
 	}
 	if err != nil {
 		return fmt.Errorf("更新订阅失败: %w", err)

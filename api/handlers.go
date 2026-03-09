@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/c.chen/ruleflow/database"
@@ -120,22 +121,24 @@ func (h *Handlers) UpdateSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取订阅名称
+	// 从 URL 路径中提取订阅 ID
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
+		return
+	}
 
 	var sub database.Subscription
 	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
 		return
 	}
-
-	// 确保名称匹配
-	sub.Name = name
+	sub.ID = id
 
 	ctx := r.Context()
 	if err := h.subscriptionService.UpdateSubscription(ctx, &sub); err != nil {

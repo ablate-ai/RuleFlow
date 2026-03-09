@@ -13,7 +13,6 @@ CREATE TABLE subscriptions (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     url TEXT NOT NULL,
-    target VARCHAR(20) NOT NULL DEFAULT 'clash',
     enabled BOOLEAN NOT NULL DEFAULT true,
     auto_refresh BOOLEAN NOT NULL DEFAULT false,
     refresh_interval INTEGER NOT NULL DEFAULT 3600,
@@ -23,9 +22,7 @@ CREATE TABLE subscriptions (
     last_fetch_error TEXT,
     node_count INTEGER DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT subscriptions_target_check
-        CHECK (target IN ('clash', 'stash'))
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_subscriptions_name ON subscriptions(name);

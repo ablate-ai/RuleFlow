@@ -119,9 +119,6 @@ func (s *SubscriptionService) CreateSubscription(ctx context.Context, sub *datab
 	}
 
 	// 设置默认值
-	if sub.Target == "" {
-		sub.Target = "clash"
-	}
 	if sub.RefreshInterval == 0 {
 		sub.RefreshInterval = 3600 // 默认 1 小时
 	}
@@ -146,8 +143,25 @@ func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *datab
 		return fmt.Errorf("订阅必须提供 URL")
 	}
 
-	// 清除相关缓存
-	_ = s.cache.DeleteAll(ctx, sub.Name)
+	// 查旧记录，获取原名称用于清缓存和判断是否改名
+	old, err := s.repo.GetByID(ctx, sub.ID)
+	if err != nil {
+		return err
+	}
+
+	// 改名时检查新名称是否冲突
+	if old.Name != sub.Name {
+		exists, err := s.repo.Exists(ctx, sub.Name)
+		if err != nil {
+			return fmt.Errorf("检查订阅名称失败: %w", err)
+		}
+		if exists {
+			return fmt.Errorf("订阅名称已存在: %s", sub.Name)
+		}
+	}
+
+	// 清除旧名称的缓存
+	_ = s.cache.DeleteAll(ctx, old.Name)
 
 	return s.repo.Update(ctx, sub)
 }

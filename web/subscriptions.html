@@ -378,7 +378,7 @@
         setSaving(true);
         try {
           if (modal === 'edit') {
-            await api.put(`/api/subscriptions/${form.name}`, form);
+            await api.put(`/api/subscriptions/${editItem.id}`, form);
             addToast('订阅源更新成功');
           } else {
             await api.post('/api/subscriptions', form);
@@ -607,13 +607,11 @@
                     <div className="fg">
                       <label className="fl">
                         名称
-                        {modal === 'edit' && <span className="flo">创建后不可修改</span>}
                       </label>
                       <input
                         className="fc"
                         type="text"
                         required
-                        disabled={modal === 'edit'}
                         placeholder="例如：my-subscription"
                         value={form.name}
                         onChange={e => setForm({ ...form, name: e.target.value })}
