@@ -13,8 +13,6 @@ example_config.yaml
 *.out
 coverage.html
 
-# Go 模块缓存
-go.sum
 
 # IDE
 .idea/
