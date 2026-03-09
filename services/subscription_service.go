@@ -113,18 +113,15 @@ func (s *SubscriptionService) CreateSubscription(ctx context.Context, sub *datab
 		return fmt.Errorf("订阅名称已存在: %s", sub.Name)
 	}
 
-	// 验证目标类型
-	sub.Target = strings.ToLower(sub.Target)
-	if sub.Target != "clash" && sub.Target != "stash" {
-		return fmt.Errorf("不支持的目标类型: %s", sub.Target)
-	}
-
 	// 验证 URL
 	if sub.URL == nil || strings.TrimSpace(*sub.URL) == "" {
 		return fmt.Errorf("订阅必须提供 URL")
 	}
 
 	// 设置默认值
+	if sub.Target == "" {
+		sub.Target = "clash"
+	}
 	if sub.RefreshInterval == 0 {
 		sub.RefreshInterval = 3600 // 默认 1 小时
 	}
@@ -144,12 +141,6 @@ func (s *SubscriptionService) ListSubscriptions(ctx context.Context) ([]database
 
 // UpdateSubscription 更新订阅
 func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *database.Subscription) error {
-	// 验证目标类型
-	sub.Target = strings.ToLower(sub.Target)
-	if sub.Target != "clash" && sub.Target != "stash" {
-		return fmt.Errorf("不支持的目标类型: %s", sub.Target)
-	}
-
 	// 验证 URL
 	if sub.URL == nil || strings.TrimSpace(*sub.URL) == "" {
 		return fmt.Errorf("订阅必须提供 URL")

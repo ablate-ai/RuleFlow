@@ -125,15 +125,20 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	// 收到第二次信号时强制退出
+	signal.Reset(syscall.SIGINT, syscall.SIGTERM)
+
 	log.Println("🛑 正在关闭服务器...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("❌ 服务器关闭失败: %v\n", err)
+		log.Printf("⚠️ 优雅关闭超时，强制关闭: %v\n", err)
+		_ = server.Close()
 	}
 
 	log.Println("✅ 服务器已关闭")
+	os.Exit(0)
 }
 
 func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionService *services.SubscriptionService) {
@@ -161,7 +166,12 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 	})
 
 	// API 路由（如果启用）
-	if apiHandlers != nil {
+	if apiHandlers == nil {
+		// 数据库未启用时，所有 /api/ 请求返回 JSON 错误而非 HTML
+		http.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+			api.SendError(w, http.StatusServiceUnavailable, "数据库模式未启用，API 功能不可用")
+		})
+	} else {
 		// 订阅管理 API
 		http.HandleFunc("/api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
@@ -327,6 +337,11 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			} else {
 				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
 			}
+		})
+
+		// 配置生成（供客户端直接订阅）
+		http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
+			apiHandlers.GenerateConfig(w, r)
 		})
 
 		// 健康检查

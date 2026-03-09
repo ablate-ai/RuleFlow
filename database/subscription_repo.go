@@ -10,20 +10,20 @@ import (
 
 // Subscription 订阅模型
 type Subscription struct {
-	ID              int
-	Name            string
-	URL             *string
-	Target          string
-	Enabled         bool
-	AutoRefresh     bool
-	RefreshInterval int
-	Description     string
-	Tags            []string
-	LastFetchedAt   *time.Time
-	LastFetchError  *string
-	NodeCount       int
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID              int        `json:"id"`
+	Name            string     `json:"name"`
+	URL             *string    `json:"url"`
+	Target          string     `json:"target"`
+	Enabled         bool       `json:"enabled"`
+	AutoRefresh     bool       `json:"auto_refresh"`
+	RefreshInterval int        `json:"refresh_interval"`
+	Description     string     `json:"description"`
+	Tags            []string   `json:"tags"`
+	LastFetchedAt   *time.Time `json:"last_fetched_at"`
+	LastFetchError  *string    `json:"last_fetch_error"`
+	NodeCount       int        `json:"node_count"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // SubscriptionRepo 订阅仓储

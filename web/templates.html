@@ -96,8 +96,8 @@
             const [form, setForm] = useState({ name: '', description: '', content: '', is_default: false, target: 'clash' });
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
-            const [editor, setEditor] = useState(null);
             const editorRef = useRef(null);
+            const editorInstanceRef = useRef(null);
 
             const loadTemplates = async () => {
                 try {
@@ -111,36 +111,36 @@
             useEffect(() => { loadTemplates(); }, []);
 
             useEffect(() => {
-                if (editorRef.current && !editor) {
-                    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-                    require(['vs/editor/editor.main'], function (monaco) {
-                        const ed = monaco.editor.create(editorRef.current, {
-                            value: form.content,
-                            language: 'yaml',
-                            theme: 'vs',
-                            minimap: { enabled: false },
-                            automaticLayout: true,
-                            fontSize: 14,
-                        });
-                        ed.onDidChangeModelContent(() => {
-                            setForm({ ...form, content: ed.getValue() });
-                        });
-                        setEditor(ed);
+                if (!editorRef.current) return;
+                require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+                require(['vs/editor/editor.main'], function (monaco) {
+                    if (editorInstanceRef.current) return;
+                    const ed = monaco.editor.create(editorRef.current, {
+                        value: '',
+                        language: 'yaml',
+                        theme: 'vs',
+                        minimap: { enabled: false },
+                        automaticLayout: true,
+                        fontSize: 14,
                     });
-                }
+                    ed.onDidChangeModelContent(() => {
+                        setForm(prev => ({ ...prev, content: ed.getValue() }));
+                    });
+                    editorInstanceRef.current = ed;
+                });
                 return () => {
-                    if (editor) {
-                        editor.dispose();
-                        setEditor(null);
+                    if (editorInstanceRef.current) {
+                        editorInstanceRef.current.dispose();
+                        editorInstanceRef.current = null;
                     }
                 };
-            }, [editorRef.current]);
+            }, []);
 
             useEffect(() => {
-                if (editor) {
-                    editor.setValue(form.content);
+                if (editorInstanceRef.current) {
+                    editorInstanceRef.current.setValue(form.content || '');
                 }
-            }, [editing, editor]);
+            }, [editing]);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();

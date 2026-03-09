@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -31,6 +32,8 @@ func NewSubscriptionSyncService(
 // SyncSubscription 同步指定订阅的节点
 // 使用完全替换策略：删除该订阅的旧节点，插入新节点
 func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscriptionName string) (int, error) {
+	log.Printf("[sync] 开始同步订阅: %s", subscriptionName)
+
 	// 1. 获取订阅配置
 	sub, err := s.subRepo.GetByName(ctx, subscriptionName)
 	if err != nil {
@@ -46,35 +49,41 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	}
 
 	// 2. 从 URL 拉取订阅内容
+	log.Printf("[sync] 拉取订阅内容: %s", *sub.URL)
 	content, err := s.fetchSubscriptionContent(ctx, *sub.URL)
 	if err != nil {
-		// 更新订阅错误信息
+		log.Printf("[sync] 拉取失败: %v", err)
 		_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, 0, err)
 		return 0, fmt.Errorf("拉取订阅内容失败: %w", err)
 	}
+	log.Printf("[sync] 拉取成功，内容长度: %d 字节", len(content))
 
 	// 3. 解析节点
+	log.Printf("[sync] 开始解析节点...")
 	nodes, err := app.ParseSubscription(content)
 	if err != nil {
-		// 更新订阅错误信息
+		log.Printf("[sync] 解析失败: %v", err)
 		_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, 0, err)
 		return 0, fmt.Errorf("解析订阅内容失败: %w", err)
 	}
 
 	if len(nodes) == 0 {
+		log.Printf("[sync] 未解析到任何节点")
 		_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, 0, fmt.Errorf("订阅中没有有效节点"))
 		return 0, fmt.Errorf("订阅中没有有效节点")
 	}
+	log.Printf("[sync] 解析完成，共 %d 个节点", len(nodes))
 
 	// 4. 开始事务处理
 	// 使用完全替换策略
 	source := fmt.Sprintf("subscription:%s", subscriptionName)
 
 	// 4.1 删除该订阅的旧节点
-	_, err = s.nodeRepo.DeleteBySource(ctx, source)
+	deleted, err := s.nodeRepo.DeleteBySource(ctx, source)
 	if err != nil {
 		return 0, fmt.Errorf("删除旧节点失败: %w", err)
 	}
+	log.Printf("[sync] 已删除旧节点: %d 个", deleted)
 
 	// 4.2 将解析的节点转换为数据库模型
 	dbNodes := s.convertToDBNodes(nodes, sub.ID, source)
@@ -89,12 +98,11 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	nodeCount := len(dbNodes)
 	_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, nodeCount, nil)
 
-	// 更新节点的最后同步时间
 	if err := s.updateNodesLastSyncedAt(ctx, source, now); err != nil {
-		// 这个错误不影响主流程，记录即可
 		_ = err
 	}
 
+	log.Printf("[sync] 同步完成: %s，节点数: %d", subscriptionName, nodeCount)
 	return nodeCount, nil
 }
 

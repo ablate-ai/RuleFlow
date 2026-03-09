@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/c.chen/ruleflow/database"
+	"github.com/c.chen/ruleflow/internal/app"
 	"github.com/c.chen/ruleflow/services"
 )
 
@@ -784,4 +785,82 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendSuccess(w, stats)
+}
+
+// GenerateConfig 根据配置策略生成 YAML 配置
+// 路由: GET /config/{name}?target=clash
+func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+		return
+	}
+
+	// 从路径提取策略名称: /config/{name}
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/config/"), "/")
+	name := parts[0]
+	if name == "" {
+		http.Error(w, "请提供配置策略名称", http.StatusBadRequest)
+		return
+	}
+
+	target := r.URL.Query().Get("target")
+	if target == "" {
+		target = "clash"
+	}
+
+	ctx := r.Context()
+
+	// 获取策略和节点
+	policy, dbNodes, err := h.configPolicyService.GetPolicyWithNodes(ctx, name)
+	if err != nil {
+		http.Error(w, "配置策略不存在: "+name, http.StatusNotFound)
+		return
+	}
+
+	if len(dbNodes) == 0 {
+		http.Error(w, "该配置策略下没有可用节点，请先同步订阅源", http.StatusServiceUnavailable)
+		return
+	}
+
+	// 获取模板内容
+	var templateContent string
+	if policy.TemplateName != "" {
+		tpl, err := h.templateService.GetTemplateByName(ctx, policy.TemplateName)
+		if err == nil {
+			templateContent = tpl.Content
+		}
+	}
+
+	// 将数据库节点转换为 ProxyNode
+	proxyNodes := make([]*app.ProxyNode, 0, len(dbNodes))
+	for _, n := range dbNodes {
+		proxyNodes = append(proxyNodes, &app.ProxyNode{
+			Protocol: n.Protocol,
+			Name:     n.Name,
+			Server:   n.Server,
+			Port:     n.Port,
+			Options:  n.Config,
+		})
+	}
+
+	// 生成 YAML
+	var yamlContent string
+	if templateContent != "" {
+		yamlContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
+	} else {
+		yamlContent, err = app.BuildYAMLFromDefaultTemplate(proxyNodes, target)
+	}
+	if err != nil {
+		http.Error(w, "生成配置失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	filename := "clash_config.yaml"
+	if target == "stash" {
+		filename = "stash_config.yaml"
+	}
+	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
+	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
+	fmt.Fprint(w, yamlContent)
 }

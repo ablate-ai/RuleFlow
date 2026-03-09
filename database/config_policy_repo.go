@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // ConfigPolicy 配置策略
@@ -17,8 +18,8 @@ type ConfigPolicy struct {
 	NodeFilters       map[string]interface{} `json:"node_filters"`
 	Enabled           bool                   `json:"enabled"`
 	Tags              []string               `json:"tags"`
-	CreatedAt         string                 `json:"created_at"`
-	UpdatedAt         string                 `json:"updated_at"`
+	CreatedAt         time.Time              `json:"created_at"`
+	UpdatedAt         time.Time              `json:"updated_at"`
 }
 
 // ConfigPolicyRepo 配置策略仓储

@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // 多协议 URL 匹配模式
@@ -644,6 +646,57 @@ func parseTrojanURL(trojanURL string) (*TrojanNode, error) {
 	}, nil
 }
 
+// parseClashYAML 解析 Clash YAML 格式的订阅内容（含 proxies: 段）
+func parseClashYAML(content string) ([]*ProxyNode, error) {
+	var cfg struct {
+		Proxies []map[string]interface{} `yaml:"proxies"`
+	}
+	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
+		return nil, fmt.Errorf("YAML 解析失败: %w", err)
+	}
+	if len(cfg.Proxies) == 0 {
+		return nil, fmt.Errorf("YAML 中未找到 proxies 字段")
+	}
+
+	nodes := make([]*ProxyNode, 0, len(cfg.Proxies))
+	for _, p := range cfg.Proxies {
+		proxyType, _ := p["type"].(string)
+		name, _ := p["name"].(string)
+		server, _ := p["server"].(string)
+
+		var port int
+		switch v := p["port"].(type) {
+		case int:
+			port = v
+		case float64:
+			port = int(v)
+		}
+
+		if proxyType == "" || server == "" || port == 0 {
+			continue
+		}
+		if name == "" {
+			name = server
+		}
+
+		options := make(map[string]interface{})
+		for k, v := range p {
+			if k != "type" && k != "name" && k != "server" && k != "port" {
+				options[k] = v
+			}
+		}
+
+		nodes = append(nodes, &ProxyNode{
+			Protocol: proxyType,
+			Name:     name,
+			Server:   server,
+			Port:     port,
+			Options:  options,
+		})
+	}
+	return nodes, nil
+}
+
 // ParseSubscription 解析订阅内容，支持多种协议
 func ParseSubscription(content string) ([]*ProxyNode, error) {
 	lowerContent := strings.ToLower(content)
@@ -656,12 +709,25 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 		return nil, fmt.Errorf("订阅服务器返回了空内容")
 	}
 
+	// 优先尝试 Clash YAML 格式
+	if strings.Contains(originalContent, "proxies:") {
+		if nodes, err := parseClashYAML(originalContent); err == nil && len(nodes) > 0 {
+			return nodes, nil
+		}
+	}
+
 	candidates := []string{originalContent}
 	// 如果没有直接找到协议链接，尝试 Base64 解码
 	if !allProtocolPattern.MatchString(originalContent) {
 		compact := strings.NewReplacer("\n", "", "\r", "", "\t", "", " ", "").Replace(originalContent)
 		if decoded, ok := decodeSubscriptionBase64(compact); ok {
 			candidates = append(candidates, decoded)
+			// base64 解码结果也可能是 Clash YAML
+			if strings.Contains(decoded, "proxies:") {
+				if nodes, err := parseClashYAML(decoded); err == nil && len(nodes) > 0 {
+					return nodes, nil
+				}
+			}
 		}
 		if decoded, ok := decodeSubscriptionBase64ByLine(originalContent); ok {
 			candidates = append(candidates, decoded)
@@ -671,7 +737,6 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 	// 收集所有协议的链接
 	allURLs := []string{}
 	for _, candidate := range candidates {
-		// 使用通用协议匹配模式
 		matches := allProtocolPattern.FindAllString(candidate, -1)
 		for _, m := range matches {
 			link := strings.TrimSpace(m)
@@ -693,24 +758,28 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 	nodes := make([]*ProxyNode, 0, len(allURLs))
 	parseErrors := []string{}
 
-	for _, url := range allURLs {
-		node, err := parseNodeURL(url)
+	for _, u := range allURLs {
+		node, err := parseNodeURL(u)
 		if err != nil {
-			// 记录警告但继续处理
-			parseErrors = append(parseErrors, fmt.Sprintf("解析失败: %s - %v", url, err))
+			parseErrors = append(parseErrors, fmt.Sprintf("%s: %v", u, err))
 			continue
 		}
 		nodes = append(nodes, node)
 	}
 
-	// 如果有解析错误，可以选择记录日志（这里暂时忽略）
-	_ = parseErrors
-
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf("未能成功解析任何节点")
+		return nil, fmt.Errorf("未能成功解析任何节点（%d 个链接均失败，第一个错误: %s）",
+			len(parseErrors), firstOrEmpty(parseErrors))
 	}
 
 	return nodes, nil
+}
+
+func firstOrEmpty(s []string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	return s[0]
 }
 
 // parseSubscriptionToURLs 解析订阅内容返回 URL 字符串（向后兼容）

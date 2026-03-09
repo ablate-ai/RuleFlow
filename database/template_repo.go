@@ -10,15 +10,15 @@ import (
 
 // Template 模板模型
 type Template struct {
-	ID          int
-	Name        string
-	Description string
-	Content     string
-	IsDefault   bool
-	Target      string
-	Tags        []string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Content     string    `json:"content"`
+	IsDefault   bool      `json:"is_default"`
+	Target      string    `json:"target"`
+	Tags        []string  `json:"tags"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // TemplateRepo 模板仓储

@@ -11,19 +11,19 @@ import (
 
 // Node 节点模型
 type Node struct {
-	ID           int
-	Name         string
-	Protocol     string
-	Server       string
-	Port         int
-	Config       map[string]interface{}
-	Source       string // 'subscription:{name}' 或 'manual'
-	SourceID     *int
-	Enabled      bool
-	Tags         []string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	LastSyncedAt *time.Time
+	ID           int                    `json:"id"`
+	Name         string                 `json:"name"`
+	Protocol     string                 `json:"protocol"`
+	Server       string                 `json:"server"`
+	Port         int                    `json:"port"`
+	Config       map[string]interface{} `json:"config"`
+	Source       string                 `json:"source"`
+	SourceID     *int                   `json:"source_id"`
+	Enabled      bool                   `json:"enabled"`
+	Tags         []string               `json:"tags"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
+	LastSyncedAt *time.Time             `json:"last_synced_at"`
 }
 
 // NodeFilter 节点筛选条件
@@ -260,18 +260,6 @@ func (r *NodeRepo) BatchCreate(ctx context.Context, nodes []Node) error {
 	if len(nodes) == 0 {
 		return nil
 	}
-
-	// 使用 COPY 批量插入（更高效）
-	_, err := r.db.Pool.Exec(ctx, `
-		COPY nodes (name, protocol, server, port, config, source, source_id, enabled, tags)
-		FROM STDIN
-	`)
-	if err != nil {
-		// COPY 失败，回退到批量 INSERT
-		return r.batchInsert(ctx, nodes)
-	}
-
-	// 注意：由于 pgx 的 COPY 接口比较复杂，这里简化实现使用批量 INSERT
 	return r.batchInsert(ctx, nodes)
 }
 

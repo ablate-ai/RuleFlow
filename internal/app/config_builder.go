@@ -195,6 +195,87 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 	return string(yamlData), nil
 }
 
+// BuildYAMLFromTemplateContent 从模板内容（字符串）构建 YAML 配置
+func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, target string) (string, error) {
+	if target != "clash" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)
+	}
+
+	var cfg map[string]interface{}
+	if err := yaml.Unmarshal([]byte(templateContent), &cfg); err != nil {
+		return "", fmt.Errorf("解析模板内容失败: %w", err)
+	}
+
+	adaptConfigForTarget(cfg, target)
+
+	proxies, nodeNames := buildProxies(nodes)
+	cfg["proxies"] = proxies
+
+	rawGroups, ok := cfg["proxy-groups"]
+	if ok {
+		adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
+		if err != nil {
+			return "", err
+		}
+		cfg["proxy-groups"] = adaptedGroups
+	} else {
+		cfg["proxy-groups"] = []Group{
+			{
+				Name:    "🚀 节点选择",
+				Type:    "select",
+				Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...),
+			},
+			{
+				Name:    "♻️ 自动选择",
+				Type:    "url-test",
+				Proxies: nodeNames,
+			},
+		}
+	}
+
+	if _, ok := cfg["rules"]; !ok {
+		cfg["rules"] = cloneRules(defaultRules)
+	}
+
+	yamlData, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("生成配置失败")
+	}
+	return string(yamlData), nil
+}
+
+// BuildYAMLFromDefaultTemplate 使用内置默认规则生成 YAML（无模板时使用）
+func BuildYAMLFromDefaultTemplate(nodes []*ProxyNode, target string) (string, error) {
+	if target != "clash" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)
+	}
+
+	cfg := map[string]interface{}{}
+	adaptConfigForTarget(cfg, target)
+
+	proxies, nodeNames := buildProxies(nodes)
+	cfg["proxies"] = proxies
+	cfg["proxy-groups"] = []Group{
+		{
+			Name:    "🚀 节点选择",
+			Type:    "select",
+			Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...),
+		},
+		{
+			Name:    "♻️ 自动选择",
+			Type:    "url-test",
+			Proxies: nodeNames,
+		},
+	}
+	cfg["rules"] = cloneRules(defaultRules)
+
+	yamlData, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("生成配置失败")
+	}
+	return string(yamlData), nil
+}
+
 // buildYAMLFromSourceTemplateWithTrojan 从 Trojan 节点构建配置（向后兼容）
 func buildYAMLFromSourceTemplateWithTrojan(nodes []TrojanNode, sourcePath string, target string) (string, error) {
 	// 转换为 ProxyNode
