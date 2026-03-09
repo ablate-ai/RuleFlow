@@ -29,9 +29,11 @@ type Node struct {
 // NodeFilter 节点筛选条件
 type NodeFilter struct {
 	Source   string   // 按来源筛选
+	SourceID *int     // 按来源 ID 筛选
 	Protocol string   // 按协议筛选
 	Enabled  *bool    // 按启用状态筛选
 	Tags     []string // 按标签筛选（OR 关系）
+	IDs      []int    // 按 ID 筛选（精确匹配）
 }
 
 // NodeRepo 节点仓储
@@ -129,6 +131,13 @@ func (r *NodeRepo) List(ctx context.Context, filter NodeFilter) ([]Node, error) 
 		argPos++
 	}
 
+	// 按来源 ID 筛选
+	if filter.SourceID != nil {
+		query += fmt.Sprintf(" AND source_id = $%d", argPos)
+		args = append(args, *filter.SourceID)
+		argPos++
+	}
+
 	// 按协议筛选
 	if filter.Protocol != "" {
 		query += fmt.Sprintf(" AND protocol = $%d", argPos)
@@ -140,6 +149,13 @@ func (r *NodeRepo) List(ctx context.Context, filter NodeFilter) ([]Node, error) 
 	if filter.Enabled != nil {
 		query += fmt.Sprintf(" AND enabled = $%d", argPos)
 		args = append(args, *filter.Enabled)
+		argPos++
+	}
+
+	// 按 ID 筛选
+	if len(filter.IDs) > 0 {
+		query += fmt.Sprintf(" AND id = ANY($%d)", argPos)
+		args = append(args, filter.IDs)
 		argPos++
 	}
 

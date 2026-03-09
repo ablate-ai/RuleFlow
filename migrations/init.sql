@@ -61,7 +61,8 @@ CREATE TABLE config_policies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
-    subscription_names TEXT[] NOT NULL DEFAULT '{}',
+    subscription_ids INTEGER[] NOT NULL DEFAULT '{}',
+    node_ids INTEGER[] NOT NULL DEFAULT '{}',
     template_name VARCHAR(255),
     target VARCHAR(20) NOT NULL DEFAULT 'clash',
     node_filters JSONB DEFAULT '{}',
@@ -82,7 +83,8 @@ CREATE TRIGGER update_config_policies_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE config_policies IS '配置生成策略表';
-COMMENT ON COLUMN config_policies.subscription_names IS '关联的订阅源名称，可以从多个订阅源合并节点';
+COMMENT ON COLUMN config_policies.subscription_ids IS '关联的订阅源 ID，可以从多个订阅源合并节点';
+COMMENT ON COLUMN config_policies.node_ids IS '直接指定的手动节点 ID 列表';
 COMMENT ON COLUMN config_policies.template_name IS '使用的规则模板，为空则使用系统默认模板';
 COMMENT ON COLUMN config_policies.node_filters IS '节点过滤条件，JSON 格式存储复杂的过滤逻辑';
 

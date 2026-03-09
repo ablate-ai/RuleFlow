@@ -11,18 +11,19 @@ import (
 
 // ConfigPolicy 配置策略
 type ConfigPolicy struct {
-	ID                int                    `json:"id"`
-	Name              string                 `json:"name"`
-	Token             string                 `json:"token"`
-	Description       string                 `json:"description"`
-	SubscriptionNames []string               `json:"subscription_names"`
-	TemplateName      string                 `json:"template_name"`
-	Target            string                 `json:"target"`
-	NodeFilters       map[string]interface{} `json:"node_filters"`
-	Enabled           bool                   `json:"enabled"`
-	Tags              []string               `json:"tags"`
-	CreatedAt         time.Time              `json:"created_at"`
-	UpdatedAt         time.Time              `json:"updated_at"`
+	ID              int                    `json:"id"`
+	Name            string                 `json:"name"`
+	Token           string                 `json:"token"`
+	Description     string                 `json:"description"`
+	SubscriptionIDs []int                  `json:"subscription_ids"`
+	NodeIDs         []int                  `json:"node_ids"`
+	TemplateName    string                 `json:"template_name"`
+	Target          string                 `json:"target"`
+	NodeFilters     map[string]interface{} `json:"node_filters"`
+	Enabled         bool                   `json:"enabled"`
+	Tags            []string               `json:"tags"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
 }
 
 // ConfigPolicyRepo 配置策略仓储
@@ -58,8 +59,8 @@ func (r *ConfigPolicyRepo) Create(ctx context.Context, policy *ConfigPolicy) err
 	}
 
 	query := `
-		INSERT INTO config_policies (name, token, description, subscription_names, template_name, target, node_filters, enabled, tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO config_policies (name, token, description, subscription_ids, node_ids, template_name, target, node_filters, enabled, tags)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -67,7 +68,8 @@ func (r *ConfigPolicyRepo) Create(ctx context.Context, policy *ConfigPolicy) err
 		policy.Name,
 		policy.Token,
 		policy.Description,
-		policy.SubscriptionNames,
+		policy.SubscriptionIDs,
+		policy.NodeIDs,
 		policy.TemplateName,
 		policy.Target,
 		nodeFiltersJSON,
@@ -92,7 +94,8 @@ func scanPolicy(scan func(...any) error) (*ConfigPolicy, error) {
 		&policy.Name,
 		&policy.Token,
 		&policy.Description,
-		&policy.SubscriptionNames,
+		&policy.SubscriptionIDs,
+		&policy.NodeIDs,
 		&policy.TemplateName,
 		&policy.Target,
 		&nodeFiltersJSON,
@@ -115,7 +118,7 @@ func scanPolicy(scan func(...any) error) (*ConfigPolicy, error) {
 }
 
 const selectPolicyFields = `
-	SELECT id, name, token, description, subscription_names, template_name, target, node_filters, enabled, tags, created_at, updated_at
+	SELECT id, name, token, description, subscription_ids, node_ids, template_name, target, node_filters, enabled, tags, created_at, updated_at
 	FROM config_policies
 `
 
@@ -125,6 +128,16 @@ func (r *ConfigPolicyRepo) GetByName(ctx context.Context, name string) (*ConfigP
 	policy, err := scanPolicy(r.db.Pool.QueryRow(ctx, query, name).Scan)
 	if err != nil {
 		return nil, fmt.Errorf("获取配置策略失败: %w", err)
+	}
+	return policy, nil
+}
+
+// GetByID 根据 ID 获取配置策略
+func (r *ConfigPolicyRepo) GetByID(ctx context.Context, id int) (*ConfigPolicy, error) {
+	query := selectPolicyFields + `WHERE id = $1`
+	policy, err := scanPolicy(r.db.Pool.QueryRow(ctx, query, id).Scan)
+	if err != nil {
+		return nil, fmt.Errorf("配置策略不存在: %d", id)
 	}
 	return policy, nil
 }
@@ -174,15 +187,17 @@ func (r *ConfigPolicyRepo) Update(ctx context.Context, policy *ConfigPolicy) err
 
 	query := `
 		UPDATE config_policies
-		SET description = $2, subscription_names = $3, template_name = $4, target = $5, node_filters = $6, enabled = $7, tags = $8
-		WHERE name = $1
+		SET name = $2, description = $3, subscription_ids = $4, node_ids = $5, template_name = $6, target = $7, node_filters = $8, enabled = $9, tags = $10
+		WHERE id = $1
 		RETURNING updated_at
 	`
 
 	err = r.db.Pool.QueryRow(ctx, query,
+		policy.ID,
 		policy.Name,
 		policy.Description,
-		policy.SubscriptionNames,
+		policy.SubscriptionIDs,
+		policy.NodeIDs,
 		policy.TemplateName,
 		policy.Target,
 		nodeFiltersJSON,
@@ -198,16 +213,16 @@ func (r *ConfigPolicyRepo) Update(ctx context.Context, policy *ConfigPolicy) err
 }
 
 // Delete 删除配置策略
-func (r *ConfigPolicyRepo) Delete(ctx context.Context, name string) error {
-	query := `DELETE FROM config_policies WHERE name = $1`
+func (r *ConfigPolicyRepo) Delete(ctx context.Context, id int) error {
+	query := `DELETE FROM config_policies WHERE id = $1`
 
-	result, err := r.db.Pool.Exec(ctx, query, name)
+	result, err := r.db.Pool.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("删除配置策略失败: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("配置策略不存在: %s", name)
+		return fmt.Errorf("配置策略不存在: %d", id)
 	}
 
 	return nil

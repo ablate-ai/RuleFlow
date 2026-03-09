@@ -31,10 +31,9 @@ func NewConfigPolicyService(
 // Create 创建配置策略
 func (s *ConfigPolicyService) Create(ctx context.Context, policy *database.ConfigPolicy) error {
 	// 验证订阅源是否存在
-	for _, subName := range policy.SubscriptionNames {
-		_, err := s.subRepo.GetByName(ctx, subName)
-		if err != nil {
-			return fmt.Errorf("订阅源不存在: %s", subName)
+	for _, subID := range policy.SubscriptionIDs {
+		if _, err := s.subRepo.GetByID(ctx, subID); err != nil {
+			return fmt.Errorf("订阅源不存在: %d", subID)
 		}
 	}
 
@@ -51,6 +50,11 @@ func (s *ConfigPolicyService) GetByName(ctx context.Context, name string) (*data
 	return s.policyRepo.GetByName(ctx, name)
 }
 
+// GetByID 根据 ID 获取配置策略
+func (s *ConfigPolicyService) GetByID(ctx context.Context, id int) (*database.ConfigPolicy, error) {
+	return s.policyRepo.GetByID(ctx, id)
+}
+
 // GetByToken 根据 token 获取配置策略
 func (s *ConfigPolicyService) GetByToken(ctx context.Context, token string) (*database.ConfigPolicy, error) {
 	return s.policyRepo.GetByToken(ctx, token)
@@ -64,10 +68,9 @@ func (s *ConfigPolicyService) List(ctx context.Context) ([]*database.ConfigPolic
 // Update 更新配置策略
 func (s *ConfigPolicyService) Update(ctx context.Context, policy *database.ConfigPolicy) error {
 	// 验证订阅源是否存在
-	for _, subName := range policy.SubscriptionNames {
-		_, err := s.subRepo.GetByName(ctx, subName)
-		if err != nil {
-			return fmt.Errorf("订阅源不存在: %s", subName)
+	for _, subID := range policy.SubscriptionIDs {
+		if _, err := s.subRepo.GetByID(ctx, subID); err != nil {
+			return fmt.Errorf("订阅源不存在: %d", subID)
 		}
 	}
 
@@ -80,8 +83,8 @@ func (s *ConfigPolicyService) Update(ctx context.Context, policy *database.Confi
 }
 
 // Delete 删除配置策略
-func (s *ConfigPolicyService) Delete(ctx context.Context, name string) error {
-	return s.policyRepo.Delete(ctx, name)
+func (s *ConfigPolicyService) Delete(ctx context.Context, id int) error {
+	return s.policyRepo.Delete(ctx, id)
 }
 
 // GetEnabled 获取所有启用的配置策略
@@ -96,9 +99,9 @@ func (s *ConfigPolicyService) ValidateConfig(policy *database.ConfigPolicy) erro
 		return fmt.Errorf("配置策略名称不能为空")
 	}
 
-	// 验证订阅源
-	if len(policy.SubscriptionNames) == 0 {
-		return fmt.Errorf("至少需要选择一个订阅源")
+	// 验证数据源（至少选一个订阅源或手动节点）
+	if len(policy.SubscriptionIDs) == 0 && len(policy.NodeIDs) == 0 {
+		return fmt.Errorf("至少需要选择一个订阅源或手动节点")
 	}
 
 	// 验证目标类型
@@ -110,23 +113,25 @@ func (s *ConfigPolicyService) ValidateConfig(policy *database.ConfigPolicy) erro
 }
 
 // GetNodesForPolicy 获取策略对应的节点
-// 根据 policy.subscription_names 从节点表筛选节点
 func (s *ConfigPolicyService) GetNodesForPolicy(ctx context.Context, policy *database.ConfigPolicy) ([]database.Node, error) {
-	// 构建来源筛选条件
-	// 策略的 subscription_names 对应节点的 source 字段（格式：subscription:{name}）
-	sources := make([]string, 0, len(policy.SubscriptionNames))
-	for _, subName := range policy.SubscriptionNames {
-		sources = append(sources, fmt.Sprintf("subscription:%s", subName))
-	}
-
 	// 收集所有节点
 	allNodes := make([]database.Node, 0)
-	for _, source := range sources {
-		nodes, err := s.nodeRepo.List(ctx, database.NodeFilter{
-			Source: source,
-		})
+
+	// 从订阅源获取节点
+	for _, subID := range policy.SubscriptionIDs {
+		id := subID
+		nodes, err := s.nodeRepo.List(ctx, database.NodeFilter{SourceID: &id})
 		if err != nil {
-			return nil, fmt.Errorf("获取节点失败 (来源: %s): %w", source, err)
+			return nil, fmt.Errorf("获取节点失败 (订阅 ID: %d): %w", subID, err)
+		}
+		allNodes = append(allNodes, nodes...)
+	}
+
+	// 获取指定的手动节点
+	if len(policy.NodeIDs) > 0 {
+		nodes, err := s.nodeRepo.List(ctx, database.NodeFilter{IDs: policy.NodeIDs})
+		if err != nil {
+			return nil, fmt.Errorf("获取手动节点失败: %w", err)
 		}
 		allNodes = append(allNodes, nodes...)
 	}

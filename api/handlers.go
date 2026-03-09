@@ -409,16 +409,19 @@ func (h *Handlers) GetConfigPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取配置策略名称
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的策略 ID")
+		return
+	}
 
 	ctx := r.Context()
-	policy, err := h.configPolicyService.GetByName(ctx, name)
+	policy, err := h.configPolicyService.GetByID(ctx, id)
 	if err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
@@ -451,22 +454,23 @@ func (h *Handlers) UpdateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取配置策略名称
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的策略 ID")
+		return
+	}
 
 	var policy database.ConfigPolicy
 	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
 		return
 	}
-
-	// 确保名称匹配
-	policy.Name = name
+	policy.ID = id
 
 	ctx := r.Context()
 	if err := h.configPolicyService.Update(ctx, &policy); err != nil {
@@ -484,16 +488,19 @@ func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取配置策略名称
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的策略 ID")
+		return
+	}
 
 	ctx := r.Context()
-	if err := h.configPolicyService.Delete(ctx, name); err != nil {
+	if err := h.configPolicyService.Delete(ctx, id); err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
 	}
