@@ -75,7 +75,15 @@ func main() {
 		nodeService = services.NewNodeService(nodeRepo)
 
 		// 创建订阅同步服务
-		subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo)
+		subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo, subscriptionCache)
+	}
+
+	// 启动自动刷新调度器
+	schedulerCtx, cancelScheduler := context.WithCancel(context.Background())
+	defer cancelScheduler()
+	if subscriptionSyncService != nil {
+		scheduler := services.NewSubscriptionScheduler(database.NewSubscriptionRepo(db), subscriptionSyncService)
+		scheduler.Start(schedulerCtx)
 	}
 
 	// 创建 API 处理器
