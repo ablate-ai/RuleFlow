@@ -299,6 +299,9 @@
       </div>
     );
 
+    // 支持的协议列表
+    const PROTOCOLS = ['vmess', 'vless', 'trojan', 'ss', 'hysteria2', 'tuic'];
+
     // ===== 表单默认值 =====
     const defaultForm = {
       name: '',
@@ -307,6 +310,7 @@
       auto_refresh: false,
       refresh_interval: 3600,
       description: '',
+      filter_rules: { exclude_keywords: [], exclude_regex: '', include_protocols: [] },
     };
 
     // ===== 主应用组件 =====
@@ -322,6 +326,8 @@
       const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅名（显示确认框）
       const [deleting, setDeleting]       = useState(false);       // 删除中
       const [toasts, setToasts]           = useState([]);          // Toast 列表
+      const [filterOpen, setFilterOpen]   = useState(false);       // 过滤规则折叠状态
+      const [kwInput, setKwInput]         = useState('');          // 关键词输入缓冲
 
       // 添加 Toast 通知
       const addToast = useCallback((msg, type = 'ok') => {
@@ -348,11 +354,14 @@
       const openCreate = () => {
         setForm(defaultForm);
         setEditItem(null);
+        setFilterOpen(false);
+        setKwInput('');
         setModal('create');
       };
 
       // 打开编辑弹窗
       const openEdit = (sub) => {
+        const fr = sub.filter_rules || {};
         setForm({
           name: sub.name,
           url: sub.url,
@@ -360,8 +369,15 @@
           auto_refresh: sub.auto_refresh,
           refresh_interval: sub.refresh_interval || 3600,
           description: sub.description || '',
+          filter_rules: {
+            exclude_keywords: fr.exclude_keywords || [],
+            exclude_regex: fr.exclude_regex || '',
+            include_protocols: fr.include_protocols || [],
+          },
         });
         setEditItem(sub);
+        setFilterOpen(false);
+        setKwInput('');
         setModal('edit');
       };
 
@@ -682,8 +698,98 @@
                     )}
                   </div>
 
+                  {/* 节点过滤规则（折叠区） */}
+                  <div style={{ border: '1px solid var(--bdr)', borderRadius: 'var(--rm)', overflow: 'hidden' }}>
+                    <button
+                      type="button"
+                      onClick={() => setFilterOpen(o => !o)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: '#f9fafb', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        节点过滤规则
+                        {(() => {
+                          const fr = form.filter_rules;
+                          const cnt = (fr.exclude_keywords?.length || 0) + (fr.include_protocols?.length || 0) + (fr.exclude_regex ? 1 : 0);
+                          return cnt > 0 ? <span className="bdg bdg-o" style={{ fontSize: 11 }}>{cnt} 条</span> : null;
+                        })()}
+                      </span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: filterOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    {filterOpen && (
+                      <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {/* 排除关键词 */}
+                        <div>
+                          <label className="fl" style={{ marginBottom: 6 }}>排除关键词<span className="flo">节点名称含以下词时排除</span></label>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <input
+                              className="fc"
+                              type="text"
+                              placeholder="输入关键词后按 Enter 添加"
+                              value={kwInput}
+                              onChange={e => setKwInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const v = kwInput.trim();
+                                  if (v && !form.filter_rules.exclude_keywords.includes(v)) {
+                                    setForm(f => ({ ...f, filter_rules: { ...f.filter_rules, exclude_keywords: [...f.filter_rules.exclude_keywords, v] } }));
+                                  }
+                                  setKwInput('');
+                                }
+                              }}
+                            />
+                          </div>
+                          {form.filter_rules.exclude_keywords.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
+                              {form.filter_rules.exclude_keywords.map(kw => (
+                                <span key={kw} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: '#ffedd5', color: '#9a3412', borderRadius: 99, fontSize: 12 }}>
+                                  {kw}
+                                  <button type="button" onClick={() => setForm(f => ({ ...f, filter_rules: { ...f.filter_rules, exclude_keywords: f.filter_rules.exclude_keywords.filter(k => k !== kw) } }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', lineHeight: 1 }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 排除正则 */}
+                        <div>
+                          <label className="fl">排除正则<span className="flo">可选，匹配节点名称时排除</span></label>
+                          <input
+                            className="fc"
+                            type="text"
+                            placeholder="例如：剩余|到期|官网"
+                            value={form.filter_rules.exclude_regex}
+                            onChange={e => setForm(f => ({ ...f, filter_rules: { ...f.filter_rules, exclude_regex: e.target.value } }))}
+                          />
+                        </div>
+
+                        {/* 协议白名单 */}
+                        <div>
+                          <label className="fl">协议白名单<span className="flo">不选则全部保留</span></label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                            {PROTOCOLS.map(p => {
+                              const checked = form.filter_rules.include_protocols.includes(p);
+                              return (
+                                <label key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 99, border: `1px solid ${checked ? 'var(--grn)' : 'var(--bdr)'}`, background: checked ? 'var(--grnbg)' : '#fff', color: checked ? 'var(--grnd)' : 'var(--t2)', transition: 'all .15s', userSelect: 'none' }}>
+                                  <input type="checkbox" checked={checked} onChange={() => setForm(f => {
+                                    const list = f.filter_rules.include_protocols;
+                                    return { ...f, filter_rules: { ...f.filter_rules, include_protocols: checked ? list.filter(x => x !== p) : [...list, p] } };
+                                  })} style={{ display: 'none' }} />
+                                  {p}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* 弹窗底部操作 */}
-                  <div className="mf">
+                  <div className="mf" style={{ marginTop: 0 }}>
                     <button type="button" className="btn btn-s" onClick={closeModal}>取消</button>
                     <button type="submit" className="btn btn-p" disabled={saving}>
                       {saving && <span className="spin" style={{ borderColor: '#fff', borderTopColor: 'transparent' }}></span>}

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/c.chen/ruleflow/database"
@@ -117,12 +118,16 @@ func (s *ConfigPolicyService) GetNodesForPolicy(ctx context.Context, policy *dat
 	// 收集所有节点
 	allNodes := make([]database.Node, 0)
 
-	// 从订阅源获取节点
+	// 从订阅源获取节点，并应用该订阅的过滤规则
 	for _, subID := range policy.SubscriptionIDs {
 		id := subID
 		nodes, err := s.nodeRepo.List(ctx, database.NodeFilter{SourceID: &id})
 		if err != nil {
 			return nil, fmt.Errorf("获取节点失败 (订阅 ID: %d): %w", subID, err)
+		}
+		// 加载订阅过滤规则（失败不阻塞）
+		if sub, err := s.subRepo.GetByID(ctx, subID); err == nil && sub.FilterRules != nil {
+			nodes = applySubscriptionFilter(nodes, sub.FilterRules)
 		}
 		allNodes = append(allNodes, nodes...)
 	}
@@ -237,4 +242,55 @@ func (s *ConfigPolicyService) GetPolicyWithNodes(ctx context.Context, policyName
 	}
 
 	return policy, nodes, nil
+}
+
+// applySubscriptionFilter 按订阅级过滤规则筛选节点
+func applySubscriptionFilter(nodes []database.Node, f *database.SubscriptionFilter) []database.Node {
+	if f == nil {
+		return nodes
+	}
+
+	// 预编译正则（为空则跳过）
+	var excludeRe *regexp.Regexp
+	if f.ExcludeRegex != "" {
+		if re, err := regexp.Compile(f.ExcludeRegex); err == nil {
+			excludeRe = re
+		}
+	}
+
+	// 协议白名单集合
+	protoWhitelist := make(map[string]bool, len(f.IncludeProtocols))
+	for _, p := range f.IncludeProtocols {
+		protoWhitelist[p] = true
+	}
+
+	filtered := make([]database.Node, 0, len(nodes))
+	for _, node := range nodes {
+		nameLower := strings.ToLower(node.Name)
+
+		// 排除关键词（命中任一即排除）
+		excluded := false
+		for _, kw := range f.ExcludeKeywords {
+			if strings.Contains(nameLower, strings.ToLower(kw)) {
+				excluded = true
+				break
+			}
+		}
+		if excluded {
+			continue
+		}
+
+		// 排除正则
+		if excludeRe != nil && excludeRe.MatchString(node.Name) {
+			continue
+		}
+
+		// 协议白名单（非空时过滤）
+		if len(protoWhitelist) > 0 && !protoWhitelist[node.Protocol] {
+			continue
+		}
+
+		filtered = append(filtered, node)
+	}
+	return filtered
 }
