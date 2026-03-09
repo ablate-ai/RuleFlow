@@ -12,16 +12,16 @@ RUN go mod download
 COPY . .
 
 # 编译
-RUN CGO_ENABLED=0 GOOS=linux go build -o ruleflow ./cmd/ruleflow
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ruleflow .
 
 # 运行阶段
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates tzdata
 
-WORKDIR /root/
+WORKDIR /app
 
-# 从构建阶段复制二进制文件
+# 从构建阶段复制二进制文件和必要资源
 COPY --from=builder /app/ruleflow .
 COPY --from=builder /app/web ./web
 COPY --from=builder /app/rules ./rules

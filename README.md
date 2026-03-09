@@ -20,7 +20,7 @@
 ### 编译
 
 ```bash
-go build -o ruleflow ./cmd/ruleflow
+go build -o ruleflow .
 ```
 
 ### 运行（基础模式）
@@ -420,12 +420,6 @@ rule-providers:
 
 优先通过模板文件维护规则，不需要改代码：直接编辑 `rules/template.yaml`。
 
-也可以通过环境变量修改模板文件路径：
-
-```bash
-RULE_TEMPLATE_FILE=/path/to/template.yaml ./ruleflow
-```
-
 ## 🎯 Clash vs Stash 配置差异
 
 本工具支持为 Clash 和 Stash 客户端生成优化的配置文件：
@@ -453,11 +447,11 @@ RULE_TEMPLATE_FILE=/path/to/template.yaml ./ruleflow
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY . .
-RUN go build -o ruleflow ./cmd/ruleflow
+RUN go build -ldflags="-s -w" -o ruleflow .
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /app
 COPY --from=builder /app/ruleflow .
 COPY --from=builder /app/web ./web
 COPY --from=builder /app/rules ./rules

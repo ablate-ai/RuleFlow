@@ -22,14 +22,6 @@ func main() {
 	// 加载配置
 	cfg := config.Load()
 
-	// 验证模板文件
-	templateFile := app.ResolveProjectPath(cfg.RuleTemplateFile)
-	if _, err := os.Stat(templateFile); err != nil {
-		log.Printf("⚠️ 模板文件不可用: %s, err=%v\n", templateFile, err)
-	} else {
-		log.Printf("✅ 已加载模板文件: %s\n", templateFile)
-	}
-
 	// 初始化数据库和 Redis（可选）
 	var db *database.DB
 	var redisClient *cache.Client
@@ -143,9 +135,42 @@ func main() {
 }
 
 func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionService *services.SubscriptionService) {
-	// 静态文件服务
+	if cfg.AdminPassword != "" {
+		log.Printf("🔒 Web 控制台鉴权已启用\n")
+	} else {
+		log.Printf("⚠️ ADMIN_PASSWORD 未设置，Web 控制台无需鉴权\n")
+	}
+
+	// 登录页（不需要鉴权，直接提供静态文件）
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			// 处理登录表单
+			pass := r.FormValue("password")
+			if cfg.AdminPassword == "" || pass == cfg.AdminPassword {
+				api.SetSessionCookie(w, cfg.AdminPassword)
+				next := r.FormValue("next")
+				if next == "" {
+					next = "/web/index.html"
+				}
+				http.Redirect(w, r, next, http.StatusFound)
+			} else {
+				http.Redirect(w, r, "/login?error=1&next="+r.FormValue("next"), http.StatusFound)
+			}
+			return
+		}
+		http.ServeFile(w, r, app.ResolveProjectPath("web/login.html"))
+	})
+
+	// 退出登录
+	http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		api.ClearSessionCookie(w)
+		http.Redirect(w, r, "/login", http.StatusFound)
+	})
+
+	// 静态文件服务（需要鉴权）
+	webAuth := api.WebAuthMiddleware(cfg.AdminPassword)
 	fs := http.FileServer(http.Dir(app.ResolveProjectPath("web")))
-	http.Handle("/web/", http.StripPrefix("/web/", fs))
+	http.Handle("/web/", webAuth(http.StripPrefix("/web/", fs)))
 
 	// 主页和原有订阅接口（向后兼容）
 	http.HandleFunc("/", app.IndexHandler)
@@ -166,15 +191,17 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		}
 	})
 
-	// API 路由（如果启用）
+	// API 路由（统一用子 mux，整体加鉴权）
+	apiMux := http.NewServeMux()
+
 	if apiHandlers == nil {
 		// 数据库未启用时，所有 /api/ 请求返回 JSON 错误而非 HTML
-		http.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 			api.SendError(w, http.StatusServiceUnavailable, "数据库模式未启用，API 功能不可用")
 		})
 	} else {
 		// 订阅管理 API
-		http.HandleFunc("/api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
 				apiHandlers.CreateSubscription(w, r)
@@ -185,8 +212,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		http.HandleFunc("/api/subscriptions/", func(w http.ResponseWriter, r *http.Request) {
-			// 检查是否是同步操作
+		apiMux.HandleFunc("/api/subscriptions/", func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasSuffix(r.URL.Path, "/sync") {
 				if r.Method == http.MethodPost {
 					apiHandlers.SyncSubscription(w, r)
@@ -195,7 +221,6 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 				}
 				return
 			}
-			// 检查是否是获取同步状态
 			if strings.HasSuffix(r.URL.Path, "/sync-status") {
 				if r.Method == http.MethodGet {
 					apiHandlers.GetSubscriptionSyncStatus(w, r)
@@ -204,14 +229,10 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 				}
 				return
 			}
-
-			// 原有的订阅 CRUD 操作
 			if strings.HasSuffix(r.URL.Path, "/refresh") {
-				// /api/subscriptions/{name}/refresh
 				apiHandlers.RefreshSubscription(w, r)
 				return
 			}
-
 			switch r.Method {
 			case http.MethodGet:
 				apiHandlers.GetSubscription(w, r)
@@ -225,7 +246,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		})
 
 		// 模板管理 API
-		http.HandleFunc("/api/templates", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/templates", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
 				apiHandlers.CreateTemplate(w, r)
@@ -236,8 +257,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		http.HandleFunc("/api/templates/", func(w http.ResponseWriter, r *http.Request) {
-			// 处理 /api/templates/{name} 路径
+		apiMux.HandleFunc("/api/templates/", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodGet:
 				apiHandlers.GetTemplate(w, r)
@@ -251,7 +271,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		})
 
 		// 配置策略管理 API
-		http.HandleFunc("/api/config-policies", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/config-policies", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
 				apiHandlers.CreateConfigPolicy(w, r)
@@ -262,8 +282,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		http.HandleFunc("/api/config-policies/", func(w http.ResponseWriter, r *http.Request) {
-			// 处理 /api/config-policies/{name} 路径
+		apiMux.HandleFunc("/api/config-policies/", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodGet:
 				apiHandlers.GetConfigPolicy(w, r)
@@ -277,7 +296,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		})
 
 		// 缓存管理 API
-		http.HandleFunc("/api/cache", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/cache", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodDelete {
 				apiHandlers.ClearCache(w, r)
 			} else {
@@ -285,7 +304,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		http.HandleFunc("/api/cache/", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/cache/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodDelete {
 				apiHandlers.ClearCache(w, r)
 			} else {
@@ -294,7 +313,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		})
 
 		// 节点管理 API
-		http.HandleFunc("/api/nodes", func(w http.ResponseWriter, r *http.Request) {
+		apiMux.HandleFunc("/api/nodes", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
 				apiHandlers.CreateNode(w, r)
@@ -305,11 +324,17 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		http.HandleFunc("/api/nodes/", func(w http.ResponseWriter, r *http.Request) {
-			// 处理 /api/nodes/{id} 或 /api/nodes/batch 路径
+		apiMux.HandleFunc("/api/nodes/stats", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				apiHandlers.GetNodeStats(w, r)
+			} else {
+				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+			}
+		})
+
+		apiMux.HandleFunc("/api/nodes/", func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 			if strings.Contains(path, "/batch") {
-				// 批量操作
 				if r.Method == http.MethodPatch || r.Method == http.MethodPost {
 					apiHandlers.BatchNodeOperation(w, r)
 				} else {
@@ -317,8 +342,6 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 				}
 				return
 			}
-
-			// 单个节点操作
 			switch r.Method {
 			case http.MethodGet:
 				apiHandlers.GetNode(w, r)
@@ -331,23 +354,17 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		// 节点统计 API
-		http.HandleFunc("/api/nodes/stats", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				apiHandlers.GetNodeStats(w, r)
-			} else {
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		// 配置生成（供客户端直接订阅）GET /config?token=xxx
+		// 配置生成（供客户端直接订阅）GET /config?token=xxx，不需要鉴权
 		http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 			apiHandlers.GenerateConfig(w, r)
 		})
 
-		// 健康检查
+		// 健康检查，不需要鉴权
 		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 			apiHandlers.Health(w, r)
 		})
 	}
+
+	// 将 API 子 mux 挂载到默认 mux，整体加鉴权
+	http.Handle("/api/", api.APIAuthMiddleware(cfg.AdminPassword)(apiMux))
 }

@@ -24,10 +24,10 @@ migrate-patch: env-check
 	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; test -n "$$DATABASE_URL" || { echo "DATABASE_URL 未设置"; exit 1; }; psql "$$DATABASE_URL" -f migrations/add_auto_refresh_column.sql'
 
 build:
-	go build -o ruleflow ./cmd/ruleflow
+	go build -o ruleflow .
 
 run: env-check
-	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; go run ./cmd/ruleflow'
+	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; go run .'
 
 test:
 	GOCACHE=$(CURDIR)/.cache/go-build go test ./...

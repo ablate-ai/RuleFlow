@@ -12,6 +12,9 @@ type Config struct {
 	// 服务器配置
 	Port string
 
+	// 管理员密码（用于 Web 控制台 Basic Auth，为空则不启用鉴权）
+	AdminPassword string
+
 	// PostgreSQL 配置
 	DatabaseURL string
 
@@ -22,9 +25,6 @@ type Config struct {
 
 	// 缓存配置
 	CacheTTLSeconds int
-
-	// 规则模板配置
-	RuleTemplateFile string
 }
 
 // Load 从环境变量加载配置
@@ -34,12 +34,12 @@ func Load() *Config {
 
 	return &Config{
 		Port:             getEnv("PORT", "8080"),
+		AdminPassword:    getEnv("ADMIN_PASSWORD", ""),
 		DatabaseURL:      getEnv("DATABASE_URL", "postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable"),
 		RedisAddr:        getEnv("REDIS_ADDR", "localhost:6379"),
 		RedisPassword:    getEnv("REDIS_PASSWORD", ""),
 		RedisDB:          getEnvInt("REDIS_DB", 0),
 		CacheTTLSeconds:  getEnvInt("CACHE_TTL_SECONDS", 3600),
-		RuleTemplateFile: getEnv("RULE_TEMPLATE_FILE", "rules/template.yaml"),
 	}
 }
 

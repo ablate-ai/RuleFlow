@@ -10,9 +10,6 @@ import (
 )
 
 func getRuleTemplateFilePath() string {
-	if p := strings.TrimSpace(os.Getenv("RULE_TEMPLATE_FILE")); p != "" {
-		return p
-	}
 	return ResolveProjectPath("rules/template.yaml")
 }
 
