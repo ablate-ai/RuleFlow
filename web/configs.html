@@ -267,6 +267,7 @@
       const [policies, setPolicies] = useState([]);
       const [subscriptions, setSubscriptions] = useState([]);
       const [templates, setTemplates] = useState([]);
+      const [manualNodes, setManualNodes] = useState([]);
       const [loading, setLoading] = useState(true);
 
       /* Modal 控制 */
@@ -279,7 +280,7 @@
       const [toasts, setToasts] = useState([]);
 
       /* 表单状态 */
-      const defaultForm = { name: '', target: 'clash', subscription_names: [], template_name: '', description: '', enabled: true };
+      const defaultForm = { name: '', target: 'clash', subscription_ids: [], node_ids: [], template_name: '', description: '', enabled: true };
       const [form, setForm] = useState(defaultForm);
       const [saving, setSaving] = useState(false);
       const [deleting, setDeleting] = useState(false);
@@ -299,14 +300,16 @@
       /* 加载所有数据 */
       const loadData = async () => {
         try {
-          const [pRes, sRes, tRes] = await Promise.all([
+          const [pRes, sRes, tRes, nRes] = await Promise.all([
             api.get('/api/config-policies'),
             api.get('/api/subscriptions'),
             api.get('/api/templates'),
+            api.get('/api/nodes?source=manual'),
           ]);
           setPolicies(pRes.data || []);
           setSubscriptions(sRes.data || []);
           setTemplates(tRes.data || []);
+          setManualNodes(nRes.data || []);
         } catch (err) {
           addToast('加载数据失败：' + err.message, 'err');
         } finally {
@@ -329,7 +332,8 @@
         setForm({
           name: policy.name,
           target: policy.target,
-          subscription_names: policy.subscription_names || [],
+          subscription_ids: (policy.subscription_ids || []).map(Number),
+          node_ids: (policy.node_ids || []).map(Number),
           template_name: policy.template_name || '',
           description: policy.description || '',
           enabled: policy.enabled,
@@ -345,14 +349,27 @@
       };
 
       /* 切换订阅源选中状态 */
-      const toggleSub = (name) => {
+      const toggleSub = (id) => {
         setForm(f => {
-          const exists = f.subscription_names.includes(name);
+          const exists = f.subscription_ids.includes(id);
           return {
             ...f,
-            subscription_names: exists
-              ? f.subscription_names.filter(n => n !== name)
-              : [...f.subscription_names, name],
+            subscription_ids: exists
+              ? f.subscription_ids.filter(n => n !== id)
+              : [...f.subscription_ids, id],
+          };
+        });
+      };
+
+      /* 切换手动节点选中状态 */
+      const toggleNode = (id) => {
+        setForm(f => {
+          const exists = f.node_ids.includes(id);
+          return {
+            ...f,
+            node_ids: exists
+              ? f.node_ids.filter(n => n !== id)
+              : [...f.node_ids, id],
           };
         });
       };
@@ -360,11 +377,11 @@
       /* 保存策略（新建/更新） */
       const handleSave = async () => {
         if (!form.name.trim()) { addToast('策略名称不能为空', 'err'); return; }
-        if (form.subscription_names.length === 0) { addToast('请至少选择一个订阅源', 'err'); return; }
+        if (form.subscription_ids.length === 0 && form.node_ids.length === 0) { addToast('请至少选择一个订阅源或手动节点', 'err'); return; }
         setSaving(true);
         try {
           if (editItem) {
-            await api.put(`/api/config-policies/${form.name}`, form);
+            await api.put(`/api/config-policies/${editItem.id}`, form);
             addToast('策略已更新');
           } else {
             await api.post('/api/config-policies', form);
@@ -401,7 +418,7 @@
         if (!deleteTarget) return;
         setDeleting(true);
         try {
-          await api.delete(`/api/config-policies/${deleteTarget.name}`);
+          await api.delete(`/api/config-policies/${deleteTarget.id}`);
           addToast(`策略 "${deleteTarget.name}" 已删除`);
           setShowDeleteModal(false);
           setDeleteTarget(null);
@@ -471,8 +488,8 @@
                       <div className="item-meta">
                         <span className="item-mi">
                           <IcoRSS />
-                          {(policy.subscription_names || []).length > 0
-                            ? (policy.subscription_names || []).join(', ')
+                          {(policy.subscription_ids || []).length > 0
+                            ? `${(policy.subscription_ids || []).length} 个订阅源`
                             : <span style={{ color: 'var(--t3)' }}>无订阅源</span>
                           }
                         </span>
@@ -551,7 +568,7 @@
                   <div className="fg">
                     <label className="fl">
                       选择订阅源
-                      <span className="flo">已选 {form.subscription_names.length} 个</span>
+                      <span className="flo">已选 {form.subscription_ids.length} 个</span>
                     </label>
                     {subscriptions.length === 0 ? (
                       <div style={{ padding: '12px', border: '1px solid var(--bdr)', borderRadius: 'var(--rm)', fontSize: 13, color: 'var(--t2)' }}>
@@ -560,12 +577,12 @@
                     ) : (
                       <div className="sub-grid">
                         {subscriptions.map(sub => {
-                          const checked = form.subscription_names.includes(sub.name);
+                          const checked = form.subscription_ids.includes(sub.id);
                           return (
                             <div
-                              key={sub.name}
+                              key={sub.id}
                               className={`sub-item${checked ? ' checked' : ''}`}
-                              onClick={() => toggleSub(sub.name)}
+                              onClick={() => toggleSub(sub.id)}
                             >
                               <div className="sub-check">
                                 {checked && (
@@ -581,6 +598,39 @@
                       </div>
                     )}
                   </div>
+
+                  {/* 手动节点选择 */}
+                  {manualNodes.length > 0 && (
+                    <div className="fg">
+                      <label className="fl">
+                        手动节点
+                        <span className="flo">已选 {form.node_ids.length} 个</span>
+                      </label>
+                      <div className="sub-grid">
+                        {manualNodes.map(node => {
+                          const checked = form.node_ids.includes(node.id);
+                          return (
+                            <div
+                              key={node.id}
+                              className={`sub-item${checked ? ' checked' : ''}`}
+                              onClick={() => toggleNode(node.id)}
+                            >
+                              <div className="sub-check">
+                                {checked && (
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <span className="sub-label" title={`${node.protocol} · ${node.server}:${node.port}`}>
+                                {node.name}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 规则模板 */}
                   <div className="fg">
@@ -613,7 +663,7 @@
                   <button
                     className="btn btn-p"
                     onClick={handleSave}
-                    disabled={saving || form.subscription_names.length === 0}
+                    disabled={saving || (form.subscription_ids.length === 0 && form.node_ids.length === 0)}
                   >
                     {saving && <span className="spin"></span>}
                     {saving ? '保存中...' : (editItem ? '保存更改' : '创建策略')}
