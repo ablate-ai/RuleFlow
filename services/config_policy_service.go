@@ -51,6 +51,11 @@ func (s *ConfigPolicyService) GetByName(ctx context.Context, name string) (*data
 	return s.policyRepo.GetByName(ctx, name)
 }
 
+// GetByToken 根据 token 获取配置策略
+func (s *ConfigPolicyService) GetByToken(ctx context.Context, token string) (*database.ConfigPolicy, error) {
+	return s.policyRepo.GetByToken(ctx, token)
+}
+
 // List 获取所有配置策略
 func (s *ConfigPolicyService) List(ctx context.Context) ([]*database.ConfigPolicy, error) {
 	return s.policyRepo.List(ctx)

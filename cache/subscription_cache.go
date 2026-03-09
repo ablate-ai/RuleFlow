@@ -28,6 +28,8 @@ const (
 	CacheKeyConfig = "ruleflow:config:%s:%s"
 	// CacheKeyLock 分布式锁键格式：ruleflow:lock:fetch:<name>
 	CacheKeyLock = "ruleflow:lock:fetch:%s"
+	// CacheKeyPolicyConfig 策略配置缓存键格式：ruleflow:policy:config:<token>
+	CacheKeyPolicyConfig = "ruleflow:policy:config:%s"
 )
 
 // CachedConfig 缓存的配置数据
@@ -101,6 +103,24 @@ func (c *SubscriptionCache) DeleteAllByPattern(ctx context.Context, pattern stri
 	}
 
 	return nil
+}
+
+// GetPolicyConfig 获取策略配置缓存（按 token）
+func (c *SubscriptionCache) GetPolicyConfig(ctx context.Context, token string) (string, error) {
+	key := fmt.Sprintf(CacheKeyPolicyConfig, token)
+	return c.client.Get(ctx, key)
+}
+
+// SetPolicyConfig 设置策略配置缓存
+func (c *SubscriptionCache) SetPolicyConfig(ctx context.Context, token, yaml string) error {
+	key := fmt.Sprintf(CacheKeyPolicyConfig, token)
+	return c.client.Set(ctx, key, yaml, c.ttl)
+}
+
+// DeletePolicyConfig 删除策略配置缓存
+func (c *SubscriptionCache) DeletePolicyConfig(ctx context.Context, token string) error {
+	key := fmt.Sprintf(CacheKeyPolicyConfig, token)
+	return c.client.Delete(ctx, key)
 }
 
 // AcquireFetchLock 获取订阅获取锁（防止并发刷新）

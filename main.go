@@ -64,9 +64,10 @@ func main() {
 	var configPolicyService *services.ConfigPolicyService
 	var nodeService *services.NodeService
 	var subscriptionSyncService *services.SubscriptionSyncService
+	var subscriptionCache *cache.SubscriptionCache
 	if db != nil && redisClient != nil {
 		subscriptionRepo := database.NewSubscriptionRepo(db)
-		subscriptionCache := cache.NewSubscriptionCache(redisClient, time.Duration(cfg.CacheTTLSeconds)*time.Second)
+		subscriptionCache = cache.NewSubscriptionCache(redisClient, time.Duration(cfg.CacheTTLSeconds)*time.Second)
 		subscriptionService = services.NewSubscriptionService(subscriptionRepo, subscriptionCache)
 
 		// 创建模板服务
@@ -88,7 +89,7 @@ func main() {
 	// 创建 API 处理器
 	var apiHandlers *api.Handlers
 	if subscriptionService != nil && templateService != nil && configPolicyService != nil && nodeService != nil && subscriptionSyncService != nil {
-		apiHandlers = api.NewHandlers(subscriptionService, templateService, configPolicyService, nodeService, subscriptionSyncService)
+		apiHandlers = api.NewHandlers(subscriptionService, templateService, configPolicyService, nodeService, subscriptionSyncService, subscriptionCache)
 	}
 
 	// 设置路由
@@ -339,8 +340,8 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			}
 		})
 
-		// 配置生成（供客户端直接订阅）
-		http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
+		// 配置生成（供客户端直接订阅）GET /config?token=xxx
+		http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 			apiHandlers.GenerateConfig(w, r)
 		})
 

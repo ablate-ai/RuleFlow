@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,13 @@ import (
 	"github.com/c.chen/ruleflow/services"
 )
 
+// policyConfigCache 策略配置缓存接口
+type policyConfigCache interface {
+	GetPolicyConfig(ctx context.Context, token string) (string, error)
+	SetPolicyConfig(ctx context.Context, token, yaml string) error
+	DeletePolicyConfig(ctx context.Context, token string) error
+}
+
 // Handlers API 处理器
 type Handlers struct {
 	subscriptionService     *services.SubscriptionService
@@ -18,6 +26,7 @@ type Handlers struct {
 	configPolicyService     *services.ConfigPolicyService
 	nodeService             *services.NodeService
 	subscriptionSyncService *services.SubscriptionSyncService
+	policyCache             policyConfigCache
 }
 
 // NewHandlers 创建 API 处理器
@@ -27,6 +36,7 @@ func NewHandlers(
 	configPolicyService *services.ConfigPolicyService,
 	nodeService *services.NodeService,
 	subscriptionSyncService *services.SubscriptionSyncService,
+	policyCache policyConfigCache,
 ) *Handlers {
 	return &Handlers{
 		subscriptionService:     subscriptionService,
@@ -34,6 +44,7 @@ func NewHandlers(
 		configPolicyService:     configPolicyService,
 		nodeService:             nodeService,
 		subscriptionSyncService: subscriptionSyncService,
+		policyCache:             policyCache,
 	}
 }
 
@@ -787,36 +798,50 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 	SendSuccess(w, stats)
 }
 
-// GenerateConfig 根据配置策略生成 YAML 配置
-// 路由: GET /config/{name}?target=clash
+// GenerateConfig 根据配置策略 token 生成 YAML 配置（带 Redis 缓存）
+// 路由: GET /config?token=xxx
 func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 从路径提取策略名称: /config/{name}
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/config/"), "/")
-	name := parts[0]
-	if name == "" {
-		http.Error(w, "请提供配置策略名称", http.StatusBadRequest)
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "缺少 token 参数", http.StatusBadRequest)
 		return
-	}
-
-	target := r.URL.Query().Get("target")
-	if target == "" {
-		target = "clash"
 	}
 
 	ctx := r.Context()
 
-	// 获取策略和节点
-	policy, dbNodes, err := h.configPolicyService.GetPolicyWithNodes(ctx, name)
+	// 优先从 Redis 缓存读取
+	if h.policyCache != nil {
+		if cached, err := h.policyCache.GetPolicyConfig(ctx, token); err == nil && cached != "" {
+			w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+			w.Header().Set("X-Cache", "HIT")
+			fmt.Fprint(w, cached)
+			return
+		}
+	}
+
+	// 根据 token 查找策略
+	policy, err := h.configPolicyService.GetByToken(ctx, token)
 	if err != nil {
-		http.Error(w, "配置策略不存在: "+name, http.StatusNotFound)
+		http.Error(w, "无效的 token", http.StatusNotFound)
 		return
 	}
 
+	if !policy.Enabled {
+		http.Error(w, "该配置策略已禁用", http.StatusForbidden)
+		return
+	}
+
+	// 获取节点
+	dbNodes, err := h.configPolicyService.GetNodesForPolicy(ctx, policy)
+	if err != nil {
+		http.Error(w, "获取节点失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if len(dbNodes) == 0 {
 		http.Error(w, "该配置策略下没有可用节点，请先同步订阅源", http.StatusServiceUnavailable)
 		return
@@ -825,8 +850,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	// 获取模板内容
 	var templateContent string
 	if policy.TemplateName != "" {
-		tpl, err := h.templateService.GetTemplateByName(ctx, policy.TemplateName)
-		if err == nil {
+		if tpl, err := h.templateService.GetTemplateByName(ctx, policy.TemplateName); err == nil {
 			templateContent = tpl.Content
 		}
 	}
@@ -844,6 +868,10 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 生成 YAML
+	target := policy.Target
+	if target == "" {
+		target = "clash"
+	}
 	var yamlContent string
 	if templateContent != "" {
 		yamlContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
@@ -855,6 +883,11 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 写入 Redis 缓存
+	if h.policyCache != nil {
+		_ = h.policyCache.SetPolicyConfig(ctx, token, yamlContent)
+	}
+
 	filename := "clash_config.yaml"
 	if target == "stash" {
 		filename = "stash_config.yaml"
@@ -862,5 +895,6 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
 	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
+	w.Header().Set("X-Cache", "MISS")
 	fmt.Fprint(w, yamlContent)
 }
