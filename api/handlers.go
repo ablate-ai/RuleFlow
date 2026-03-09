@@ -18,6 +18,7 @@ type policyConfigCache interface {
 	GetPolicyConfig(ctx context.Context, token string) (string, error)
 	SetPolicyConfig(ctx context.Context, token, yaml string) error
 	DeletePolicyConfig(ctx context.Context, token string) error
+	DeleteAllByPattern(ctx context.Context, pattern string) error
 }
 
 // Handlers API 处理器
@@ -344,6 +345,11 @@ func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 模板更新后清除所有策略配置缓存
+	if h.policyCache != nil {
+		_ = h.policyCache.DeleteAllByPattern(ctx, "ruleflow:policy:config:*")
+	}
+
 	SendSuccess(w, tpl)
 }
 
@@ -366,6 +372,11 @@ func (h *Handlers) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	if err := h.templateService.DeleteTemplate(ctx, name); err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
+	}
+
+	// 模板删除后清除所有策略配置缓存
+	if h.policyCache != nil {
+		_ = h.policyCache.DeleteAllByPattern(ctx, "ruleflow:policy:config:*")
 	}
 
 	SendSuccess(w, map[string]string{"message": "模板已删除"})
