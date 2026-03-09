@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuleFlow - 配置生成管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        figma: {
+                            bg: '#f5f5f5',
+                            card: '#ffffff',
+                            border: '#e5e5e5',
+                            text: '#333333',
+                            muted: '#666666',
+                            primary: '#18c865',
+                            primaryHover: '#15b25a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #f5f5f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .input-base { background: #ffffff; border: 1px solid #e5e5e5; color: #333333; transition: all 0.15s ease; }
+        .input-base:focus { border-color: #18c865; outline: none; box-shadow: 0 0 0 3px rgba(24, 200, 101, 0.1); }
+        .btn-primary { background: #18c865; color: #ffffff; font-weight: 600; transition: all 0.15s ease; }
+        .btn-primary:hover:not(:disabled) { background: #15b25a; }
+        .btn-secondary { background: #ffffff; color: #333333; border: 1px solid #e5e5e5; transition: all 0.15s ease; }
+        .btn-secondary:hover { background: #f8f8f8; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const Icons = {
+            Plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>),
+            Edit: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
+            Trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>),
+            Copy: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>),
+            X: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
+            Save: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>),
+        };
+
+        const api = {
+            async get(url) { const res = await fetch(url); if (!res.ok) throw new Error(await res.text()); return res.json(); },
+            async post(url, data) { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
+            async put(url, data) { const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
+            async delete(url) { const res = await fetch(url, { method: 'DELETE' }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
+        };
+
+        const Header = ({ currentPage }) => {
+            const menuItems = [
+                { id: 'subscriptions', label: '订阅源管理', href: '/web/subscriptions.html' },
+                { id: 'nodes', label: '节点管理', href: '/web/nodes.html' },
+                { id: 'configs', label: '配置生成', href: '/web/configs.html' },
+                { id: 'templates', label: '模板管理', href: '/web/templates.html' },
+            ];
+            return (
+                <div className="bg-white border-b border-gray-200">
+                    <div className="max-w-4xl mx-auto px-6 py-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h1 className="text-xl font-semibold text-gray-900">RuleFlow</h1>
+                                <p className="text-sm text-gray-600">订阅转换服务</p>
+                            </div>
+                            <a href="/" className="text-sm text-gray-600 hover:text-gray-900">返回首页</a>
+                        </div>
+                        <div className="flex gap-6">
+                            {menuItems.map((item) => (
+                                <a key={item.id} href={item.href} className={`pb-2 text-sm font-medium ${currentPage === item.id ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-600 hover:text-gray-900'}`}>
+                                    {item.label}
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ConfigPolicyManager = () => {
+            const [policies, setPolicies] = useState([]);
+            const [subscriptions, setSubscriptions] = useState([]);
+            const [templates, setTemplates] = useState([]);
+            const [editing, setEditing] = useState(null);
+            const [form, setForm] = useState({ name: '', description: '', subscription_names: [], template_name: '', target: 'clash', enabled: true });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const loadData = async () => {
+                try {
+                    const [policiesData, subsData, templatesData] = await Promise.all([
+                        api.get('/api/config-policies'),
+                        api.get('/api/subscriptions'),
+                        api.get('/api/templates'),
+                    ]);
+                    setPolicies(policiesData.data || []);
+                    setSubscriptions(subsData.data || []);
+                    setTemplates(templatesData.data || []);
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            useEffect(() => { loadData(); }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+                try {
+                    if (editing) {
+                        await api.put(`/api/config-policies/${form.name}`, form);
+                    } else {
+                        await api.post('/api/config-policies', form);
+                    }
+                    setEditing(null);
+                    setForm({ name: '', description: '', subscription_names: [], template_name: '', target: 'clash', enabled: true });
+                    loadData();
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleDelete = async (name) => {
+                if (!confirm('确定要删除这个配置策略吗？')) return;
+                try {
+                    await api.delete(`/api/config-policies/${name}`);
+                    loadData();
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            const handleCopyLink = (policy) => {
+                const link = `${window.location.origin}/config/${policy.name}?target=${policy.target}`;
+                navigator.clipboard.writeText(link);
+                alert('配置链接已复制到剪贴板！');
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header currentPage="configs" />
+                    {error && (<div className="max-w-4xl mx-auto px-6 mt-4"><div className="p-4 bg-red-50 border border-red-200 rounded flex items-center justify-between"><span className="text-red-700 text-sm">{error}</span><button onClick={() => setError(null)} className="text-red-500 hover:text-red-700"><Icons.X /></button></div></div>)}
+                    <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                            <h2 className="text-lg font-semibold mb-4">{editing ? '编辑配置策略' : '新建配置策略'}</h2>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">策略名称</label>
+                                        <input type="text" required disabled={!!editing} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm" placeholder="my-config" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">目标类型</label>
+                                        <select value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm">
+                                            <option value="clash">Clash</option><option value="stash">Stash</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">选择订阅源</label>
+                                    <div className="grid grid-cols-2 gap-2 p-3 border rounded">
+                                        {subscriptions.map((sub) => (
+                                            <label key={sub.id} className="flex items-center gap-2">
+                                                <input type="checkbox" checked={form.subscription_names.includes(sub.name)} onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setForm({ ...form, subscription_names: [...form.subscription_names, sub.name] });
+                                                    } else {
+                                                        setForm({ ...form, subscription_names: form.subscription_names.filter(n => n !== sub.name) });
+                                                    }
+                                                }} className="w-4 h-4" />
+                                                <span className="text-sm">{sub.name}</span>
+                                            </label>
+                                        ))}
+                                        {subscriptions.length === 0 && (<div className="col-span-2 text-sm text-gray-500">暂无订阅源，请先<a href="/web/subscriptions.html" className="text-blue-600 hover:underline">创建订阅源</a></div>)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">规则模板</label>
+                                    <select value={form.template_name} onChange={(e) => setForm({ ...form, template_name: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm">
+                                        <option value="">默认模板</option>
+                                        {templates.map((tpl) => (<option key={tpl.id} value={tpl.name}>{tpl.name} {tpl.is_default ? '(默认)' : ''}</option>))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">描述</label>
+                                    <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm" rows="2" placeholder="可选描述" />
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} className="w-4 h-4" />
+                                        <span className="text-sm">启用</span>
+                                    </label>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button type="submit" disabled={loading || form.subscription_names.length === 0} className="flex items-center gap-2 px-4 py-2 btn-primary rounded text-sm"><Icons.Save />{loading ? '保存中...' : (editing ? '更新' : '创建')}</button>
+                                    {editing && (<button type="button" onClick={() => { setEditing(null); setForm({ name: '', description: '', subscription_names: [], template_name: '', target: 'clash', enabled: true }); setError(null); }} className="px-4 py-2 btn-secondary rounded text-sm">取消</button>)}
+                                </div>
+                            </form>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="p-4 border-b flex items-center justify-between">
+                                <h3 className="font-semibold">配置策略列表</h3>
+                                <span className="text-sm text-gray-500">{policies.length} 个策略</span>
+                            </div>
+                            <div className="divide-y">
+                                {policies.map((policy) => (
+                                    <div key={policy.id} className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-medium">{policy.name}</span>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${policy.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{policy.enabled ? '启用' : '禁用'}</span>
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{policy.target}</span>
+                                                </div>
+                                                {policy.description && <p className="text-sm text-gray-600 mb-2">{policy.description}</p>}
+                                                <div className="text-xs text-gray-500">订阅源: {policy.subscription_names.join(', ') || '无'} | 模板: {policy.template_name || '默认'}</div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => handleCopyLink(policy)} className="p-2 hover:bg-gray-100 rounded" title="复制链接"><Icons.Copy /></button>
+                                                <button onClick={() => { setEditing(policy); setForm({ ...policy }); setError(null); }} className="p-2 hover:bg-gray-100 rounded" title="编辑"><Icons.Edit /></button>
+                                                <button onClick={() => handleDelete(policy.name)} className="p-2 hover:bg-red-50 rounded text-red-500" title="删除"><Icons.Trash /></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {policies.length === 0 && (<div className="p-8 text-center text-gray-500">暂无配置策略，创建一个开始使用吧！</div>)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ConfigPolicyManager />);
+    </script>
+</body>
+</html>

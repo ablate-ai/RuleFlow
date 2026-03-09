@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuleFlow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 100px auto; padding: 20px; }
+        h1 { font-size: 24px; margin-bottom: 30px; color: #333; }
+        .nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav a { padding: 15px 25px; background: white; border: 1px solid #ddd; border-radius: 6px; text-decoration: none; color: #333; font-size: 14px; transition: all 0.2s; }
+        .nav a:hover { background: #f9f9f9; border-color: #999; }
+        .api { margin-top: 40px; padding: 20px; background: white; border: 1px solid #ddd; border-radius: 6px; }
+        .api h3 { font-size: 14px; margin-bottom: 15px; color: #666; }
+        .api-item { margin: 10px 0; font-family: monospace; font-size: 13px; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RuleFlow</h1>
+        <div class="nav">
+            <a href="/web/subscriptions.html">订阅源管理</a>
+            <a href="/web/configs.html">配置生成</a>
+            <a href="/web/templates.html">模板管理</a>
+        </div>
+        <div class="api">
+            <h3>API 接口</h3>
+            <div class="api-item">GET /sub?url=订阅地址</div>
+            <div class="api-item">GET /sub/订阅名称</div>
+            <div class="api-item">GET /config/策略名称</div>
+        </div>
+    </div>
+</body>
+</html>
