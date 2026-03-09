@@ -1,256 +1,657 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuleFlow - 配置生成管理</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        figma: {
-                            bg: '#f5f5f5',
-                            card: '#ffffff',
-                            border: '#e5e5e5',
-                            text: '#333333',
-                            muted: '#666666',
-                            primary: '#18c865',
-                            primaryHover: '#15b25a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        * { box-sizing: border-box; }
-        body { background: #f5f5f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .input-base { background: #ffffff; border: 1px solid #e5e5e5; color: #333333; transition: all 0.15s ease; }
-        .input-base:focus { border-color: #18c865; outline: none; box-shadow: 0 0 0 3px rgba(24, 200, 101, 0.1); }
-        .btn-primary { background: #18c865; color: #ffffff; font-weight: 600; transition: all 0.15s ease; }
-        .btn-primary:hover:not(:disabled) { background: #15b25a; }
-        .btn-secondary { background: #ffffff; color: #333333; border: 1px solid #e5e5e5; transition: all 0.15s ease; }
-        .btn-secondary:hover { background: #f8f8f8; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuleFlow - 配置策略</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+
+    :root {
+      --sw: 240px;
+      --sbg: #111827; --sho: rgba(255,255,255,0.05); --sab: rgba(24,200,101,0.12);
+      --st: #9ca3af; --sat: #18c865; --sbd: rgba(255,255,255,0.07);
+      --bg: #f3f4f6; --card: #fff; --bdr: #e5e7eb;
+      --t1: #111827; --t2: #6b7280; --t3: #9ca3af;
+      --grn: #18c865; --grnd: #15b25a; --grnbg: rgba(24,200,101,0.1);
+      --red: #ef4444; --redbg: #fef2f2; --redt: #991b1b;
+      --blu: #3b82f6; --blubg: #eff6ff; --blut: #1e40af;
+      --org: #f97316; --orgbg: #fff7ed; --orgt: #9a3412;
+      --pur: #8b5cf6; --purbg: #f5f3ff; --purt: #5b21b6;
+      --cyn: #06b6d4; --cynbg: #ecfeff; --cynt: #155e75;
+      --pnk: #ec4899; --pnkbg: #fdf2f8; --pnkt: #831843;
+      --sh1: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+      --sh2: 0 4px 6px -1px rgba(0,0,0,.07),0 2px 4px -1px rgba(0,0,0,.04);
+      --sh3: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+      --rs: 6px; --rm: 8px; --rl: 12px; --rxl: 16px; --rf: 9999px;
+    }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { position: fixed; top:0; left:0; bottom:0; width: var(--sw); background: var(--sbg); display: flex; flex-direction: column; border-right: 1px solid var(--sbd); z-index: 100; overflow-y: auto; }
+    .main { margin-left: var(--sw); flex: 1; padding: 28px 32px; min-width: 0; }
+    .sb-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--sbd); }
+    .sb-logo { width: 30px; height: 30px; background: var(--grn); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sb-logo svg { color: #fff; }
+    .sb-name { font-size: 16px; font-weight: 700; color: #fff; }
+    .sb-nav { padding: 12px 8px; flex: 1; }
+    .sb-sec { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px 8px; }
+    .nav-lnk { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; color: var(--st); text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: all .15s; }
+    .nav-lnk:hover { background: var(--sho); color: #fff; }
+    .nav-lnk.active { background: var(--sab); color: var(--sat); }
+    .nav-lnk svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .sb-foot { padding: 12px 16px; border-top: 1px solid var(--sbd); }
+    .sb-ftxt { font-size: 11px; color: var(--t3); }
+    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
+    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
+    .phr { display: flex; gap: 8px; align-items: center; }
+    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
+    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; }
+    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
+    .card-b { padding: 18px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
+    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
+    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
+    .btn-s:hover:not(:disabled) { background: #f9fafb; }
+    .btn-d { background: #fff; color: var(--red); border-color: #fecaca; }
+    .btn-d:hover:not(:disabled) { background: var(--redbg); }
+    .btn-g { background: transparent; color: var(--t2); border-color: transparent; }
+    .btn-g:hover:not(:disabled) { background: #f3f4f6; color: var(--t1); }
+    .btn-sm { padding: 5px 10px; font-size: 12.5px; }
+    .btn-sm svg { width: 13px; height: 13px; }
+    .btic { padding: 6px; border-radius: var(--rs); background: transparent; border: none; color: var(--t2); cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
+    .btic:hover { background: #f3f4f6; color: var(--t1); }
+    .btic.red:hover { background: var(--redbg); color: var(--red); }
+    .btic.blue:hover { background: var(--blubg); color: var(--blu); }
+    .btic.green:hover { background: var(--grnbg); color: var(--grn); }
+    .btic svg { width: 15px; height: 15px; }
+    .fg { margin-bottom: 14px; }
+    .fl { display: block; font-size: 12.5px; font-weight: 500; color: var(--t1); margin-bottom: 5px; }
+    .flo { font-weight: 400; color: var(--t2); font-size: 11px; margin-left: 4px; }
+    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
+    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
+    .fc:disabled { background: #f9fafb; color: var(--t2); }
+    .fc::placeholder { color: var(--t3); }
+    textarea.fc { resize: vertical; min-height: 72px; line-height: 1.5; }
+    select.fc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px; cursor: pointer; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .fhint { font-size: 11.5px; color: var(--t2); margin-top: 4px; }
+    .tg { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
+    .tg input { display: none; }
+    .tg-tr { width: 34px; height: 18px; background: var(--bdr); border-radius: 99px; position: relative; transition: background .2s; flex-shrink: 0; cursor: pointer; }
+    .tg input:checked + .tg-tr { background: var(--grn); }
+    .tg-th { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+    .tg input:checked ~ .tg-th { transform: translateX(16px); }
+    .tg-lb { font-size: 13px; color: var(--t1); user-select: none; }
+    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
+    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
+    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
+    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
+    .bdg-p { background: #ede9fe; color: #7c3aed; } .bdg-p .bdg-dot { background: #8b5cf6; }
+    .bdg-c { background: #cffafe; color: #0e7490; } .bdg-c .bdg-dot { background: #06b6d4; }
+    .bdg-pk { background: #fce7f3; color: #be185d; } .bdg-pk .bdg-dot { background: #ec4899; }
+    .bdg-gray { background: #f3f4f6; color: #4b5563; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
+    .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
+    .modal-sm { max-width: 420px; } .modal-md { max-width: 540px; } .modal-lg { max-width: 680px; } .modal-xl { max-width: 860px; }
+    .mh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
+    .mht { font-size: 16px; font-weight: 600; color: var(--t1); }
+    .mb { padding: 22px; }
+    .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--bdr); background: #f9fafb; border-radius: 0 0 var(--rxl) var(--rxl); }
+    .tc { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-radius: var(--rl); font-size: 13.5px; font-weight: 500; box-shadow: var(--sh3); min-width: 260px; max-width: 380px; pointer-events: all; animation: si .25s ease; }
+    .toast svg { flex-shrink: 0; }
+    .t-ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .t-err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .item { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; box-shadow: var(--sh1); transition: box-shadow .15s; }
+    .item:hover { box-shadow: var(--sh2); }
+    .item-l { flex: 1; min-width: 0; }
+    .item-name { font-size: 14.5px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .item-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; line-height: 1.5; }
+    .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
+    .item-mi { display: flex; align-items: center; gap: 3px; }
+    .item-mi svg { width: 11px; height: 11px; }
+    .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
+    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
+    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
+    .empty-d { font-size: 13px; color: var(--t2); max-width: 280px; line-height: 1.6; }
+    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
+    /* 订阅源复选框网格 */
+    .sub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .sub-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--bdr); border-radius: var(--rm); cursor: pointer; transition: all .15s; user-select: none; }
+    .sub-item:hover { background: #f9fafb; }
+    .sub-item.checked { background: rgba(24,200,101,.06); border-color: var(--grn); }
+    .sub-check { width: 15px; height: 15px; border: 2px solid var(--bdr); border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
+    .sub-item.checked .sub-check { background: var(--grn); border-color: var(--grn); }
+    .sub-label { font-size: 13px; color: var(--t1); font-weight: 500; }
+    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes rot { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
 
-        const Icons = {
-            Plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>),
-            Edit: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
-            Trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>),
-            Copy: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>),
-            X: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
-            Save: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>),
-        };
+    /* ===== 图标组件 ===== */
+    const IcoHome = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+    const IcoRSS = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>;
+    const IcoServer = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>;
+    const IcoSettings = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+    const IcoFile = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
+    const IcoPlus = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+    const IcoEdit = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+    const IcoTrash = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+    const IcoCopy = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
+    const IcoX = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+    const IcoCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+    const IcoWarn = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m10.29 3.86-8.17 14.17A1 1 0 0 0 3 20h18a1 1 0 0 0 .88-1.48l-8.17-14.17a1 1 0 0 0-1.75.01z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+    const IcoLink = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+    const IcoTag = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>;
 
-        const api = {
-            async get(url) { const res = await fetch(url); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-            async post(url, data) { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-            async put(url, data) { const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-            async delete(url) { const res = await fetch(url, { method: 'DELETE' }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-        };
+    /* ===== API 封装 ===== */
+    const api = {
+      async get(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async post(url, data) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async put(url, data) {
+        const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async delete(url) {
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+    };
 
-        const Header = ({ currentPage }) => {
-            const menuItems = [
-                { id: 'subscriptions', label: '订阅源管理', href: '/web/subscriptions.html' },
-                { id: 'nodes', label: '节点管理', href: '/web/nodes.html' },
-                { id: 'configs', label: '配置生成', href: '/web/configs.html' },
-                { id: 'templates', label: '模板管理', href: '/web/templates.html' },
-            ];
-            return (
-                <div className="bg-white border-b border-gray-200">
-                    <div className="max-w-4xl mx-auto px-6 py-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <h1 className="text-xl font-semibold text-gray-900">RuleFlow</h1>
-                                <p className="text-sm text-gray-600">订阅转换服务</p>
-                            </div>
-                            <a href="/" className="text-sm text-gray-600 hover:text-gray-900">返回首页</a>
-                        </div>
-                        <div className="flex gap-6">
-                            {menuItems.map((item) => (
-                                <a key={item.id} href={item.href} className={`pb-2 text-sm font-medium ${currentPage === item.id ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-600 hover:text-gray-900'}`}>
-                                    {item.label}
-                                </a>
-                            ))}
-                        </div>
-                    </div>
+    /* ===== 侧边栏组件 ===== */
+    const Sidebar = ({ active }) => {
+      const links = [
+        { id: 'home', label: '控制台', href: '/', icon: <IcoHome /> },
+        { id: 'subs', label: '订阅源', href: '/web/subscriptions.html', icon: <IcoRSS /> },
+        { id: 'nodes', label: '节点管理', href: '/web/nodes.html', icon: <IcoServer /> },
+        { id: 'configs', label: '配置策略', href: '/web/configs.html', icon: <IcoSettings /> },
+        { id: 'templates', label: '规则模板', href: '/web/templates.html', icon: <IcoFile /> },
+      ];
+      return (
+        <aside className="sidebar">
+          <div className="sb-brand">
+            <div className="sb-logo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <span className="sb-name">RuleFlow</span>
+          </div>
+          <div className="sb-nav">
+            <div className="sb-sec">主菜单</div>
+            {links.map(l => (
+              <a key={l.id} href={l.href} className={`nav-lnk${active === l.id ? ' active' : ''}`}>
+                {l.icon}{l.label}
+              </a>
+            ))}
+          </div>
+          <div className="sb-foot">
+            <span className="sb-ftxt">Trojan Subscription Converter</span>
+          </div>
+        </aside>
+      );
+    };
+
+    /* ===== Toast 通知组件 ===== */
+    const ToastContainer = ({ toasts, onRemove }) => (
+      <div className="tc">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast ${t.type === 'ok' ? 't-ok' : 't-err'}`}>
+            {t.type === 'ok'
+              ? <IcoCheck />
+              : <IcoWarn />
+            }
+            <span style={{ flex: 1 }}>{t.msg}</span>
+            <button className="btic" onClick={() => onRemove(t.id)} style={{ marginLeft: 4, padding: 2 }}>
+              <IcoX />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+
+    /* ===== Toggle 开关组件 ===== */
+    const Toggle = ({ checked, onChange, label }) => {
+      const id = `tg-${Math.random().toString(36).slice(2)}`;
+      return (
+        <label className="tg" htmlFor={id}>
+          <input id={id} type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+          <span className="tg-tr"><span className="tg-th"></span></span>
+          {label && <span className="tg-lb">{label}</span>}
+        </label>
+      );
+    };
+
+    /* ===== 目标类型徽章 ===== */
+    const TargetBadge = ({ target }) => {
+      const cls = target === 'clash' ? 'bdg-b' : 'bdg-p';
+      const label = target === 'clash' ? 'Clash' : 'Stash';
+      return <span className={`bdg ${cls}`}><span className="bdg-dot"></span>{label}</span>;
+    };
+
+    /* ===== 主应用组件 ===== */
+    const App = () => {
+      /* 数据状态 */
+      const [policies, setPolicies] = useState([]);
+      const [subscriptions, setSubscriptions] = useState([]);
+      const [templates, setTemplates] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      /* Modal 控制 */
+      const [showModal, setShowModal] = useState(false);
+      const [editItem, setEditItem] = useState(null); // null = 新建
+      const [showDeleteModal, setShowDeleteModal] = useState(false);
+      const [deleteTarget, setDeleteTarget] = useState(null);
+
+      /* Toast */
+      const [toasts, setToasts] = useState([]);
+
+      /* 表单状态 */
+      const defaultForm = { name: '', target: 'clash', subscription_names: [], template_name: '', description: '', enabled: true };
+      const [form, setForm] = useState(defaultForm);
+      const [saving, setSaving] = useState(false);
+      const [deleting, setDeleting] = useState(false);
+
+      /* 添加 Toast */
+      const addToast = useCallback((msg, type = 'ok') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      }, []);
+
+      /* 移除 Toast */
+      const removeToast = useCallback((id) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, []);
+
+      /* 加载所有数据 */
+      const loadData = async () => {
+        try {
+          const [pRes, sRes, tRes] = await Promise.all([
+            api.get('/api/config-policies'),
+            api.get('/api/subscriptions'),
+            api.get('/api/templates'),
+          ]);
+          setPolicies(pRes.data || []);
+          setSubscriptions(sRes.data || []);
+          setTemplates(tRes.data || []);
+        } catch (err) {
+          addToast('加载数据失败：' + err.message, 'err');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => { loadData(); }, []);
+
+      /* 打开新建 Modal */
+      const openCreate = () => {
+        setEditItem(null);
+        setForm(defaultForm);
+        setShowModal(true);
+      };
+
+      /* 打开编辑 Modal */
+      const openEdit = (policy) => {
+        setEditItem(policy);
+        setForm({
+          name: policy.name,
+          target: policy.target,
+          subscription_names: policy.subscription_names || [],
+          template_name: policy.template_name || '',
+          description: policy.description || '',
+          enabled: policy.enabled,
+        });
+        setShowModal(true);
+      };
+
+      /* 关闭 Modal */
+      const closeModal = () => {
+        setShowModal(false);
+        setEditItem(null);
+        setForm(defaultForm);
+      };
+
+      /* 切换订阅源选中状态 */
+      const toggleSub = (name) => {
+        setForm(f => {
+          const exists = f.subscription_names.includes(name);
+          return {
+            ...f,
+            subscription_names: exists
+              ? f.subscription_names.filter(n => n !== name)
+              : [...f.subscription_names, name],
+          };
+        });
+      };
+
+      /* 保存策略（新建/更新） */
+      const handleSave = async () => {
+        if (!form.name.trim()) { addToast('策略名称不能为空', 'err'); return; }
+        if (form.subscription_names.length === 0) { addToast('请至少选择一个订阅源', 'err'); return; }
+        setSaving(true);
+        try {
+          if (editItem) {
+            await api.put(`/api/config-policies/${form.name}`, form);
+            addToast('策略已更新');
+          } else {
+            await api.post('/api/config-policies', form);
+            addToast('策略已创建');
+          }
+          closeModal();
+          loadData();
+        } catch (err) {
+          addToast('保存失败：' + err.message, 'err');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      /* 复制配置链接 */
+      const handleCopyLink = async (policy) => {
+        const url = `${window.location.origin}/config?token=${policy.token}`;
+        try {
+          await navigator.clipboard.writeText(url);
+          addToast('配置链接已复制到剪贴板');
+        } catch {
+          addToast('复制失败，请手动复制', 'err');
+        }
+      };
+
+      /* 打开删除确认 Modal */
+      const openDelete = (policy) => {
+        setDeleteTarget(policy);
+        setShowDeleteModal(true);
+      };
+
+      /* 确认删除 */
+      const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+          await api.delete(`/api/config-policies/${deleteTarget.name}`);
+          addToast(`策略 "${deleteTarget.name}" 已删除`);
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+          loadData();
+        } catch (err) {
+          addToast('删除失败：' + err.message, 'err');
+        } finally {
+          setDeleting(false);
+        }
+      };
+
+      return (
+        <div className="app">
+          <Sidebar active="configs" />
+          <main className="main">
+            {/* 页面标题栏 */}
+            <div className="ph">
+              <div>
+                <div className="pt">配置策略</div>
+                <div className="ps">生成 Clash / Stash 配置订阅链接</div>
+              </div>
+              <div className="phr">
+                <button className="btn btn-p" onClick={openCreate}>
+                  <IcoPlus />新建策略
+                </button>
+              </div>
+            </div>
+
+            {/* 策略列表 */}
+            {loading ? (
+              <div className="card" style={{ padding: '56px 20px', textAlign: 'center' }}>
+                <span className="spin" style={{ width: 24, height: 24 }}></span>
+                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--t2)' }}>加载中...</div>
+              </div>
+            ) : policies.length === 0 ? (
+              <div className="card">
+                <div className="empty">
+                  <div className="empty-ic">
+                    <IcoSettings />
+                  </div>
+                  <div className="empty-t">暂无配置策略</div>
+                  <div className="empty-d">创建一个配置策略，生成专属的订阅链接</div>
+                  <button className="btn btn-p" style={{ marginTop: 16 }} onClick={openCreate}>
+                    <IcoPlus />新建策略
+                  </button>
                 </div>
-            );
-        };
-
-        const ConfigPolicyManager = () => {
-            const [policies, setPolicies] = useState([]);
-            const [subscriptions, setSubscriptions] = useState([]);
-            const [templates, setTemplates] = useState([]);
-            const [editing, setEditing] = useState(null);
-            const [form, setForm] = useState({ name: '', description: '', subscription_names: [], template_name: '', target: 'clash', enabled: true });
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const [success, setSuccess] = useState(null);
-
-            const loadData = async () => {
-                try {
-                    const [policiesData, subsData, templatesData] = await Promise.all([
-                        api.get('/api/config-policies'),
-                        api.get('/api/subscriptions'),
-                        api.get('/api/templates'),
-                    ]);
-                    setPolicies(policiesData.data || []);
-                    setSubscriptions(subsData.data || []);
-                    setTemplates(templatesData.data || []);
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            useEffect(() => { loadData(); }, []);
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError(null);
-                try {
-                    if (editing) {
-                        await api.put(`/api/config-policies/${form.name}`, form);
-                    } else {
-                        await api.post('/api/config-policies', form);
-                    }
-                    setEditing(null);
-                    setForm({ name: '', description: '', subscription_names: [], template_name: '', target: 'clash', enabled: true });
-                    loadData();
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleDelete = async (name) => {
-                if (!confirm('确定要删除这个配置策略吗？')) return;
-                try {
-                    await api.delete(`/api/config-policies/${name}`);
-                    loadData();
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            const handleCopyLink = (policy) => {
-                const link = `${window.location.origin}/config/${policy.name}?target=${policy.target}`;
-                navigator.clipboard.writeText(link);
-                setSuccess('配置链接已复制到剪贴板');
-                setTimeout(() => setSuccess(null), 3000);
-            };
-
-            return (
-                <div className="min-h-screen bg-gray-50">
-                    <Header currentPage="configs" />
-                    {error && (<div className="max-w-4xl mx-auto px-6 mt-4"><div className="p-4 bg-red-50 border border-red-200 rounded flex items-center justify-between"><span className="text-red-700 text-sm">{error}</span><button onClick={() => setError(null)} className="text-red-500 hover:text-red-700"><Icons.X /></button></div></div>)}
-                    {success && (<div className="max-w-4xl mx-auto px-6 mt-4"><div className="p-4 bg-green-50 border border-green-200 rounded flex items-center justify-between"><span className="text-green-700 text-sm">{success}</span><button onClick={() => setSuccess(null)} className="text-green-500 hover:text-green-700"><Icons.X /></button></div></div>)}
-                    <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                            <h2 className="text-lg font-semibold mb-4">{editing ? '编辑配置策略' : '新建配置策略'}</h2>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">策略名称</label>
-                                        <input type="text" required disabled={!!editing} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm" placeholder="my-config" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">目标类型</label>
-                                        <select value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm">
-                                            <option value="clash">Clash</option><option value="stash">Stash</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">选择订阅源</label>
-                                    <div className="grid grid-cols-2 gap-2 p-3 border rounded">
-                                        {subscriptions.map((sub) => (
-                                            <label key={sub.id} className="flex items-center gap-2">
-                                                <input type="checkbox" checked={form.subscription_names.includes(sub.name)} onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setForm({ ...form, subscription_names: [...form.subscription_names, sub.name] });
-                                                    } else {
-                                                        setForm({ ...form, subscription_names: form.subscription_names.filter(n => n !== sub.name) });
-                                                    }
-                                                }} className="w-4 h-4" />
-                                                <span className="text-sm">{sub.name}</span>
-                                            </label>
-                                        ))}
-                                        {subscriptions.length === 0 && (<div className="col-span-2 text-sm text-gray-500">暂无订阅源，请先<a href="/web/subscriptions.html" className="text-blue-600 hover:underline">创建订阅源</a></div>)}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">规则模板</label>
-                                    <select value={form.template_name} onChange={(e) => setForm({ ...form, template_name: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm">
-                                        <option value="">默认模板</option>
-                                        {templates.map((tpl) => (<option key={tpl.id} value={tpl.name}>{tpl.name} {tpl.is_default ? '(默认)' : ''}</option>))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">描述</label>
-                                    <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm" rows="2" placeholder="可选描述" />
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <label className="flex items-center gap-2">
-                                        <input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} className="w-4 h-4" />
-                                        <span className="text-sm">启用</span>
-                                    </label>
-                                </div>
-                                <div className="flex gap-3">
-                                    <button type="submit" disabled={loading || form.subscription_names.length === 0} className="flex items-center gap-2 px-4 py-2 btn-primary rounded text-sm"><Icons.Save />{loading ? '保存中...' : (editing ? '更新' : '创建')}</button>
-                                    {editing && (<button type="button" onClick={() => { setEditing(null); setForm({ name: '', description: '', subscription_names: [], template_name: '', target: 'clash', enabled: true }); setError(null); }} className="px-4 py-2 btn-secondary rounded text-sm">取消</button>)}
-                                </div>
-                            </form>
-                        </div>
-                        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                            <div className="p-4 border-b flex items-center justify-between">
-                                <h3 className="font-semibold">配置策略列表</h3>
-                                <span className="text-sm text-gray-500">{policies.length} 个策略</span>
-                            </div>
-                            <div className="divide-y">
-                                {policies.map((policy) => (
-                                    <div key={policy.id} className="p-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-medium">{policy.name}</span>
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${policy.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{policy.enabled ? '启用' : '禁用'}</span>
-                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{policy.target}</span>
-                                                </div>
-                                                {policy.description && <p className="text-sm text-gray-600 mb-2">{policy.description}</p>}
-                                                <div className="text-xs text-gray-500">订阅源: {policy.subscription_names.join(', ') || '无'} | 模板: {policy.template_name || '默认'}</div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => handleCopyLink(policy)} className="p-2 hover:bg-gray-100 rounded" title="复制链接"><Icons.Copy /></button>
-                                                <button onClick={() => { setEditing(policy); setForm({ ...policy }); setError(null); }} className="p-2 hover:bg-gray-100 rounded" title="编辑"><Icons.Edit /></button>
-                                                <button onClick={() => handleDelete(policy.name)} className="p-2 hover:bg-red-50 rounded text-red-500" title="删除"><Icons.Trash /></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {policies.length === 0 && (<div className="p-8 text-center text-gray-500">暂无配置策略，创建一个开始使用吧！</div>)}
-                            </div>
-                        </div>
+              </div>
+            ) : (
+              <div>
+                {policies.map(policy => (
+                  <div key={policy.name} className="item">
+                    <div className="item-l">
+                      {/* 名称与徽章 */}
+                      <div className="item-name">
+                        {policy.name}
+                        <span className={`bdg ${policy.enabled ? 'bdg-g' : 'bdg-r'}`}>
+                          <span className="bdg-dot"></span>
+                          {policy.enabled ? '启用' : '禁用'}
+                        </span>
+                        <TargetBadge target={policy.target} />
+                      </div>
+                      {/* 描述 */}
+                      {policy.description && (
+                        <div className="item-desc">{policy.description}</div>
+                      )}
+                      {/* 元信息 */}
+                      <div className="item-meta">
+                        <span className="item-mi">
+                          <IcoRSS />
+                          {(policy.subscription_names || []).length > 0
+                            ? (policy.subscription_names || []).join(', ')
+                            : <span style={{ color: 'var(--t3)' }}>无订阅源</span>
+                          }
+                        </span>
+                        <span className="item-mi">
+                          <IcoTag />
+                          模板：{policy.template_name || '默认'}
+                        </span>
+                      </div>
                     </div>
-                </div>
-            );
-        };
+                    {/* 操作按钮 */}
+                    <div className="item-r">
+                      <button className="btic green" title="复制配置链接" onClick={() => handleCopyLink(policy)}>
+                        <IcoCopy />
+                      </button>
+                      <button className="btic blue" title="编辑策略" onClick={() => openEdit(policy)}>
+                        <IcoEdit />
+                      </button>
+                      <button className="btic red" title="删除策略" onClick={() => openDelete(policy)}>
+                        <IcoTrash />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ConfigPolicyManager />);
-    </script>
+          {/* 新建/编辑 Modal */}
+          {showModal && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+              <div className="modal modal-lg">
+                <div className="mh">
+                  <span className="mht">{editItem ? '编辑策略' : '新建配置策略'}</span>
+                  <button className="btic" onClick={closeModal}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  {/* 策略名称 + 目标类型 */}
+                  <div className="frow">
+                    <div className="fg">
+                      <label className="fl">策略名称</label>
+                      <input
+                        className="fc"
+                        type="text"
+                        placeholder="my-config"
+                        value={form.name}
+                        disabled={!!editItem}
+                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="fg">
+                      <label className="fl">目标类型</label>
+                      <select
+                        className="fc"
+                        value={form.target}
+                        onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
+                      >
+                        <option value="clash">Clash</option>
+                        <option value="stash">Stash</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 描述 */}
+                  <div className="fg">
+                    <label className="fl">描述 <span className="flo">可选</span></label>
+                    <textarea
+                      className="fc"
+                      placeholder="简要描述此策略的用途..."
+                      rows={2}
+                      value={form.description}
+                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* 订阅源选择 */}
+                  <div className="fg">
+                    <label className="fl">
+                      选择订阅源
+                      <span className="flo">已选 {form.subscription_names.length} 个</span>
+                    </label>
+                    {subscriptions.length === 0 ? (
+                      <div style={{ padding: '12px', border: '1px solid var(--bdr)', borderRadius: 'var(--rm)', fontSize: 13, color: 'var(--t2)' }}>
+                        暂无订阅源，请先 <a href="/web/subscriptions.html" style={{ color: 'var(--grn)' }}>创建订阅源</a>
+                      </div>
+                    ) : (
+                      <div className="sub-grid">
+                        {subscriptions.map(sub => {
+                          const checked = form.subscription_names.includes(sub.name);
+                          return (
+                            <div
+                              key={sub.name}
+                              className={`sub-item${checked ? ' checked' : ''}`}
+                              onClick={() => toggleSub(sub.name)}
+                            >
+                              <div className="sub-check">
+                                {checked && (
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <span className="sub-label">{sub.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 规则模板 */}
+                  <div className="fg">
+                    <label className="fl">规则模板</label>
+                    <select
+                      className="fc"
+                      value={form.template_name}
+                      onChange={e => setForm(f => ({ ...f, template_name: e.target.value }))}
+                    >
+                      <option value="">默认模板</option>
+                      {templates.map(tpl => (
+                        <option key={tpl.name} value={tpl.name}>
+                          {tpl.name}{tpl.is_default ? ' (默认)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 启用开关 */}
+                  <div className="fg" style={{ marginBottom: 0 }}>
+                    <Toggle
+                      checked={form.enabled}
+                      onChange={v => setForm(f => ({ ...f, enabled: v }))}
+                      label="启用此策略"
+                    />
+                  </div>
+                </div>
+                <div className="mf">
+                  <button className="btn btn-s" onClick={closeModal}>取消</button>
+                  <button
+                    className="btn btn-p"
+                    onClick={handleSave}
+                    disabled={saving || form.subscription_names.length === 0}
+                  >
+                    {saving && <span className="spin"></span>}
+                    {saving ? '保存中...' : (editItem ? '保存更改' : '创建策略')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 删除确认 Modal */}
+          {showDeleteModal && deleteTarget && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setDeleteTarget(null); } }}>
+              <div className="modal modal-sm">
+                <div className="mh">
+                  <span className="mht">确认删除</span>
+                  <button className="btic" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  <p style={{ fontSize: 14, color: 'var(--t1)', lineHeight: 1.6 }}>
+                    确定要删除策略 <strong>"{deleteTarget.name}"</strong> 吗？
+                  </p>
+                  <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
+                    此操作不可撤销，关联的配置链接将立即失效。
+                  </p>
+                </div>
+                <div className="mf">
+                  <button className="btn btn-s" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}>取消</button>
+                  <button className="btn btn-d" onClick={handleDelete} disabled={deleting}>
+                    {deleting && <span className="spin"></span>}
+                    {deleting ? '删除中...' : '确认删除'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Toast 通知 */}
+          <ToastContainer toasts={toasts} onRemove={removeToast} />
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>

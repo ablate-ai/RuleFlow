@@ -1,36 +1,478 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuleFlow</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 100px auto; padding: 20px; }
-        h1 { font-size: 24px; margin-bottom: 30px; color: #333; }
-        .nav { display: flex; gap: 10px; flex-wrap: wrap; }
-        .nav a { padding: 15px 25px; background: white; border: 1px solid #ddd; border-radius: 6px; text-decoration: none; color: #333; font-size: 14px; transition: all 0.2s; }
-        .nav a:hover { background: #f9f9f9; border-color: #999; }
-        .api { margin-top: 40px; padding: 20px; background: white; border: 1px solid #ddd; border-radius: 6px; }
-        .api h3 { font-size: 14px; margin-bottom: 15px; color: #666; }
-        .api-item { margin: 10px 0; font-family: monospace; font-size: 13px; color: #333; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuleFlow - 控制台</title>
+  <style>
+    /* ===== 设计系统 ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+
+    :root {
+      --sw: 240px;
+      --sbg: #111827; --sho: rgba(255,255,255,0.05); --sab: rgba(24,200,101,0.12);
+      --st: #9ca3af; --sat: #18c865; --sbd: rgba(255,255,255,0.07);
+      --bg: #f3f4f6; --card: #fff; --bdr: #e5e7eb;
+      --t1: #111827; --t2: #6b7280; --t3: #9ca3af;
+      --grn: #18c865; --grnd: #15b25a; --grnbg: rgba(24,200,101,0.1);
+      --red: #ef4444; --redbg: #fef2f2; --redt: #991b1b;
+      --blu: #3b82f6; --blubg: #eff6ff; --blut: #1e40af;
+      --org: #f97316; --orgbg: #fff7ed; --orgt: #9a3412;
+      --pur: #8b5cf6; --purbg: #f5f3ff; --purt: #5b21b6;
+      --cyn: #06b6d4; --cynbg: #ecfeff; --cynt: #155e75;
+      --pnk: #ec4899; --pnkbg: #fdf2f8; --pnkt: #831843;
+      --sh1: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+      --sh2: 0 4px 6px -1px rgba(0,0,0,.07),0 2px 4px -1px rgba(0,0,0,.04);
+      --sh3: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+      --rs: 6px; --rm: 8px; --rl: 12px; --rxl: 16px; --rf: 9999px;
+    }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { position: fixed; top:0; left:0; bottom:0; width: var(--sw); background: var(--sbg); display: flex; flex-direction: column; border-right: 1px solid var(--sbd); z-index: 100; overflow-y: auto; }
+    .main { margin-left: var(--sw); flex: 1; padding: 28px 32px; min-width: 0; }
+    .sb-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--sbd); }
+    .sb-logo { width: 30px; height: 30px; background: var(--grn); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sb-logo svg { color: #fff; }
+    .sb-name { font-size: 16px; font-weight: 700; color: #fff; }
+    .sb-nav { padding: 12px 8px; flex: 1; }
+    .sb-sec { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px 8px; }
+    .nav-lnk { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; color: var(--st); text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: all .15s; }
+    .nav-lnk:hover { background: var(--sho); color: #fff; }
+    .nav-lnk.active { background: var(--sab); color: var(--sat); }
+    .nav-lnk svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .sb-foot { padding: 12px 16px; border-top: 1px solid var(--sbd); }
+    .sb-ftxt { font-size: 11px; color: var(--t3); }
+    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
+    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
+    .phr { display: flex; gap: 8px; align-items: center; }
+    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
+    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; }
+    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
+    .card-b { padding: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+    .stat { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 18px; box-shadow: var(--sh1); }
+    .stat-ic { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .stat-v { font-size: 28px; font-weight: 700; color: var(--t1); letter-spacing: -.5px; line-height: 1; }
+    .stat-l { font-size: 12px; color: var(--t2); margin-top: 4px; font-weight: 500; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; text-decoration: none; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
+    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
+    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
+    .btn-s:hover:not(:disabled) { background: #f9fafb; }
+    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
+    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
+    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
+    .bdg-p { background: #ede9fe; color: #7c3aed; } .bdg-p .bdg-dot { background: #8b5cf6; }
+    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* ===== 页面特有样式 ===== */
+
+    /* 快速入口卡片网格 */
+    .entry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    /* 单个入口卡片 */
+    .entry-card {
+      background: var(--card);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rl);
+      padding: 22px;
+      box-shadow: var(--sh1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: box-shadow .15s, border-color .15s;
+      text-decoration: none;
+    }
+    .entry-card:hover {
+      box-shadow: var(--sh2);
+      border-color: #d1d5db;
+    }
+    .entry-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .entry-ic {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .entry-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--t1);
+      margin-bottom: 4px;
+    }
+    .entry-desc {
+      font-size: 13px;
+      color: var(--t2);
+      line-height: 1.6;
+      flex: 1;
+    }
+    .entry-arrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--grn);
+      margin-top: 4px;
+    }
+    .entry-arrow svg { width: 13px; height: 13px; }
+
+    /* API 参考区块 */
+    .api-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .api-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border: 1px solid var(--bdr);
+      border-radius: var(--rm);
+    }
+    .api-method {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .api-method.get  { background: var(--blubg); color: var(--blut); }
+    .api-method.post { background: var(--grnbg); color: var(--grnd); }
+    .api-method.put  { background: var(--orgbg); color: var(--orgt); }
+    .api-method.del  { background: var(--redbg); color: var(--redt); }
+    .api-path {
+      font-size: 12.5px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--t1);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .api-note {
+      font-size: 11.5px;
+      color: var(--t3);
+      white-space: nowrap;
+    }
+
+    /* 加载骨架屏 */
+    .skel {
+      height: 28px;
+      width: 60px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      border-radius: 4px;
+      animation: shimmer 1.2s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>RuleFlow</h1>
-        <div class="nav">
-            <a href="/web/subscriptions.html">订阅源管理</a>
-            <a href="/web/configs.html">配置生成</a>
-            <a href="/web/templates.html">模板管理</a>
+  <div class="app">
+
+    <!-- ===== 侧边栏 ===== -->
+    <aside class="sidebar">
+      <div class="sb-brand">
+        <div class="sb-logo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
         </div>
-        <div class="api">
-            <h3>API 接口</h3>
-            <div class="api-item">GET /sub?url=订阅地址</div>
-            <div class="api-item">GET /sub/订阅名称</div>
-            <div class="api-item">GET /config/策略名称</div>
+        <span class="sb-name">RuleFlow</span>
+      </div>
+      <div class="sb-nav">
+        <div class="sb-sec">主菜单</div>
+        <!-- 控制台：active -->
+        <a href="/" class="nav-lnk active">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          控制台
+        </a>
+        <a href="/web/subscriptions.html" class="nav-lnk">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+          订阅源
+        </a>
+        <a href="/web/nodes.html" class="nav-lnk">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          节点管理
+        </a>
+        <a href="/web/configs.html" class="nav-lnk">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          配置策略
+        </a>
+        <a href="/web/templates.html" class="nav-lnk">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          规则模板
+        </a>
+      </div>
+      <div class="sb-foot">
+        <span class="sb-ftxt">Trojan Subscription Converter</span>
+      </div>
+    </aside>
+
+    <!-- ===== 主内容区 ===== -->
+    <main class="main">
+      <!-- 页头 -->
+      <div class="ph">
+        <div>
+          <div class="pt">控制台</div>
+          <div class="ps">系统概览与快速入口</div>
         </div>
-    </div>
+      </div>
+
+      <!-- 统计卡片 -->
+      <div class="stats">
+        <!-- 总订阅数 -->
+        <div class="stat">
+          <div class="stat-ic" style="background: var(--grnbg);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
+            </svg>
+          </div>
+          <div class="stat-v" id="stat-subs"><div class="skel"></div></div>
+          <div class="stat-l">总订阅数</div>
+        </div>
+        <!-- 总节点数 -->
+        <div class="stat">
+          <div class="stat-ic" style="background: var(--blubg);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blu)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+              <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+            </svg>
+          </div>
+          <div class="stat-v" id="stat-nodes-total"><div class="skel"></div></div>
+          <div class="stat-l">总节点数</div>
+        </div>
+        <!-- 启用节点数 -->
+        <div class="stat">
+          <div class="stat-ic" style="background: var(--purbg);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pur)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="stat-v" id="stat-nodes-enabled"><div class="skel"></div></div>
+          <div class="stat-l">启用节点数</div>
+        </div>
+        <!-- 服务状态 -->
+        <div class="stat">
+          <div class="stat-ic" style="background: var(--orgbg);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--org)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div class="stat-v" id="stat-status"><div class="skel"></div></div>
+          <div class="stat-l">服务状态</div>
+        </div>
+      </div>
+
+      <!-- 快速入口 -->
+      <div style="margin-bottom: 8px;">
+        <div style="font-size: 14px; font-weight: 600; color: var(--t1); margin-bottom: 14px;">快速入口</div>
+        <div class="entry-grid">
+          <!-- 订阅源 -->
+          <a href="/web/subscriptions.html" class="entry-card">
+            <div class="entry-card-top">
+              <div class="entry-ic" style="background: var(--grnbg);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
+                </svg>
+              </div>
+              <span class="bdg bdg-g"><span class="bdg-dot"></span>核心功能</span>
+            </div>
+            <div>
+              <div class="entry-title">订阅源管理</div>
+              <div class="entry-desc">管理代理节点订阅源，支持自动刷新与节点同步。</div>
+            </div>
+            <div class="entry-arrow">
+              进入管理
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- 节点管理 -->
+          <a href="/web/nodes.html" class="entry-card">
+            <div class="entry-card-top">
+              <div class="entry-ic" style="background: var(--blubg);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blu)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                  <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+                </svg>
+              </div>
+              <span class="bdg bdg-b"><span class="bdg-dot"></span>节点</span>
+            </div>
+            <div>
+              <div class="entry-title">节点管理</div>
+              <div class="entry-desc">查看和管理所有代理节点，支持筛选与批量操作。</div>
+            </div>
+            <div class="entry-arrow">
+              进入管理
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- 配置策略 -->
+          <a href="/web/configs.html" class="entry-card">
+            <div class="entry-card-top">
+              <div class="entry-ic" style="background: var(--orgbg);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--org)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </div>
+              <span class="bdg bdg-o"><span class="bdg-dot"></span>策略</span>
+            </div>
+            <div>
+              <div class="entry-title">配置策略</div>
+              <div class="entry-desc">创建和管理 Trojan 配置策略，绑定订阅与规则模板生成配置。</div>
+            </div>
+            <div class="entry-arrow">
+              进入管理
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- 规则模板 -->
+          <a href="/web/templates.html" class="entry-card">
+            <div class="entry-card-top">
+              <div class="entry-ic" style="background: var(--purbg);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--pur)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </div>
+              <span class="bdg bdg-p"><span class="bdg-dot"></span>模板</span>
+            </div>
+            <div>
+              <div class="entry-title">规则模板</div>
+              <div class="entry-desc">管理路由规则模板，自定义分流规则与出站策略。</div>
+            </div>
+            <div class="entry-arrow">
+              进入管理
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- API 快速参考 -->
+      <div class="card">
+        <div class="card-h">
+          <span class="card-ht">API 快速参考</span>
+          <span style="font-size:12px;color:var(--t3);">常用接口端点</span>
+        </div>
+        <div class="card-b">
+          <div class="api-grid">
+            <div class="api-item">
+              <span class="api-method get">GET</span>
+              <span class="api-path">/sub?url={订阅地址}</span>
+              <span class="api-note">转换订阅</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method get">GET</span>
+              <span class="api-path">/sub/{订阅名称}</span>
+              <span class="api-note">获取订阅</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method get">GET</span>
+              <span class="api-path">/config/{策略名称}</span>
+              <span class="api-note">生成配置</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method get">GET</span>
+              <span class="api-path">/api/subscriptions</span>
+              <span class="api-note">订阅列表</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method post">POST</span>
+              <span class="api-path">/api/subscriptions</span>
+              <span class="api-note">创建订阅</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method post">POST</span>
+              <span class="api-path">/api/subscriptions/{name}/sync</span>
+              <span class="api-note">同步节点</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method get">GET</span>
+              <span class="api-path">/api/nodes</span>
+              <span class="api-note">节点列表</span>
+            </div>
+            <div class="api-item">
+              <span class="api-method del">DEL</span>
+              <span class="api-path">/api/cache/{name}</span>
+              <span class="api-note">清除缓存</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // 异步加载统计数据
+    async function loadStats() {
+      // 加载订阅数
+      try {
+        const res = await fetch('/api/subscriptions');
+        if (res.ok) {
+          const data = await res.json();
+          const list = data.data || [];
+          document.getElementById('stat-subs').textContent = list.length;
+        } else {
+          document.getElementById('stat-subs').textContent = '--';
+        }
+      } catch {
+        document.getElementById('stat-subs').textContent = '--';
+      }
+
+      // 加载节点统计
+      try {
+        const res = await fetch('/api/nodes/stats');
+        if (res.ok) {
+          const data = await res.json();
+          const stats = data.data || {};
+          document.getElementById('stat-nodes-total').textContent = stats.total ?? '--';
+          document.getElementById('stat-nodes-enabled').textContent = stats.enabled ?? '--';
+        } else {
+          document.getElementById('stat-nodes-total').textContent = '--';
+          document.getElementById('stat-nodes-enabled').textContent = '--';
+        }
+      } catch {
+        document.getElementById('stat-nodes-total').textContent = '--';
+        document.getElementById('stat-nodes-enabled').textContent = '--';
+      }
+
+      // 服务状态：只要页面能加载就算运行中
+      const statusEl = document.getElementById('stat-status');
+      statusEl.innerHTML = '<span style="font-size:14px;color:var(--grn);font-weight:600;display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--grn);display:inline-block;"></span>运行中</span>';
+    }
+
+    // 页面加载后立即获取数据
+    loadStats();
+  </script>
 </body>
 </html>

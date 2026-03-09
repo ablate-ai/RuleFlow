@@ -1,273 +1,689 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuleFlow - 模板管理</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        figma: {
-                            bg: '#f5f5f5',
-                            card: '#ffffff',
-                            border: '#e5e5e5',
-                            text: '#333333',
-                            muted: '#666666',
-                            primary: '#18c865',
-                            primaryHover: '#15b25a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        * { box-sizing: border-box; }
-        body { background: #f5f5f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .input-base { background: #ffffff; border: 1px solid #e5e5e5; color: #333333; transition: all 0.15s ease; }
-        .input-base:focus { border-color: #18c865; outline: none; box-shadow: 0 0 0 3px rgba(24, 200, 101, 0.1); }
-        .btn-primary { background: #18c865; color: #ffffff; font-weight: 600; transition: all 0.15s ease; }
-        .btn-primary:hover:not(:disabled) { background: #15b25a; }
-        .btn-secondary { background: #ffffff; color: #333333; border: 1px solid #e5e5e5; transition: all 0.15s ease; }
-        .btn-secondary:hover { background: #f8f8f8; }
-        .monaco-container { height: 400px; border: 1px solid #e5e5e5; border-radius: 8px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuleFlow - 规则模板</title>
+  <!-- React/Babel 必须在 Monaco 之前加载，避免 AMD define 冲突 -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Monaco loader 在 React/Babel 之后加载，此时它们已作为全局变量注册，不会触发 AMD -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.min.js"></script>
+  <script>
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+
+    :root {
+      --sw: 240px;
+      --sbg: #111827; --sho: rgba(255,255,255,0.05); --sab: rgba(24,200,101,0.12);
+      --st: #9ca3af; --sat: #18c865; --sbd: rgba(255,255,255,0.07);
+      --bg: #f3f4f6; --card: #fff; --bdr: #e5e7eb;
+      --t1: #111827; --t2: #6b7280; --t3: #9ca3af;
+      --grn: #18c865; --grnd: #15b25a; --grnbg: rgba(24,200,101,0.1);
+      --red: #ef4444; --redbg: #fef2f2; --redt: #991b1b;
+      --blu: #3b82f6; --blubg: #eff6ff; --blut: #1e40af;
+      --org: #f97316; --orgbg: #fff7ed; --orgt: #9a3412;
+      --pur: #8b5cf6; --purbg: #f5f3ff; --purt: #5b21b6;
+      --cyn: #06b6d4; --cynbg: #ecfeff; --cynt: #155e75;
+      --pnk: #ec4899; --pnkbg: #fdf2f8; --pnkt: #831843;
+      --sh1: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+      --sh2: 0 4px 6px -1px rgba(0,0,0,.07),0 2px 4px -1px rgba(0,0,0,.04);
+      --sh3: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+      --rs: 6px; --rm: 8px; --rl: 12px; --rxl: 16px; --rf: 9999px;
+    }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { position: fixed; top:0; left:0; bottom:0; width: var(--sw); background: var(--sbg); display: flex; flex-direction: column; border-right: 1px solid var(--sbd); z-index: 100; overflow-y: auto; }
+    .main { margin-left: var(--sw); flex: 1; padding: 28px 32px; min-width: 0; }
+    .sb-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--sbd); }
+    .sb-logo { width: 30px; height: 30px; background: var(--grn); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sb-logo svg { color: #fff; }
+    .sb-name { font-size: 16px; font-weight: 700; color: #fff; }
+    .sb-nav { padding: 12px 8px; flex: 1; }
+    .sb-sec { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px 8px; }
+    .nav-lnk { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; color: var(--st); text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: all .15s; }
+    .nav-lnk:hover { background: var(--sho); color: #fff; }
+    .nav-lnk.active { background: var(--sab); color: var(--sat); }
+    .nav-lnk svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .sb-foot { padding: 12px 16px; border-top: 1px solid var(--sbd); }
+    .sb-ftxt { font-size: 11px; color: var(--t3); }
+    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
+    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
+    .phr { display: flex; gap: 8px; align-items: center; }
+    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
+    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; }
+    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
+    .card-b { padding: 18px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
+    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
+    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
+    .btn-s:hover:not(:disabled) { background: #f9fafb; }
+    .btn-d { background: #fff; color: var(--red); border-color: #fecaca; }
+    .btn-d:hover:not(:disabled) { background: var(--redbg); }
+    .btn-g { background: transparent; color: var(--t2); border-color: transparent; }
+    .btn-g:hover:not(:disabled) { background: #f3f4f6; color: var(--t1); }
+    .btn-sm { padding: 5px 10px; font-size: 12.5px; }
+    .btn-sm svg { width: 13px; height: 13px; }
+    .btic { padding: 6px; border-radius: var(--rs); background: transparent; border: none; color: var(--t2); cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
+    .btic:hover { background: #f3f4f6; color: var(--t1); }
+    .btic.red:hover { background: var(--redbg); color: var(--red); }
+    .btic.blue:hover { background: var(--blubg); color: var(--blu); }
+    .btic.green:hover { background: var(--grnbg); color: var(--grn); }
+    .btic svg { width: 15px; height: 15px; }
+    .fg { margin-bottom: 14px; }
+    .fl { display: block; font-size: 12.5px; font-weight: 500; color: var(--t1); margin-bottom: 5px; }
+    .flo { font-weight: 400; color: var(--t2); font-size: 11px; margin-left: 4px; }
+    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
+    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
+    .fc:disabled { background: #f9fafb; color: var(--t2); }
+    .fc::placeholder { color: var(--t3); }
+    textarea.fc { resize: vertical; min-height: 72px; line-height: 1.5; }
+    select.fc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px; cursor: pointer; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .fhint { font-size: 11.5px; color: var(--t2); margin-top: 4px; }
+    .tg { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
+    .tg input { display: none; }
+    .tg-tr { width: 34px; height: 18px; background: var(--bdr); border-radius: 99px; position: relative; transition: background .2s; flex-shrink: 0; cursor: pointer; }
+    .tg input:checked + .tg-tr { background: var(--grn); }
+    .tg-th { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+    .tg input:checked ~ .tg-th { transform: translateX(16px); }
+    .tg-lb { font-size: 13px; color: var(--t1); user-select: none; }
+    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
+    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
+    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
+    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
+    .bdg-p { background: #ede9fe; color: #7c3aed; } .bdg-p .bdg-dot { background: #8b5cf6; }
+    .bdg-c { background: #cffafe; color: #0e7490; } .bdg-c .bdg-dot { background: #06b6d4; }
+    .bdg-pk { background: #fce7f3; color: #be185d; } .bdg-pk .bdg-dot { background: #ec4899; }
+    .bdg-gray { background: #f3f4f6; color: #4b5563; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
+    .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
+    .modal-sm { max-width: 420px; } .modal-md { max-width: 540px; } .modal-lg { max-width: 680px; } .modal-xl { max-width: 860px; }
+    .mh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
+    .mht { font-size: 16px; font-weight: 600; color: var(--t1); }
+    .mb { padding: 22px; }
+    .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--bdr); background: #f9fafb; border-radius: 0 0 var(--rxl) var(--rxl); }
+    .tc { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-radius: var(--rl); font-size: 13.5px; font-weight: 500; box-shadow: var(--sh3); min-width: 260px; max-width: 380px; pointer-events: all; animation: si .25s ease; }
+    .toast svg { flex-shrink: 0; }
+    .t-ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .t-err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .item { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; box-shadow: var(--sh1); transition: box-shadow .15s; }
+    .item:hover { box-shadow: var(--sh2); }
+    .item-l { flex: 1; min-width: 0; }
+    .item-name { font-size: 14.5px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .item-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; line-height: 1.5; }
+    .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
+    .item-mi { display: flex; align-items: center; gap: 3px; }
+    .item-mi svg { width: 11px; height: 11px; }
+    .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
+    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
+    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
+    .empty-d { font-size: 13px; color: var(--t2); max-width: 280px; line-height: 1.6; }
+    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
+    /* Monaco 容器 */
+    .monaco-wrap { border: 1px solid var(--bdr); border-radius: var(--rm); overflow: hidden; }
+    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes rot { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
 
-        const Icons = {
-            Plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>),
-            Edit: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
-            Trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>),
-            X: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
-            Save: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>),
+    /* ===== 图标组件 ===== */
+    const IcoHome = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+    const IcoRSS = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>;
+    const IcoServer = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>;
+    const IcoSettings = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+    const IcoFile = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
+    const IcoPlus = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+    const IcoEdit = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+    const IcoTrash = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+    const IcoX = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+    const IcoCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+    const IcoWarn = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m10.29 3.86-8.17 14.17A1 1 0 0 0 3 20h18a1 1 0 0 0 .88-1.48l-8.17-14.17a1 1 0 0 0-1.75.01z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+    const IcoClock = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+
+    /* ===== API 封装 ===== */
+    const api = {
+      async get(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async post(url, data) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async put(url, data) {
+        const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async delete(url) {
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+    };
+
+    /* ===== 侧边栏组件 ===== */
+    const Sidebar = ({ active }) => {
+      const links = [
+        { id: 'home', label: '控制台', href: '/', icon: <IcoHome /> },
+        { id: 'subs', label: '订阅源', href: '/web/subscriptions.html', icon: <IcoRSS /> },
+        { id: 'nodes', label: '节点管理', href: '/web/nodes.html', icon: <IcoServer /> },
+        { id: 'configs', label: '配置策略', href: '/web/configs.html', icon: <IcoSettings /> },
+        { id: 'templates', label: '规则模板', href: '/web/templates.html', icon: <IcoFile /> },
+      ];
+      return (
+        <aside className="sidebar">
+          <div className="sb-brand">
+            <div className="sb-logo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <span className="sb-name">RuleFlow</span>
+          </div>
+          <div className="sb-nav">
+            <div className="sb-sec">主菜单</div>
+            {links.map(l => (
+              <a key={l.id} href={l.href} className={`nav-lnk${active === l.id ? ' active' : ''}`}>
+                {l.icon}{l.label}
+              </a>
+            ))}
+          </div>
+          <div className="sb-foot">
+            <span className="sb-ftxt">Trojan Subscription Converter</span>
+          </div>
+        </aside>
+      );
+    };
+
+    /* ===== Toast 通知组件 ===== */
+    const ToastContainer = ({ toasts, onRemove }) => (
+      <div className="tc">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast ${t.type === 'ok' ? 't-ok' : 't-err'}`}>
+            {t.type === 'ok' ? <IcoCheck /> : <IcoWarn />}
+            <span style={{ flex: 1 }}>{t.msg}</span>
+            <button className="btic" onClick={() => onRemove(t.id)} style={{ marginLeft: 4, padding: 2 }}>
+              <IcoX />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+
+    /* ===== Toggle 开关组件 ===== */
+    const Toggle = ({ checked, onChange, label }) => (
+      <label className="tg">
+        <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+        <span className="tg-tr"><span className="tg-th"></span></span>
+        {label && <span className="tg-lb">{label}</span>}
+      </label>
+    );
+
+    /* ===== 目标类型配置 ===== */
+    const TARGET_OPTIONS = [
+      { value: 'clash',        label: 'Clash',        badge: 'bdg-b' },
+      { value: 'clash_meta',   label: 'Clash Meta',   badge: 'bdg-b' },
+      { value: 'stash',        label: 'Stash',        badge: 'bdg-p' },
+      { value: 'surge',        label: 'Surge',        badge: 'bdg-o' },
+      { value: 'loon',         label: 'Loon',         badge: 'bdg-c' },
+      { value: 'shadowrocket', label: 'Shadowrocket', badge: 'bdg-c' },
+    ];
+
+    /* 根据 target 值获取徽章样式 */
+    const getTargetBadge = (target) => {
+      const opt = TARGET_OPTIONS.find(o => o.value === target);
+      return opt || { label: target, badge: 'bdg-gray' };
+    };
+
+    const TargetBadge = ({ target }) => {
+      const { label, badge } = getTargetBadge(target);
+      return (
+        <span className={`bdg ${badge}`}>
+          <span className="bdg-dot"></span>{label}
+        </span>
+      );
+    };
+
+    /* ===== Monaco 编辑器组件 ===== */
+    /* 封装为独立组件，方便管理生命周期 */
+    const MonacoEditor = ({ value, onChange }) => {
+      const containerRef = useRef(null);   // DOM 挂载点
+      const editorRef = useRef(null);      // Monaco 实例
+      const isUpdating = useRef(false);    // 防止循环触发
+
+      /* 初始化 Monaco 编辑器 */
+      useEffect(() => {
+        if (!containerRef.current) return;
+        let mounted = true;
+
+        /* 使用 window.require（Monaco 的 AMD loader），避免与 Babel 编译产生冲突 */
+        window.require(['vs/editor/editor.main'], () => {
+          if (!mounted || !containerRef.current) return;
+
+          /* 若已存在实例则先销毁，避免重复挂载 */
+          if (editorRef.current) {
+            editorRef.current.dispose();
+            editorRef.current = null;
+          }
+
+          /* 通过全局 window.monaco 访问编辑器 API */
+          const editor = window.monaco.editor.create(containerRef.current, {
+            value: value || '',
+            language: 'yaml',
+            theme: 'vs',
+            automaticLayout: true,
+            minimap: { enabled: false },
+            fontSize: 13,
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            wordWrap: 'on',
+            tabSize: 2,
+          });
+
+          /* 内容变化时回调父组件 */
+          editor.onDidChangeModelContent(() => {
+            if (!isUpdating.current) {
+              onChange(editor.getValue());
+            }
+          });
+
+          editorRef.current = editor;
+        });
+
+        /* 组件卸载时清理 Monaco 实例 */
+        return () => {
+          mounted = false;
+          if (editorRef.current) {
+            editorRef.current.dispose();
+            editorRef.current = null;
+          }
         };
+      }, []); /* 仅挂载时初始化一次 */
 
-        const api = {
-            async get(url) { const res = await fetch(url); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-            async post(url, data) { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-            async put(url, data) { const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
-            async delete(url) { const res = await fetch(url, { method: 'DELETE' }); if (!res.ok) throw new Error(await res.text()); return res.json(); },
+      /* 外部 value 变化时同步到编辑器（切换编辑项时） */
+      useEffect(() => {
+        if (editorRef.current) {
+          const current = editorRef.current.getValue();
+          if (current !== value) {
+            isUpdating.current = true;
+            editorRef.current.setValue(value || '');
+            isUpdating.current = false;
+          }
+        }
+      }, [value]);
+
+      return (
+        <div className="monaco-wrap" style={{ height: '420px' }}>
+          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        </div>
+      );
+    };
+
+    /* ===== 主应用组件 ===== */
+    const App = () => {
+      /* 模板列表状态 */
+      const [templates, setTemplates] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      /* Modal 控制 */
+      const [showModal, setShowModal] = useState(false);
+      const [editItem, setEditItem] = useState(null); // null = 新建
+      const [showDeleteModal, setShowDeleteModal] = useState(false);
+      const [deleteTarget, setDeleteTarget] = useState(null);
+
+      /* Toast */
+      const [toasts, setToasts] = useState([]);
+
+      /* 表单状态 */
+      const defaultForm = { name: '', target: 'clash', is_default: false, description: '', content: '' };
+      const [form, setForm] = useState(defaultForm);
+      const [saving, setSaving] = useState(false);
+      const [deleting, setDeleting] = useState(false);
+
+      /* 编辑器内容独立维护，避免频繁 setForm 导致重渲染 */
+      const [editorContent, setEditorContent] = useState('');
+
+      /* 添加 Toast */
+      const addToast = useCallback((msg, type = 'ok') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      }, []);
+
+      /* 移除 Toast */
+      const removeToast = useCallback((id) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, []);
+
+      /* 加载模板列表 */
+      const loadTemplates = async () => {
+        try {
+          const data = await api.get('/api/templates');
+          setTemplates(data.data || []);
+        } catch (err) {
+          addToast('加载模板失败：' + err.message, 'err');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => { loadTemplates(); }, []);
+
+      /* 加载默认模板文件内容（新建时使用） */
+      const loadDefaultContent = async () => {
+        try {
+          const res = await fetch('/rules/template.yaml');
+          if (res.ok) {
+            return await res.text();
+          }
+        } catch (_) {}
+        return '';
+      };
+
+      /* 打开新建 Modal */
+      const openCreate = async () => {
+        setEditItem(null);
+        const content = await loadDefaultContent();
+        setForm({ ...defaultForm, content });
+        setEditorContent(content);
+        setShowModal(true);
+      };
+
+      /* 打开编辑 Modal */
+      const openEdit = (tpl) => {
+        setEditItem(tpl);
+        const f = {
+          name: tpl.name,
+          target: tpl.target || 'clash',
+          is_default: tpl.is_default || false,
+          description: tpl.description || '',
+          content: tpl.content || '',
         };
+        setForm(f);
+        setEditorContent(f.content);
+        setShowModal(true);
+      };
 
-        const Header = ({ currentPage }) => {
-            const menuItems = [
-                { id: 'subscriptions', label: '订阅源管理', href: '/web/subscriptions.html' },
-                { id: 'nodes', label: '节点管理', href: '/web/nodes.html' },
-                { id: 'configs', label: '配置生成', href: '/web/configs.html' },
-                { id: 'templates', label: '模板管理', href: '/web/templates.html' },
-            ];
-            return (
-                <div className="bg-white border-b border-gray-200">
-                    <div className="max-w-4xl mx-auto px-6 py-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <h1 className="text-xl font-semibold text-gray-900">RuleFlow</h1>
-                                <p className="text-sm text-gray-600">订阅转换服务</p>
-                            </div>
-                            <a href="/" className="text-sm text-gray-600 hover:text-gray-900">返回首页</a>
-                        </div>
-                        <div className="flex gap-6">
-                            {menuItems.map((item) => (
-                                <a key={item.id} href={item.href} className={`pb-2 text-sm font-medium ${currentPage === item.id ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-600 hover:text-gray-900'}`}>
-                                    {item.label}
-                                </a>
-                            ))}
-                        </div>
-                    </div>
+      /* 关闭 Modal 并清理 */
+      const closeModal = () => {
+        setShowModal(false);
+        setEditItem(null);
+        setForm(defaultForm);
+        setEditorContent('');
+      };
+
+      /* Monaco 内容变化回调 */
+      const handleEditorChange = useCallback((val) => {
+        setEditorContent(val);
+      }, []);
+
+      /* 保存模板（新建/更新） */
+      const handleSave = async () => {
+        if (!form.name.trim()) { addToast('模板名称不能为空', 'err'); return; }
+        const payload = { ...form, content: editorContent };
+        setSaving(true);
+        try {
+          if (editItem) {
+            await api.put(`/api/templates/${form.name}`, payload);
+            addToast('模板已更新');
+          } else {
+            await api.post('/api/templates', payload);
+            addToast('模板已创建');
+          }
+          closeModal();
+          loadTemplates();
+        } catch (err) {
+          addToast('保存失败：' + err.message, 'err');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      /* 打开删除确认 Modal */
+      const openDelete = (tpl) => {
+        setDeleteTarget(tpl);
+        setShowDeleteModal(true);
+      };
+
+      /* 确认删除 */
+      const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+          await api.delete(`/api/templates/${deleteTarget.name}`);
+          addToast(`模板 "${deleteTarget.name}" 已删除`);
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+          loadTemplates();
+        } catch (err) {
+          addToast('删除失败：' + err.message, 'err');
+        } finally {
+          setDeleting(false);
+        }
+      };
+
+      /* 格式化时间显示 */
+      const fmtDate = (str) => {
+        if (!str) return '—';
+        try {
+          return new Date(str).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch {
+          return str;
+        }
+      };
+
+      return (
+        <div className="app">
+          <Sidebar active="templates" />
+          <main className="main">
+            {/* 页面标题栏 */}
+            <div className="ph">
+              <div>
+                <div className="pt">规则模板</div>
+                <div className="ps">管理 Clash / Surge 等客户端的规则模板</div>
+              </div>
+              <div className="phr">
+                <button className="btn btn-p" onClick={openCreate}>
+                  <IcoPlus />新建模板
+                </button>
+              </div>
+            </div>
+
+            {/* 模板列表 */}
+            {loading ? (
+              <div className="card" style={{ padding: '56px 20px', textAlign: 'center' }}>
+                <span className="spin" style={{ width: 24, height: 24 }}></span>
+                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--t2)' }}>加载中...</div>
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="card">
+                <div className="empty">
+                  <div className="empty-ic">
+                    <IcoFile />
+                  </div>
+                  <div className="empty-t">暂无规则模板</div>
+                  <div className="empty-d">创建一个规则模板，用于生成 Clash / Surge 等客户端配置</div>
+                  <button className="btn btn-p" style={{ marginTop: 16 }} onClick={openCreate}>
+                    <IcoPlus />新建模板
+                  </button>
                 </div>
-            );
-        };
-
-        const TemplateManager = () => {
-            const [templates, setTemplates] = useState([]);
-            const [editing, setEditing] = useState(null);
-            const [form, setForm] = useState({ name: '', description: '', content: '', is_default: false, target: 'clash' });
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const editorRef = useRef(null);
-            const editorInstanceRef = useRef(null);
-
-            const loadTemplates = async () => {
-                try {
-                    const data = await api.get('/api/templates');
-                    setTemplates(data.data || []);
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            useEffect(() => { loadTemplates(); }, []);
-
-            useEffect(() => {
-                if (!editorRef.current) return;
-                require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-                require(['vs/editor/editor.main'], function (monaco) {
-                    if (editorInstanceRef.current) return;
-                    const ed = monaco.editor.create(editorRef.current, {
-                        value: '',
-                        language: 'yaml',
-                        theme: 'vs',
-                        minimap: { enabled: false },
-                        automaticLayout: true,
-                        fontSize: 14,
-                    });
-                    ed.onDidChangeModelContent(() => {
-                        setForm(prev => ({ ...prev, content: ed.getValue() }));
-                    });
-                    editorInstanceRef.current = ed;
-                });
-                return () => {
-                    if (editorInstanceRef.current) {
-                        editorInstanceRef.current.dispose();
-                        editorInstanceRef.current = null;
-                    }
-                };
-            }, []);
-
-            useEffect(() => {
-                if (editorInstanceRef.current) {
-                    editorInstanceRef.current.setValue(form.content || '');
-                }
-            }, [editing]);
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError(null);
-                try {
-                    if (editing) {
-                        await api.put(`/api/templates/${form.name}`, form);
-                    } else {
-                        await api.post('/api/templates', form);
-                    }
-                    setEditing(null);
-                    setForm({ name: '', description: '', content: '', is_default: false, target: 'clash' });
-                    loadTemplates();
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleNew = async () => {
-                try {
-                    const res = await fetch('/rules/template.yaml');
-                    if (res.ok) {
-                        const content = await res.text();
-                        setForm({ name: '', description: '', content, is_default: false, target: 'clash' });
-                    }
-                } catch (e) {
-                    setForm({ name: '', description: '', content: '# 请在此处编写 YAML 模板\n', is_default: false, target: 'clash' });
-                }
-                setEditing(null);
-            };
-
-            const handleDelete = async (name) => {
-                if (!confirm('确定要删除这个模板吗？')) return;
-                try {
-                    await api.delete(`/api/templates/${name}`);
-                    loadTemplates();
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-gray-50">
-                    <Header currentPage="templates" />
-                    {error && (<div className="max-w-4xl mx-auto px-6 mt-4"><div className="p-4 bg-red-50 border border-red-200 rounded flex items-center justify-between"><span className="text-red-700 text-sm">{error}</span><button onClick={() => setError(null)} className="text-red-500 hover:text-red-700"><Icons.X /></button></div></div>)}
-                    <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold">{editing ? '编辑模板' : '新建模板'}</h2>
-                                {!editing && (<button onClick={handleNew} className="flex items-center gap-2 px-4 py-2 btn-secondary rounded text-sm"><Icons.Plus />新建</button>)}
-                            </div>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">名称</label>
-                                        <input type="text" required disabled={!!editing} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm" placeholder="my-template" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">客户端类型</label>
-                                        <select value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm">
-                                            <option value="clash">Clash</option>
-                                            <option value="clash_meta">Clash Meta</option>
-                                            <option value="stash">Stash</option>
-                                            <option value="surge">Surge</option>
-                                            <option value="loon">Loon</option>
-                                            <option value="shadowrocket">Shadowrocket</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <label className="flex items-center gap-2">
-                                        <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="w-4 h-4" />
-                                        <span className="text-sm">设为默认模板</span>
-                                    </label>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">描述</label>
-                                    <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 input-base rounded text-sm" rows="2" placeholder="可选描述" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">模板内容 (YAML)</label>
-                                    <div ref={editorRef} className="monaco-container" />
-                                </div>
-                                <div className="flex gap-3">
-                                    <button type="submit" disabled={loading} className="flex items-center gap-2 px-4 py-2 btn-primary rounded text-sm"><Icons.Save />{loading ? '保存中...' : (editing ? '更新' : '创建')}</button>
-                                    {editing && (<button type="button" onClick={() => setEditing(null)} className="px-4 py-2 btn-secondary rounded text-sm">取消</button>)}
-                                </div>
-                            </form>
-                        </div>
-                        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                            <div className="p-4 border-b flex items-center justify-between">
-                                <h3 className="font-semibold">模板列表</h3>
-                                <span className="text-sm text-gray-500">{templates.length} 个模板</span>
-                            </div>
-                            <div className="divide-y">
-                                {templates.map((tpl) => (
-                                    <div key={tpl.id} className="p-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-medium">{tpl.name}</span>
-                                                    {tpl.is_default && (<span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">默认</span>)}
-                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{tpl.target}</span>
-                                                </div>
-                                                {tpl.description && <p className="text-sm text-gray-600 mb-2">{tpl.description}</p>}
-                                                <div className="text-xs text-gray-500">创建时间: {new Date(tpl.created_at).toLocaleString()}</div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => { setEditing(tpl); setForm({ ...tpl }); }} className="p-2 hover:bg-gray-100 rounded" title="编辑"><Icons.Edit /></button>
-                                                <button onClick={() => handleDelete(tpl.name)} className="p-2 hover:bg-red-50 rounded text-red-500" title="删除"><Icons.Trash /></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {templates.length === 0 && (<div className="p-8 text-center text-gray-500">暂无模板，创建一个开始使用吧！</div>)}
-                            </div>
-                        </div>
+              </div>
+            ) : (
+              <div>
+                {templates.map(tpl => (
+                  <div key={tpl.name} className="item">
+                    <div className="item-l">
+                      {/* 名称与徽章 */}
+                      <div className="item-name">
+                        {tpl.name}
+                        {tpl.is_default && (
+                          <span className="bdg bdg-g">
+                            <span className="bdg-dot"></span>默认
+                          </span>
+                        )}
+                        <TargetBadge target={tpl.target} />
+                      </div>
+                      {/* 描述 */}
+                      {tpl.description && (
+                        <div className="item-desc">{tpl.description}</div>
+                      )}
+                      {/* 元信息 */}
+                      <div className="item-meta">
+                        <span className="item-mi">
+                          <IcoClock />
+                          {fmtDate(tpl.created_at)}
+                        </span>
+                      </div>
                     </div>
-                </div>
-            );
-        };
+                    {/* 操作按钮 */}
+                    <div className="item-r">
+                      <button className="btic blue" title="编辑模板" onClick={() => openEdit(tpl)}>
+                        <IcoEdit />
+                      </button>
+                      <button className="btic red" title="删除模板" onClick={() => openDelete(tpl)}>
+                        <IcoTrash />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<TemplateManager />);
-    </script>
+          {/* 新建/编辑 Modal（XL 尺寸，容纳编辑器） */}
+          {showModal && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+              <div className="modal modal-xl">
+                <div className="mh">
+                  <span className="mht">{editItem ? `编辑模板：${editItem.name}` : '新建规则模板'}</span>
+                  <button className="btic" onClick={closeModal}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  {/* 名称 + 目标类型 */}
+                  <div className="frow">
+                    <div className="fg">
+                      <label className="fl">模板名称</label>
+                      <input
+                        className="fc"
+                        type="text"
+                        placeholder="my-template"
+                        value={form.name}
+                        disabled={!!editItem}
+                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="fg">
+                      <label className="fl">目标客户端</label>
+                      <select
+                        className="fc"
+                        value={form.target}
+                        onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
+                      >
+                        {TARGET_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 描述 */}
+                  <div className="fg">
+                    <label className="fl">描述 <span className="flo">可选</span></label>
+                    <textarea
+                      className="fc"
+                      placeholder="简要描述此模板的用途或适用场景..."
+                      rows={2}
+                      value={form.description}
+                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* 设为默认 Toggle */}
+                  <div className="fg">
+                    <Toggle
+                      checked={form.is_default}
+                      onChange={v => setForm(f => ({ ...f, is_default: v }))}
+                      label="设为默认模板"
+                    />
+                    <div className="fhint">默认模板将在配置策略未指定模板时自动使用</div>
+                  </div>
+
+                  {/* Monaco 编辑器 */}
+                  <div className="fg" style={{ marginBottom: 0 }}>
+                    <label className="fl">模板内容 <span className="flo">YAML 格式</span></label>
+                    <MonacoEditor
+                      value={editorContent}
+                      onChange={handleEditorChange}
+                    />
+                  </div>
+                </div>
+                <div className="mf">
+                  <button className="btn btn-s" onClick={closeModal}>取消</button>
+                  <button className="btn btn-p" onClick={handleSave} disabled={saving}>
+                    {saving && <span className="spin"></span>}
+                    {saving ? '保存中...' : (editItem ? '保存更改' : '创建模板')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 删除确认 Modal */}
+          {showDeleteModal && deleteTarget && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setDeleteTarget(null); } }}>
+              <div className="modal modal-sm">
+                <div className="mh">
+                  <span className="mht">确认删除</span>
+                  <button className="btic" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  <p style={{ fontSize: 14, color: 'var(--t1)', lineHeight: 1.6 }}>
+                    确定要删除模板 <strong>"{deleteTarget.name}"</strong> 吗？
+                  </p>
+                  <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
+                    此操作不可撤销，使用该模板的配置策略将回退至默认模板。
+                  </p>
+                </div>
+                <div className="mf">
+                  <button className="btn btn-s" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}>取消</button>
+                  <button className="btn btn-d" onClick={handleDelete} disabled={deleting}>
+                    {deleting && <span className="spin"></span>}
+                    {deleting ? '删除中...' : '确认删除'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Toast 通知 */}
+          <ToastContainer toasts={toasts} onRemove={removeToast} />
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>

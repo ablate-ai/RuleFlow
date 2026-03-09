@@ -1,398 +1,739 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuleFlow - 订阅源管理</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        figma: {
-                            bg: '#f5f5f5',
-                            card: '#ffffff',
-                            border: '#e5e5e5',
-                            text: '#333333',
-                            muted: '#666666',
-                            primary: '#18c865',
-                            primaryHover: '#15b25a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        * { box-sizing: border-box; }
-        body { background: #f5f5f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .input-base { background: #ffffff; border: 1px solid #e5e5e5; color: #333333; transition: all 0.15s ease; }
-        .input-base:focus { border-color: #18c865; outline: none; box-shadow: 0 0 0 3px rgba(24, 200, 101, 0.1); }
-        .btn-primary { background: #18c865; color: #ffffff; font-weight: 600; transition: all 0.15s ease; }
-        .btn-primary:hover:not(:disabled) { background: #15b25a; }
-        .btn-secondary { background: #ffffff; color: #333333; border: 1px solid #e5e5e5; transition: all 0.15s ease; }
-        .btn-secondary:hover { background: #f8f8f8; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuleFlow - 订阅源管理</title>
+  <!-- React 18 + Babel CDN，不引入 Tailwind -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* ===== 设计系统 ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+
+    :root {
+      --sw: 240px;
+      --sbg: #111827; --sho: rgba(255,255,255,0.05); --sab: rgba(24,200,101,0.12);
+      --st: #9ca3af; --sat: #18c865; --sbd: rgba(255,255,255,0.07);
+      --bg: #f3f4f6; --card: #fff; --bdr: #e5e7eb;
+      --t1: #111827; --t2: #6b7280; --t3: #9ca3af;
+      --grn: #18c865; --grnd: #15b25a; --grnbg: rgba(24,200,101,0.1);
+      --red: #ef4444; --redbg: #fef2f2; --redt: #991b1b;
+      --blu: #3b82f6; --blubg: #eff6ff; --blut: #1e40af;
+      --org: #f97316; --orgbg: #fff7ed; --orgt: #9a3412;
+      --pur: #8b5cf6; --purbg: #f5f3ff; --purt: #5b21b6;
+      --cyn: #06b6d4; --cynbg: #ecfeff; --cynt: #155e75;
+      --pnk: #ec4899; --pnkbg: #fdf2f8; --pnkt: #831843;
+      --sh1: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+      --sh2: 0 4px 6px -1px rgba(0,0,0,.07),0 2px 4px -1px rgba(0,0,0,.04);
+      --sh3: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+      --rs: 6px; --rm: 8px; --rl: 12px; --rxl: 16px; --rf: 9999px;
+    }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { position: fixed; top:0; left:0; bottom:0; width: var(--sw); background: var(--sbg); display: flex; flex-direction: column; border-right: 1px solid var(--sbd); z-index: 100; overflow-y: auto; }
+    .main { margin-left: var(--sw); flex: 1; padding: 28px 32px; min-width: 0; }
+    .sb-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--sbd); }
+    .sb-logo { width: 30px; height: 30px; background: var(--grn); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sb-logo svg { color: #fff; }
+    .sb-name { font-size: 16px; font-weight: 700; color: #fff; }
+    .sb-nav { padding: 12px 8px; flex: 1; }
+    .sb-sec { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px 8px; }
+    .nav-lnk { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; color: var(--st); text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: all .15s; }
+    .nav-lnk:hover { background: var(--sho); color: #fff; }
+    .nav-lnk.active { background: var(--sab); color: var(--sat); }
+    .nav-lnk svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .sb-foot { padding: 12px 16px; border-top: 1px solid var(--sbd); }
+    .sb-ftxt { font-size: 11px; color: var(--t3); }
+    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
+    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
+    .phr { display: flex; gap: 8px; align-items: center; }
+    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
+    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; }
+    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
+    .card-b { padding: 18px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
+    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
+    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
+    .btn-s:hover:not(:disabled) { background: #f9fafb; }
+    .btn-d { background: #fff; color: var(--red); border-color: #fecaca; }
+    .btn-d:hover:not(:disabled) { background: var(--redbg); }
+    .btn-g { background: transparent; color: var(--t2); border-color: transparent; }
+    .btn-g:hover:not(:disabled) { background: #f3f4f6; color: var(--t1); }
+    .btn-sm { padding: 5px 10px; font-size: 12.5px; }
+    .btn-sm svg { width: 13px; height: 13px; }
+    .btic { padding: 6px; border-radius: var(--rs); background: transparent; border: none; color: var(--t2); cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
+    .btic:hover { background: #f3f4f6; color: var(--t1); }
+    .btic.red:hover { background: var(--redbg); color: var(--red); }
+    .btic.blue:hover { background: var(--blubg); color: var(--blu); }
+    .btic.green:hover { background: var(--grnbg); color: var(--grn); }
+    .btic svg { width: 15px; height: 15px; }
+    .fg { margin-bottom: 14px; }
+    .fl { display: block; font-size: 12.5px; font-weight: 500; color: var(--t1); margin-bottom: 5px; }
+    .flo { font-weight: 400; color: var(--t2); font-size: 11px; margin-left: 4px; }
+    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
+    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
+    .fc:disabled { background: #f9fafb; color: var(--t2); }
+    .fc::placeholder { color: var(--t3); }
+    textarea.fc { resize: vertical; min-height: 72px; line-height: 1.5; }
+    select.fc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px; cursor: pointer; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .fhint { font-size: 11.5px; color: var(--t2); margin-top: 4px; }
+    .tg { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
+    .tg input { display: none; }
+    .tg-tr { width: 34px; height: 18px; background: var(--bdr); border-radius: 99px; position: relative; transition: background .2s; flex-shrink: 0; cursor: pointer; }
+    .tg input:checked + .tg-tr { background: var(--grn); }
+    .tg-th { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+    .tg input:checked ~ .tg-th { transform: translateX(16px); }
+    .tg-lb { font-size: 13px; color: var(--t1); user-select: none; }
+    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
+    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
+    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
+    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
+    .bdg-gray { background: #f3f4f6; color: #4b5563; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
+    .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
+    .modal-sm { max-width: 420px; } .modal-md { max-width: 540px; } .modal-lg { max-width: 680px; }
+    .mh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
+    .mht { font-size: 16px; font-weight: 600; color: var(--t1); }
+    .mb { padding: 22px; }
+    .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--bdr); background: #f9fafb; border-radius: 0 0 var(--rxl) var(--rxl); }
+    .tc { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-radius: var(--rl); font-size: 13.5px; font-weight: 500; box-shadow: var(--sh3); min-width: 260px; max-width: 380px; pointer-events: all; animation: si .25s ease; }
+    .toast svg { flex-shrink: 0; }
+    .t-ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .t-err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .item { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; box-shadow: var(--sh1); transition: box-shadow .15s; }
+    .item:hover { box-shadow: var(--sh2); }
+    .item-l { flex: 1; min-width: 0; }
+    .item-name { font-size: 14.5px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .item-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; line-height: 1.5; }
+    .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
+    .item-mi { display: flex; align-items: center; gap: 3px; }
+    .item-mi svg { width: 11px; height: 11px; }
+    .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
+    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
+    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
+    .empty-d { font-size: 13px; color: var(--t2); max-width: 280px; line-height: 1.6; }
+    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
+    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes rot { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
 
-        const Icons = {
-            Plus: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-            ),
-            Edit: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-            ),
-            Trash: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-            ),
-            Refresh: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                </svg>
-            ),
-            Sync: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                    <path d="M3 3v5h5"/>
-                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-                    <path d="M16 21h5v-5"/>
-                </svg>
-            ),
-            X: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-                </svg>
-            ),
-            Save: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                </svg>
-            ),
-            Check: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                </svg>
-            ),
-        };
+    // ===== API 工具 =====
+    const api = {
+      async get(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async post(url, data) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async put(url, data) {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+      async delete(url) {
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+    };
 
-        const api = {
-            async get(url) {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(await res.text());
-                return res.json();
-            },
-            async post(url, data) {
-                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-                if (!res.ok) throw new Error(await res.text());
-                return res.json();
-            },
-            async put(url, data) {
-                const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-                if (!res.ok) throw new Error(await res.text());
-                return res.json();
-            },
-            async delete(url) {
-                const res = await fetch(url, { method: 'DELETE' });
-                if (!res.ok) throw new Error(await res.text());
-                return res.json();
-            },
-        };
+    // ===== 图标组件 =====
+    const IcoPlus = () => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    );
+    const IcoEdit = () => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    );
+    const IcoTrash = () => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      </svg>
+    );
+    const IcoSync = () => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+        <path d="M16 21h5v-5"/>
+      </svg>
+    );
+    const IcoRefresh = () => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    );
+    const IcoX = () => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+      </svg>
+    );
+    const IcoHome = () => (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    );
+    const IcoRSS = () => (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
+      </svg>
+    );
+    const IcoServer = () => (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+        <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+      </svg>
+    );
+    const IcoSettings = () => (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    );
+    const IcoFile = () => (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+    );
 
-        const Header = ({ currentPage }) => {
-            const menuItems = [
-                { id: 'subscriptions', label: '订阅源管理', href: '/web/subscriptions.html' },
-                { id: 'nodes', label: '节点管理', href: '/web/nodes.html' },
-                { id: 'configs', label: '配置生成', href: '/web/configs.html' },
-                { id: 'templates', label: '模板管理', href: '/web/templates.html' },
-            ];
+    // ===== 侧边栏组件 =====
+    const Sidebar = ({ active }) => {
+      const links = [
+        { id: 'home',      label: '控制台',   href: '/',                        icon: <IcoHome /> },
+        { id: 'subs',      label: '订阅源',   href: '/web/subscriptions.html',  icon: <IcoRSS /> },
+        { id: 'nodes',     label: '节点管理', href: '/web/nodes.html',          icon: <IcoServer /> },
+        { id: 'configs',   label: '配置策略', href: '/web/configs.html',        icon: <IcoSettings /> },
+        { id: 'templates', label: '规则模板', href: '/web/templates.html',      icon: <IcoFile /> },
+      ];
+      return (
+        <aside className="sidebar">
+          <div className="sb-brand">
+            <div className="sb-logo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+            </div>
+            <span className="sb-name">RuleFlow</span>
+          </div>
+          <div className="sb-nav">
+            <div className="sb-sec">主菜单</div>
+            {links.map(l => (
+              <a key={l.id} href={l.href} className={`nav-lnk${active === l.id ? ' active' : ''}`}>
+                {l.icon}{l.label}
+              </a>
+            ))}
+          </div>
+          <div className="sb-foot">
+            <span className="sb-ftxt">Trojan Subscription Converter</span>
+          </div>
+        </aside>
+      );
+    };
 
-            return (
-                <div className="bg-white border-b border-gray-200">
-                    <div className="max-w-4xl mx-auto px-6 py-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <h1 className="text-xl font-semibold text-gray-900">RuleFlow</h1>
-                                <p className="text-sm text-gray-600">订阅转换服务</p>
-                            </div>
-                            <a href="/" className="text-sm text-gray-600 hover:text-gray-900">返回首页</a>
-                        </div>
-                        <div className="flex gap-6">
-                            {menuItems.map((item) => (
-                                <a key={item.id} href={item.href}
-                                    className={`pb-2 text-sm font-medium ${
-                                        currentPage === item.id
-                                            ? 'border-b-2 border-green-500 text-green-600'
-                                            : 'text-gray-600 hover:text-gray-900'
-                                    }`}>
-                                    {item.label}
-                                </a>
-                            ))}
-                        </div>
-                    </div>
+    // ===== Toggle 开关组件 =====
+    const Toggle = ({ checked, onChange, label }) => (
+      <label className="tg">
+        <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+        <div className="tg-tr"><div className="tg-th"></div></div>
+        {label && <span className="tg-lb">{label}</span>}
+      </label>
+    );
+
+    // ===== Toast 通知容器 =====
+    const ToastContainer = ({ toasts }) => (
+      <div className="tc">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast ${t.type === 'ok' ? 't-ok' : 't-err'}`}>
+            {t.type === 'ok'
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            }
+            {t.msg}
+          </div>
+        ))}
+      </div>
+    );
+
+    // ===== 表单默认值 =====
+    const defaultForm = {
+      name: '',
+      url: '',
+      enabled: true,
+      auto_refresh: false,
+      refresh_interval: 3600,
+      description: '',
+    };
+
+    // ===== 主应用组件 =====
+    const App = () => {
+      const [subs, setSubs]               = useState([]);          // 订阅列表
+      const [loading, setLoading]         = useState(true);        // 列表加载中
+      const [modal, setModal]             = useState(null);        // null | 'create' | 'edit'
+      const [editItem, setEditItem]       = useState(null);        // 当前编辑的订阅对象
+      const [form, setForm]               = useState(defaultForm); // 表单数据
+      const [saving, setSaving]           = useState(false);       // 保存中
+      const [syncing, setSyncing]         = useState(null);        // 正在同步的订阅名
+      const [refreshing, setRefreshing]   = useState(null);        // 正在刷新缓存的订阅名
+      const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅名（显示确认框）
+      const [deleting, setDeleting]       = useState(false);       // 删除中
+      const [toasts, setToasts]           = useState([]);          // Toast 列表
+
+      // 添加 Toast 通知
+      const addToast = useCallback((msg, type = 'ok') => {
+        const id = Date.now();
+        setToasts(t => [...t, { id, msg, type }]);
+        setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+      }, []);
+
+      // 加载订阅列表
+      const loadSubs = useCallback(async () => {
+        try {
+          const data = await api.get('/api/subscriptions');
+          setSubs(data.data || []);
+        } catch (err) {
+          addToast('加载订阅列表失败：' + err.message, 'err');
+        } finally {
+          setLoading(false);
+        }
+      }, [addToast]);
+
+      useEffect(() => { loadSubs(); }, [loadSubs]);
+
+      // 打开新建弹窗
+      const openCreate = () => {
+        setForm(defaultForm);
+        setEditItem(null);
+        setModal('create');
+      };
+
+      // 打开编辑弹窗
+      const openEdit = (sub) => {
+        setForm({
+          name: sub.name,
+          url: sub.url,
+          enabled: sub.enabled,
+          auto_refresh: sub.auto_refresh,
+          refresh_interval: sub.refresh_interval || 3600,
+          description: sub.description || '',
+        });
+        setEditItem(sub);
+        setModal('edit');
+      };
+
+      // 关闭弹窗
+      const closeModal = () => {
+        setModal(null);
+        setEditItem(null);
+        setForm(defaultForm);
+      };
+
+      // 提交表单（新建或更新）
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+          if (modal === 'edit') {
+            await api.put(`/api/subscriptions/${form.name}`, form);
+            addToast('订阅源更新成功');
+          } else {
+            await api.post('/api/subscriptions', form);
+            addToast('订阅源创建成功');
+          }
+          closeModal();
+          await loadSubs();
+        } catch (err) {
+          addToast((modal === 'edit' ? '更新失败：' : '创建失败：') + err.message, 'err');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      // 同步节点
+      const handleSync = async (name) => {
+        setSyncing(name);
+        try {
+          const result = await api.post(`/api/subscriptions/${name}/sync`, {});
+          addToast(`同步成功，获取到 ${result.data?.node_count || 0} 个节点`);
+          await loadSubs();
+        } catch (err) {
+          addToast('同步失败：' + err.message, 'err');
+        } finally {
+          setSyncing(null);
+        }
+      };
+
+      // 清除缓存
+      const handleRefreshCache = async (name) => {
+        setRefreshing(name);
+        try {
+          await api.delete(`/api/cache/${name}`);
+          addToast('缓存已清除');
+          await loadSubs();
+        } catch (err) {
+          addToast('清除缓存失败：' + err.message, 'err');
+        } finally {
+          setRefreshing(null);
+        }
+      };
+
+      // 确认删除
+      const handleDelete = async () => {
+        if (!confirmDelete) return;
+        setDeleting(true);
+        try {
+          await api.delete(`/api/subscriptions/${confirmDelete}`);
+          addToast('订阅源已删除');
+          setConfirmDelete(null);
+          await loadSubs();
+        } catch (err) {
+          addToast('删除失败：' + err.message, 'err');
+        } finally {
+          setDeleting(false);
+        }
+      };
+
+      // 格式化时间
+      const fmtTime = (t) => {
+        if (!t) return '从未';
+        try { return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+        catch { return '未知'; }
+      };
+
+      return (
+        <div className="app">
+          <Sidebar active="subs" />
+
+          <main className="main">
+            {/* Toast 容器 */}
+            <ToastContainer toasts={toasts} />
+
+            {/* 页头 */}
+            <div className="ph">
+              <div>
+                <div className="pt">订阅源管理</div>
+                <div className="ps">管理代理节点订阅源，支持自动刷新与节点同步</div>
+              </div>
+              <div className="phr">
+                <button className="btn btn-p" onClick={openCreate}>
+                  <IcoPlus />新建订阅
+                </button>
+              </div>
+            </div>
+
+            {/* 订阅列表区域 */}
+            {loading ? (
+              /* 加载状态 */
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--t3)' }}>
+                <div className="spin" style={{ width: 24, height: 24, margin: '0 auto 12px', borderColor: 'var(--grn)', borderTopColor: 'transparent' }}></div>
+                <div style={{ fontSize: 13 }}>加载中...</div>
+              </div>
+            ) : subs.length === 0 ? (
+              /* 空状态 */
+              <div className="empty">
+                <div className="empty-ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
+                  </svg>
                 </div>
-            );
-        };
+                <div className="empty-t">还没有订阅源</div>
+                <div className="empty-d">点击"新建订阅"添加第一个订阅源，开始管理你的代理节点。</div>
+                <button className="btn btn-p" style={{ marginTop: 16 }} onClick={openCreate}>
+                  <IcoPlus />新建订阅
+                </button>
+              </div>
+            ) : (
+              /* 列表 */
+              <div>
+                {subs.map(sub => (
+                  <div key={sub.id || sub.name} className="item">
+                    <div className="item-l">
+                      {/* 名称与状态徽章 */}
+                      <div className="item-name">
+                        {sub.name}
+                        {sub.enabled
+                          ? <span className="bdg bdg-g"><span className="bdg-dot"></span>启用</span>
+                          : <span className="bdg bdg-gray">停用</span>
+                        }
+                        {sub.auto_refresh && (
+                          <span className="bdg bdg-b">
+                            <span className="bdg-dot"></span>
+                            自动刷新 {sub.refresh_interval ? `${sub.refresh_interval}s` : ''}
+                          </span>
+                        )}
+                      </div>
 
-        const SubscriptionManager = () => {
-            const [subscriptions, setSubscriptions] = useState([]);
-            const [editing, setEditing] = useState(null);
-            const [form, setForm] = useState({
-                name: '',
-                url: '',
-                enabled: true,
-                auto_refresh: false,
-                refresh_interval: 3600,
-                description: ''
-            });
-            const [loading, setLoading] = useState(false);
-            const [refreshing, setRefreshing] = useState(null);
-            const [syncing, setSyncing] = useState(null);
-            const [error, setError] = useState(null);
-            const [success, setSuccess] = useState(null);
+                      {/* 描述 */}
+                      {sub.description && (
+                        <div className="item-desc">{sub.description}</div>
+                      )}
 
-            const loadSubscriptions = async () => {
-                try {
-                    const data = await api.get('/api/subscriptions');
-                    setSubscriptions(data.data || []);
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            useEffect(() => { loadSubscriptions(); }, []);
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError(null);
-                setSuccess(null);
-                try {
-                    if (editing) {
-                        await api.put(`/api/subscriptions/${form.name}`, form);
-                        setSuccess('订阅更新成功');
-                    } else {
-                        await api.post('/api/subscriptions', form);
-                        setSuccess('订阅创建成功');
-                    }
-                    setEditing(null);
-                    setForm({
-                        name: '',
-                        url: '',
-                        enabled: true,
-                        auto_refresh: false,
-                        refresh_interval: 3600,
-                        description: ''
-                    });
-                    loadSubscriptions();
-                    setTimeout(() => setSuccess(null), 3000);
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleDelete = async (name) => {
-                if (!confirm('确定要删除这个订阅源吗？这将同时删除该订阅的所有节点。')) return;
-                try {
-                    await api.delete(`/api/subscriptions/${name}`);
-                    loadSubscriptions();
-                } catch (err) {
-                    setError(err.message);
-                }
-            };
-
-            const handleSync = async (name) => {
-                setSyncing(name);
-                setError(null);
-                try {
-                    const result = await api.post(`/api/subscriptions/${name}/sync`, {});
-                    setSuccess(`订阅同步成功，获取到 ${result.data?.node_count || 0} 个节点`);
-                    loadSubscriptions();
-                    setTimeout(() => setSuccess(null), 3000);
-                } catch (err) {
-                    setError(`同步失败: ${err.message}`);
-                } finally {
-                    setSyncing(null);
-                }
-            };
-
-            const handleRefreshCache = async (name) => {
-                setRefreshing(name);
-                try {
-                    await api.delete(`/api/cache/${name}`);
-                    await loadSubscriptions();
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setRefreshing(null);
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-gray-50">
-                    <Header currentPage="subscriptions" />
-
-                    {error && (
-                        <div className="max-w-4xl mx-auto px-6 mt-4">
-                            <div className="p-4 bg-red-50 border border-red-200 rounded flex items-center justify-between">
-                                <span className="text-red-700 text-sm">{error}</span>
-                                <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700"><Icons.X /></button>
-                            </div>
-                        </div>
-                    )}
-
-                    {success && (
-                        <div className="max-w-4xl mx-auto px-6 mt-4">
-                            <div className="p-4 bg-green-50 border border-green-200 rounded flex items-center justify-between">
-                                <span className="text-green-700 text-sm flex items-center gap-2">
-                                    <Icons.Check />{success}
-                                </span>
-                                <button onClick={() => setSuccess(null)} className="text-green-500 hover:text-green-700"><Icons.X /></button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                            <h2 className="text-lg font-semibold mb-4">{editing ? '编辑订阅源' : '新建订阅源'}</h2>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">名称</label>
-                                    <input type="text" required disabled={!!editing} value={form.name}
-                                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                        className="w-full px-3 py-2 input-base rounded text-sm" placeholder="my-subscription" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">订阅地址</label>
-                                    <input type="url" required value={form.url}
-                                        onChange={(e) => setForm({ ...form, url: e.target.value })}
-                                        className="w-full px-3 py-2 input-base rounded text-sm" placeholder="https://..." />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">描述</label>
-                                        <textarea value={form.description}
-                                            onChange={(e) => setForm({ ...form, description: e.target.value })}
-                                            className="w-full px-3 py-2 input-base rounded text-sm" rows="2" placeholder="可选描述" />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-4">
-                                            <label className="flex items-center gap-2">
-                                                <input type="checkbox" checked={form.enabled}
-                                                    onChange={(e) => setForm({ ...form, enabled: e.target.checked })} className="w-4 h-4" />
-                                                <span className="text-sm">启用订阅</span>
-                                            </label>
-                                            <label className="flex items-center gap-2">
-                                                <input type="checkbox" checked={form.auto_refresh}
-                                                    onChange={(e) => setForm({ ...form, auto_refresh: e.target.checked })} className="w-4 h-4" />
-                                                <span className="text-sm">自动刷新</span>
-                                            </label>
-                                        </div>
-                                        {form.auto_refresh && (
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1">刷新间隔（秒）</label>
-                                                <input type="number" value={form.refresh_interval}
-                                                    onChange={(e) => setForm({ ...form, refresh_interval: parseInt(e.target.value) || 3600 })}
-                                                    className="w-full px-3 py-2 input-base rounded text-sm" placeholder="3600" min="60" />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <button type="submit" disabled={loading}
-                                        className="flex items-center gap-2 px-4 py-2 btn-primary rounded text-sm">
-                                        <Icons.Save />{loading ? '保存中...' : (editing ? '更新' : '创建')}
-                                    </button>
-                                    {editing && (
-                                        <button type="button" onClick={() => {
-                                            setEditing(null);
-                                            setForm({ name: '', url: '', enabled: true, auto_refresh: false, refresh_interval: 3600, description: '' });
-                                            setError(null);
-                                        }}
-                                            className="px-4 py-2 btn-secondary rounded text-sm">取消</button>
-                                    )}
-                                </div>
-                            </form>
-                        </div>
-
-                        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                            <div className="p-4 border-b flex items-center justify-between">
-                                <h3 className="font-semibold">订阅源列表</h3>
-                                <span className="text-sm text-gray-500">{subscriptions.length} 个订阅源</span>
-                            </div>
-                            <div className="divide-y">
-                                {subscriptions.map((sub) => (
-                                    <div key={sub.id} className="p-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-medium">{sub.name}</span>
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${sub.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                        {sub.enabled ? '启用' : '禁用'}
-                                                    </span>
-                                                    {sub.auto_refresh && (
-                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                                                            自动刷新 ({sub.refresh_interval}s)
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {sub.description && <p className="text-sm text-gray-600 mb-2">{sub.description}</p>}
-                                                <div className="text-xs text-gray-500">
-                                                    节点数: {sub.node_count || 0} | 最后更新: {sub.last_fetched_at ? new Date(sub.last_fetched_at).toLocaleString() : '从未'}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => handleSync(sub.name)} disabled={syncing === sub.name}
-                                                    className="p-2 hover:bg-blue-50 rounded text-blue-600" title="同步节点">
-                                                    {syncing === sub.name ? (
-                                                        <div className="animate-spin w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full" />
-                                                    ) : <Icons.Sync />}
-                                                </button>
-                                                <button onClick={() => handleRefreshCache(sub.name)} disabled={refreshing === sub.name}
-                                                    className="p-2 hover:bg-gray-100 rounded" title="清除缓存">
-                                                    {refreshing === sub.name ? (
-                                                        <div className="animate-spin w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                                                    ) : <Icons.Refresh />}
-                                                </button>
-                                                <button onClick={() => { setEditing(sub); setForm({ ...sub }); setError(null); }}
-                                                    className="p-2 hover:bg-gray-100 rounded" title="编辑"><Icons.Edit /></button>
-                                                <button onClick={() => handleDelete(sub.name)} className="p-2 hover:bg-red-50 rounded text-red-500" title="删除">
-                                                    <Icons.Trash />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {subscriptions.length === 0 && (
-                                    <div className="p-8 text-center text-gray-500">暂无订阅源，创建一个开始使用吧！</div>
-                                )}
-                            </div>
-                        </div>
+                      {/* 元信息：节点数、最后更新 */}
+                      <div className="item-meta">
+                        <span className="item-mi">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                            <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+                          </svg>
+                          {sub.node_count || 0} 个节点
+                        </span>
+                        <span className="item-mi">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                          </svg>
+                          最后同步：{fmtTime(sub.last_fetched_at)}
+                        </span>
+                        {/* 订阅 URL 截断显示 */}
+                        <span className="item-mi" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                          </svg>
+                          {sub.url}
+                        </span>
+                      </div>
                     </div>
-                </div>
-            );
-        };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<SubscriptionManager />);
-    </script>
+                    {/* 操作按钮 */}
+                    <div className="item-r">
+                      {/* 同步节点 */}
+                      <button
+                        className="btic blue"
+                        title="同步节点"
+                        disabled={syncing === sub.name}
+                        onClick={() => handleSync(sub.name)}
+                      >
+                        {syncing === sub.name
+                          ? <span className="spin" style={{ borderColor: 'var(--blu)', borderTopColor: 'transparent' }}></span>
+                          : <IcoSync />
+                        }
+                      </button>
+
+                      {/* 清除缓存 */}
+                      <button
+                        className="btic"
+                        title="清除缓存"
+                        disabled={refreshing === sub.name}
+                        onClick={() => handleRefreshCache(sub.name)}
+                      >
+                        {refreshing === sub.name
+                          ? <span className="spin"></span>
+                          : <IcoRefresh />
+                        }
+                      </button>
+
+                      {/* 编辑 */}
+                      <button
+                        className="btic"
+                        title="编辑"
+                        onClick={() => openEdit(sub)}
+                      >
+                        <IcoEdit />
+                      </button>
+
+                      {/* 删除 */}
+                      <button
+                        className="btic red"
+                        title="删除"
+                        onClick={() => setConfirmDelete(sub.name)}
+                      >
+                        <IcoTrash />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
+
+          {/* ===== 新建/编辑 Modal ===== */}
+          {modal && (
+            <div className="overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+              <div className="modal modal-md">
+                {/* 弹窗头部 */}
+                <div className="mh">
+                  <span className="mht">{modal === 'edit' ? '编辑订阅源' : '新建订阅源'}</span>
+                  <button className="btic" onClick={closeModal}><IcoX /></button>
+                </div>
+
+                {/* 表单内容 */}
+                <form onSubmit={handleSubmit}>
+                  <div className="mb">
+                    {/* 名称 */}
+                    <div className="fg">
+                      <label className="fl">
+                        名称
+                        {modal === 'edit' && <span className="flo">创建后不可修改</span>}
+                      </label>
+                      <input
+                        className="fc"
+                        type="text"
+                        required
+                        disabled={modal === 'edit'}
+                        placeholder="例如：my-subscription"
+                        value={form.name}
+                        onChange={e => setForm({ ...form, name: e.target.value })}
+                      />
+                    </div>
+
+                    {/* 订阅地址 */}
+                    <div className="fg">
+                      <label className="fl">订阅地址</label>
+                      <input
+                        className="fc"
+                        type="url"
+                        required
+                        placeholder="https://..."
+                        value={form.url}
+                        onChange={e => setForm({ ...form, url: e.target.value })}
+                      />
+                    </div>
+
+                    {/* 描述 */}
+                    <div className="fg">
+                      <label className="fl">
+                        描述
+                        <span className="flo">可选</span>
+                      </label>
+                      <textarea
+                        className="fc"
+                        placeholder="对该订阅源的简要说明..."
+                        value={form.description}
+                        onChange={e => setForm({ ...form, description: e.target.value })}
+                      />
+                    </div>
+
+                    {/* 启用 + 自动刷新 Toggle */}
+                    <div className="frow" style={{ marginBottom: 14 }}>
+                      <div>
+                        <label className="fl">状态</label>
+                        <Toggle
+                          checked={form.enabled}
+                          onChange={v => setForm({ ...form, enabled: v })}
+                          label="启用订阅"
+                        />
+                      </div>
+                      <div>
+                        <label className="fl">自动刷新</label>
+                        <Toggle
+                          checked={form.auto_refresh}
+                          onChange={v => setForm({ ...form, auto_refresh: v })}
+                          label="开启自动刷新"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 刷新间隔（仅在自动刷新开启时显示） */}
+                    {form.auto_refresh && (
+                      <div className="fg">
+                        <label className="fl">刷新间隔<span className="flo">秒</span></label>
+                        <input
+                          className="fc"
+                          type="number"
+                          min="60"
+                          placeholder="3600"
+                          value={form.refresh_interval}
+                          onChange={e => setForm({ ...form, refresh_interval: parseInt(e.target.value) || 3600 })}
+                        />
+                        <div className="fhint">最短 60 秒，推荐 3600 秒（1 小时）</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 弹窗底部操作 */}
+                  <div className="mf">
+                    <button type="button" className="btn btn-s" onClick={closeModal}>取消</button>
+                    <button type="submit" className="btn btn-p" disabled={saving}>
+                      {saving && <span className="spin" style={{ borderColor: '#fff', borderTopColor: 'transparent' }}></span>}
+                      {saving ? '保存中...' : (modal === 'edit' ? '保存修改' : '创建订阅')}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ===== 删除确认 Modal ===== */}
+          {confirmDelete && (
+            <div className="overlay" onClick={e => e.target === e.currentTarget && !deleting && setConfirmDelete(null)}>
+              <div className="modal modal-sm">
+                <div className="mh">
+                  <span className="mht">确认删除</span>
+                  <button className="btic" onClick={() => !deleting && setConfirmDelete(null)} disabled={deleting}>
+                    <IcoX />
+                  </button>
+                </div>
+                <div className="mb">
+                  <p style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.7 }}>
+                    确定要删除订阅源 <strong style={{ color: 'var(--t1)' }}>{confirmDelete}</strong> 吗？
+                    此操作将同时删除该订阅的所有节点，且<strong style={{ color: 'var(--red)' }}>不可恢复</strong>。
+                  </p>
+                </div>
+                <div className="mf">
+                  <button
+                    className="btn btn-s"
+                    onClick={() => setConfirmDelete(null)}
+                    disabled={deleting}
+                  >
+                    取消
+                  </button>
+                  <button
+                    className="btn btn-d"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                  >
+                    {deleting && <span className="spin" style={{ borderColor: 'var(--red)', borderTopColor: 'transparent' }}></span>}
+                    {deleting ? '删除中...' : '确认删除'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // 挂载 React 应用
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
