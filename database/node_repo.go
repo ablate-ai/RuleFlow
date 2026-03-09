@@ -19,6 +19,7 @@ type Node struct {
 	Config       map[string]interface{} `json:"config"`
 	Source       string                 `json:"source"`
 	SourceID     *int                   `json:"source_id"`
+	SourceName   string                 `json:"source_name"` // 关联查询得到的订阅名称
 	Enabled      bool                   `json:"enabled"`
 	Tags         []string               `json:"tags"`
 	CreatedAt    time.Time              `json:"created_at"`
@@ -80,10 +81,12 @@ func (r *NodeRepo) Create(ctx context.Context, node *Node) error {
 // GetByID 根据 ID 获取节点
 func (r *NodeRepo) GetByID(ctx context.Context, id int) (*Node, error) {
 	query := `
-		SELECT id, name, protocol, server, port, config, source, source_id,
-		       enabled, tags, created_at, updated_at, last_synced_at
-		FROM nodes
-		WHERE id = $1
+		SELECT n.id, n.name, n.protocol, n.server, n.port, n.config, n.source, n.source_id,
+		       COALESCE(s.name, '') AS source_name,
+		       n.enabled, n.tags, n.created_at, n.updated_at, n.last_synced_at
+		FROM nodes n
+		LEFT JOIN subscriptions s ON n.source_id = s.id
+		WHERE n.id = $1
 	`
 
 	node := &Node{}
@@ -96,6 +99,7 @@ func (r *NodeRepo) GetByID(ctx context.Context, id int) (*Node, error) {
 		&node.Config,
 		&node.Source,
 		&node.SourceID,
+		&node.SourceName,
 		&node.Enabled,
 		&node.Tags,
 		&node.CreatedAt,
@@ -116,9 +120,11 @@ func (r *NodeRepo) GetByID(ctx context.Context, id int) (*Node, error) {
 // List 根据筛选条件列出节点
 func (r *NodeRepo) List(ctx context.Context, filter NodeFilter) ([]Node, error) {
 	query := `
-		SELECT id, name, protocol, server, port, config, source, source_id,
-		       enabled, tags, created_at, updated_at, last_synced_at
-		FROM nodes
+		SELECT n.id, n.name, n.protocol, n.server, n.port, n.config, n.source, n.source_id,
+		       COALESCE(s.name, '') AS source_name,
+		       n.enabled, n.tags, n.created_at, n.updated_at, n.last_synced_at
+		FROM nodes n
+		LEFT JOIN subscriptions s ON n.source_id = s.id
 		WHERE 1=1
 	`
 	args := []interface{}{}
@@ -126,35 +132,35 @@ func (r *NodeRepo) List(ctx context.Context, filter NodeFilter) ([]Node, error) 
 
 	// 按来源筛选
 	if filter.Source != "" {
-		query += fmt.Sprintf(" AND source = $%d", argPos)
+		query += fmt.Sprintf(" AND n.source = $%d", argPos)
 		args = append(args, filter.Source)
 		argPos++
 	}
 
 	// 按来源 ID 筛选
 	if filter.SourceID != nil {
-		query += fmt.Sprintf(" AND source_id = $%d", argPos)
+		query += fmt.Sprintf(" AND n.source_id = $%d", argPos)
 		args = append(args, *filter.SourceID)
 		argPos++
 	}
 
 	// 按协议筛选
 	if filter.Protocol != "" {
-		query += fmt.Sprintf(" AND protocol = $%d", argPos)
+		query += fmt.Sprintf(" AND n.protocol = $%d", argPos)
 		args = append(args, filter.Protocol)
 		argPos++
 	}
 
 	// 按启用状态筛选
 	if filter.Enabled != nil {
-		query += fmt.Sprintf(" AND enabled = $%d", argPos)
+		query += fmt.Sprintf(" AND n.enabled = $%d", argPos)
 		args = append(args, *filter.Enabled)
 		argPos++
 	}
 
 	// 按 ID 筛选
 	if len(filter.IDs) > 0 {
-		query += fmt.Sprintf(" AND id = ANY($%d)", argPos)
+		query += fmt.Sprintf(" AND n.id = ANY($%d)", argPos)
 		args = append(args, filter.IDs)
 		argPos++
 	}
@@ -166,14 +172,14 @@ func (r *NodeRepo) List(ctx context.Context, filter NodeFilter) ([]Node, error) 
 			if i > 0 {
 				query += " OR "
 			}
-			query += fmt.Sprintf(" $%d = ANY(tags)", argPos)
+			query += fmt.Sprintf(" $%d = ANY(n.tags)", argPos)
 			args = append(args, tag)
 			argPos++
 		}
 		query += ")"
 	}
 
-	query += " ORDER BY created_at DESC"
+	query += " ORDER BY n.created_at DESC"
 
 	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
@@ -193,6 +199,7 @@ func (r *NodeRepo) List(ctx context.Context, filter NodeFilter) ([]Node, error) 
 			&node.Config,
 			&node.Source,
 			&node.SourceID,
+			&node.SourceName,
 			&node.Enabled,
 			&node.Tags,
 			&node.CreatedAt,
