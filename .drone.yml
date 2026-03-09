@@ -14,10 +14,10 @@ steps:
 
   - name: build
     image: zot.ooxo.cc/golang:1.24.0-alpine
-    depends_on:
-      - clone
+    depends_on: [clone]
     commands:
-      - go build -ldflags="-s -w" -o ruleflow .
+      - apk add --no-cache make
+      - make build
 
   - name: build_docker
     image: zot.ooxo.cc/plugins/kaniko:latest
