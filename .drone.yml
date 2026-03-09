@@ -38,7 +38,7 @@ steps:
   - name: deploy
     image: zot.ooxo.cc/appleboy/drone-ssh
     depends_on:
-      - upload_manifest
+      - build_docker
     settings:
       host:
         from_secret: k8s_host
