@@ -37,10 +37,12 @@ go build -o ruleflow .
 # 复制环境变量配置文件
 cp .env.example .env
 
-# 编辑 .env 文件，配置数据库和 Redis 连接信息
+# 编辑 .env 文件，配置管理密码、数据库和 Redis 连接信息
 # 然后运行
 ./ruleflow
 ```
+
+如果设置了 `ADMIN_PASSWORD`，访问 `/web/*` 控制台页面时会先跳转到 `/login` 登录页，`/api/*` 在未登录时会返回 `401`。
 
 ### 自定义端口
 
@@ -153,6 +155,11 @@ sudo systemctl start redis
 ```
 
 ## 📡 API 接口
+
+当配置了 `ADMIN_PASSWORD` 后，除 `/sub`、`/sub/{name}`、`/config`、`/health` 外，控制台相关接口需要先登录：
+
+- `/web/*` 未登录时跳转到 `/login`
+- `/api/*` 未登录时返回 `401`
 
 ### GET /sub
 
@@ -343,44 +350,19 @@ curl -X DELETE "http://localhost:8080/api/cache"
 
 - `bcnkd4jv_full`（完整模板，含 `rule-providers`）
 
-### POST /convert
-
-转换 Trojan 节点为 Clash 配置。
-
-**请求体:**
-
-```json
-{
-  "urls": ["trojan://password@server:443?sni=server.com&name=节点名"]
-}
-```
-
-或使用订阅内容:
-
-```json
-{
-  "subscription": "base64编码的订阅内容或原始多行链接"
-}
-```
-
-**响应:**
-
-```json
-{
-  "config": "port: 7890\nproxies:\n...",
-  "count": 1
-}
-```
-
-**错误响应:**
-
-```json
-{
-  "error": "错误信息"
-}
-```
-
 ## ⚙️ 配置说明
+
+### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `PORT` | HTTP 服务端口 | `8080` |
+| `ADMIN_PASSWORD` | Web 控制台和管理 API 登录密码；为空时不启用鉴权 | 空 |
+| `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable` |
+| `REDIS_ADDR` | Redis 地址 | `localhost:6379` |
+| `REDIS_PASSWORD` | Redis 密码 | 空 |
+| `REDIS_DB` | Redis DB 编号 | `0` |
+| `CACHE_TTL_SECONDS` | 订阅缓存 TTL | `3600` |
 
 ### 默认端口
 
@@ -464,15 +446,16 @@ CMD ["./ruleflow"]
 ```bash
 docker build -t ruleflow .
 docker run -p 8080:8080 ruleflow
+
+# 启用控制台登录鉴权
+docker run -p 8080:8080 -e ADMIN_PASSWORD=change-me ruleflow
 ```
 
 ## 📦 项目结构
 
 ```
 RuleFlow/
-├── cmd/
-│   └── ruleflow/
-│       └── main.go             # 程序入口
+├── main.go                     # 程序入口
 ├── internal/
 │   └── app/                    # 核心转换逻辑和页面处理
 │       ├── handlers.go
@@ -482,25 +465,42 @@ RuleFlow/
 │       └── config_builder.go
 ├── config/                      # 配置管理
 │   └── config.go               # 配置结构和环境变量
-├── database/                    # 数据访问层
+├── database/                   # 数据访问层
 │   ├── database.go             # 数据库连接管理
-│   └── subscription_repo.go    # 订阅仓储
-├── cache/                       # 缓存层
+│   ├── config_policy_repo.go   # 配置策略仓储
+│   ├── node_repo.go            # 节点仓储
+│   ├── subscription_repo.go    # 订阅仓储
+│   └── template_repo.go        # 模板仓储
+├── cache/                      # 缓存层
 │   ├── redis.go                # Redis 客户端
 │   └── subscription_cache.go   # 订阅缓存
-├── services/                    # 业务逻辑层
-│   └── subscription_service.go # 订阅服务
-├── api/                         # API 处理器
+├── services/                   # 业务逻辑层
+│   ├── config_policy_service.go
+│   ├── node_service.go
+│   ├── subscription_service.go
+│   ├── subscription_sync_service.go
+│   └── template_service.go
+├── api/                        # API 处理器
 │   ├── handlers.go             # HTTP 处理器
 │   ├── middleware.go           # 中间件
 │   └── response.go             # 响应格式化
-├── migrations/                  # 数据库初始化脚本
+├── migrations/                 # 数据库初始化脚本
 │   └── init.sql
-├── web/                         # Web 静态文件
-├── rules/                       # 规则模板
-├── go.mod                       # Go 模块依赖
-├── .env.example                 # 环境变量示例
-└── README.md                    # 本文件
+├── web/                        # Web 静态文件
+│   ├── index.html
+│   ├── login.html
+│   ├── subscriptions.html
+│   ├── nodes.html
+│   ├── templates.html
+│   └── configs.html
+├── rules/                      # 规则模板
+│   └── template.yaml
+├── Makefile
+├── Dockerfile
+├── .drone.yml
+├── go.mod
+├── .env.example
+└── README.md
 ```
 
 ## 🧪 测试
