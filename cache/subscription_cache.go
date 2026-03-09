@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -30,7 +31,17 @@ const (
 	CacheKeyLock = "ruleflow:lock:fetch:%s"
 	// CacheKeyPolicyConfig 策略配置缓存键格式：ruleflow:policy:config:<token>
 	CacheKeyPolicyConfig = "ruleflow:policy:config:%s"
+	// CacheKeySubUserInfo 订阅流量信息缓存键格式：ruleflow:sub:userinfo:<name>
+	CacheKeySubUserInfo = "ruleflow:sub:userinfo:%s"
 )
+
+// UserInfo 订阅流量信息（来自响应头 Subscription-Userinfo）
+type UserInfo struct {
+	Upload   int64  `json:"upload"`
+	Download int64  `json:"download"`
+	Total    int64  `json:"total"`
+	Expire   *int64 `json:"expire,omitempty"`
+}
 
 // CachedConfig 缓存的配置数据
 type CachedConfig struct {
@@ -78,15 +89,48 @@ func (c *SubscriptionCache) DeleteConfig(ctx context.Context, name, target strin
 	return c.client.Delete(ctx, key)
 }
 
-// DeleteAll 删除所有相关缓存
-func (c *SubscriptionCache) DeleteAll(ctx context.Context, name string) error {
-	// 删除内容缓存
-	contentKey := fmt.Sprintf(CacheKeySubContent, name)
+// GetUserInfo 获取订阅流量信息
+func (c *SubscriptionCache) GetUserInfo(ctx context.Context, name string) (*UserInfo, error) {
+	key := fmt.Sprintf(CacheKeySubUserInfo, name)
+	data, err := c.client.Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	var info UserInfo
+	if err := json.Unmarshal([]byte(data), &info); err != nil {
+		return nil, fmt.Errorf("解析流量信息失败: %w", err)
+	}
+	return &info, nil
+}
 
-	// 删除所有目标的配置缓存
+// SetUserInfo 设置订阅流量信息（TTL 与 expire 时间戳对齐，若无则用默认 TTL）
+func (c *SubscriptionCache) SetUserInfo(ctx context.Context, name string, info *UserInfo) error {
+	key := fmt.Sprintf(CacheKeySubUserInfo, name)
+	data, err := json.Marshal(info)
+	if err != nil {
+		return fmt.Errorf("序列化流量信息失败: %w", err)
+	}
+	ttl := c.ttl
+	if info.Expire != nil {
+		remaining := time.Until(time.Unix(*info.Expire, 0))
+		if remaining > 0 {
+			ttl = remaining
+		}
+	}
+	return c.client.Set(ctx, key, string(data), ttl)
+}
+
+// DeleteUserInfo 删除订阅流量信息缓存
+func (c *SubscriptionCache) DeleteUserInfo(ctx context.Context, name string) error {
+	key := fmt.Sprintf(CacheKeySubUserInfo, name)
+	return c.client.Delete(ctx, key)
+}
+
+// DeleteAll 删除订阅相关缓存（不含流量信息，流量信息仅在删除订阅时清除）
+func (c *SubscriptionCache) DeleteAll(ctx context.Context, name string) error {
+	contentKey := fmt.Sprintf(CacheKeySubContent, name)
 	clashKey := fmt.Sprintf(CacheKeyConfig, name, "clash")
 	stashKey := fmt.Sprintf(CacheKeyConfig, name, "stash")
-
 	return c.client.Delete(ctx, contentKey, clashKey, stashKey)
 }
 

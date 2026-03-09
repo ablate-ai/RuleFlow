@@ -131,9 +131,19 @@ func (s *SubscriptionService) GetSubscription(ctx context.Context, name string) 
 	return s.repo.GetByName(ctx, name)
 }
 
-// ListSubscriptions 列出所有订阅
+// ListSubscriptions 列出所有订阅（附带流量信息）
 func (s *SubscriptionService) ListSubscriptions(ctx context.Context) ([]database.Subscription, error) {
-	return s.repo.List(ctx)
+	subs, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// 批量从 Redis 读取流量信息，失败不影响主流程
+	for i := range subs {
+		if info, err := s.cache.GetUserInfo(ctx, subs[i].Name); err == nil {
+			subs[i].UserInfo = info
+		}
+	}
+	return subs, nil
 }
 
 // UpdateSubscription 更新订阅
@@ -160,17 +170,17 @@ func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *datab
 		}
 	}
 
-	// 清除旧名称的缓存
+	// 清除旧名称的缓存（含关联的策略配置缓存）
 	_ = s.cache.DeleteAll(ctx, old.Name)
+	_ = s.cache.DeleteAllByPattern(ctx, "ruleflow:policy:config:*")
 
 	return s.repo.Update(ctx, sub)
 }
 
 // DeleteSubscription 删除订阅
 func (s *SubscriptionService) DeleteSubscription(ctx context.Context, name string) error {
-	// 清除相关缓存
 	_ = s.cache.DeleteAll(ctx, name)
-
+	_ = s.cache.DeleteUserInfo(ctx, name)
 	return s.repo.Delete(ctx, name)
 }
 
