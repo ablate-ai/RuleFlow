@@ -38,7 +38,7 @@ type Proxy struct {
 	TLS            bool        `yaml:"tls,omitempty"`
 	Alpn           []string    `yaml:"alpn,omitempty"`
 	Fingerprint    string      `yaml:"client-fingerprint,omitempty"`
-	Reality        *RealityCfg `yaml:"reality,omitempty"`
+	Reality        *RealityCfg `yaml:"reality-opts,omitempty"`
 	WSOpts         *WSOpts     `yaml:"ws-opts,omitempty"`
 	HTTPOpts       *HTTPOpts   `yaml:"http-opts,omitempty"`
 }
@@ -104,8 +104,8 @@ type VLESSOptions struct {
 }
 
 type RealityConfig struct {
-	PublicKey string
-	ShortID   string
+	PublicKey string `json:"public-key"`
+	ShortID   string `json:"short-id"`
 }
 
 type ShadowsocksOptions struct {
@@ -286,7 +286,10 @@ func addVLESSFields(proxy *Proxy, opts map[string]interface{}) {
 	if sni, ok := opts["sni"].(string); ok {
 		proxy.SNI = sni
 	}
+	// 兼容 URL 解析（"fingerprint"）和 Clash YAML 解析（"client-fingerprint"）两种 key
 	if fingerprint, ok := opts["fingerprint"].(string); ok {
+		proxy.Fingerprint = fingerprint
+	} else if fingerprint, ok := opts["client-fingerprint"].(string); ok {
 		proxy.Fingerprint = fingerprint
 	}
 	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
@@ -294,11 +297,35 @@ func addVLESSFields(proxy *Proxy, opts map[string]interface{}) {
 			Path: wsPath,
 		}
 	}
-	if reality, ok := opts["reality"].(*RealityConfig); ok && reality != nil {
-		proxy.Reality = &RealityCfg{
-			PublicKey: reality.PublicKey,
-			ShortID:   reality.ShortID,
+	// 兼容两种 key："reality"（vless:// URL 解析）和 "reality-opts"（Clash YAML 解析）
+	// 同时兼容两种类型：*RealityConfig 和 map[string]interface{}
+	for _, key := range []string{"reality", "reality-opts"} {
+		raw, exists := opts[key]
+		if !exists || raw == nil {
+			continue
 		}
+		switch r := raw.(type) {
+		case *RealityConfig:
+			if r.PublicKey != "" || r.ShortID != "" {
+				proxy.Reality = &RealityCfg{PublicKey: r.PublicKey, ShortID: r.ShortID}
+			}
+		case map[string]interface{}:
+			// 兼容两种 key 格式：
+			//   Clash YAML / 加 tag 后的 JSON: "public-key" / "short-id"
+			//   旧 DB 数据（无 tag，PascalCase）: "PublicKey" / "ShortID"
+			pk, _ := r["public-key"].(string)
+			if pk == "" {
+				pk, _ = r["PublicKey"].(string)
+			}
+			sid, _ := r["short-id"].(string)
+			if sid == "" {
+				sid, _ = r["ShortID"].(string)
+			}
+			if pk != "" || sid != "" {
+				proxy.Reality = &RealityCfg{PublicKey: pk, ShortID: sid}
+			}
+		}
+		break
 	}
 }
 

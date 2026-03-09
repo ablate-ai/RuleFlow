@@ -95,6 +95,29 @@ func TestParseVLESSNode(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "VLESS with REALITY",
+			url:  "vless://700229f2-3709-4fc5-8d8e-ae1af6ed8d58@154.31.116.16:45478?type=tcp&security=reality&pbk=Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM&fp=random&sni=music.apple.com&sid=0892831900b76d85&flow=xtls-rprx-vision#东京",
+			want: &ProxyNode{
+				Protocol: "vless",
+				Name:     "东京",
+				Server:   "154.31.116.16",
+				Port:     45478,
+				Options: map[string]interface{}{
+					"uuid":        "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+					"network":     "tcp",
+					"tls":         true,
+					"sni":         "music.apple.com",
+					"fingerprint": "random",
+					"flow":        "xtls-rprx-vision",
+					"reality": &RealityConfig{
+						PublicKey: "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
+						ShortID:   "0892831900b76d85",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "VLESS with WebSocket",
 			url:  "vless://uuid@example.com:443?type=ws&path=/ws#VLESSWS",
 			want: &ProxyNode{

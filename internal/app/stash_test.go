@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -243,4 +244,177 @@ func TestAdaptConfigForTarget(t *testing.T) {
 	if _, exists := cfg["allow-lan"]; exists {
 		t.Error("Stash 配置不应包含 allow-lan 字段")
 	}
+}
+
+// 测试 VLESS REALITY 节点的 YAML 输出字段名
+func TestVLESSRealityYAMLOutput(t *testing.T) {
+	proxy := &Proxy{
+		Name:    "东京",
+		Type:    "vless",
+		Server:  "154.31.116.16",
+		Port:    45478,
+		UUID:    "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+		Flow:    "xtls-rprx-vision",
+		Network: "tcp",
+		TLS:     true,
+		SNI:     "music.apple.com",
+		Fingerprint: "random",
+		Reality: &RealityCfg{
+			PublicKey: "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
+			ShortID:   "0892831900b76d85",
+		},
+	}
+
+	out, err := yaml.Marshal(proxy)
+	if err != nil {
+		t.Fatalf("yaml.Marshal() error = %v", err)
+	}
+	yamlStr := string(out)
+
+	// 必须输出 reality-opts，而不是 reality
+	if !strings.Contains(yamlStr, "reality-opts:") {
+		t.Errorf("YAML 输出缺少 reality-opts 字段，实际输出:\n%s", yamlStr)
+	}
+	if strings.Contains(yamlStr, "\nreality:") {
+		t.Errorf("YAML 输出不应包含 reality: 字段（应为 reality-opts:），实际输出:\n%s", yamlStr)
+	}
+}
+
+// 测试 addVLESSFields 能正确处理 Clash YAML 格式的 options（key 为 reality-opts / client-fingerprint）
+func TestAddVLESSFieldsFromClashYAML(t *testing.T) {
+	proxy := &Proxy{Name: "东京", Type: "vless", Server: "154.31.116.16", Port: 45478, UDP: true}
+	opts := map[string]interface{}{
+		"uuid":               "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+		"flow":               "xtls-rprx-vision",
+		"network":            "tcp",
+		"tls":                true,
+		"sni":                "music.apple.com",
+		"client-fingerprint": "random",
+		"reality-opts": map[string]interface{}{
+			"public-key": "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
+			"short-id":   "0892831900b76d85",
+		},
+	}
+	addVLESSFields(proxy, opts)
+
+	if proxy.Fingerprint != "random" {
+		t.Errorf("client-fingerprint 未映射，got %q", proxy.Fingerprint)
+	}
+	if proxy.Reality == nil {
+		t.Fatal("reality-opts 未映射，proxy.Reality 为 nil")
+	}
+	if proxy.Reality.PublicKey != "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM" {
+		t.Errorf("public-key 错误，got %q", proxy.Reality.PublicKey)
+	}
+	if proxy.Reality.ShortID != "0892831900b76d85" {
+		t.Errorf("short-id 错误，got %q", proxy.Reality.ShortID)
+	}
+}
+
+
+// 模拟完整手动导入路径：vless:// URL → DB JSON 往返 → 生成 YAML
+func TestVLESSManualImportFullPath(t *testing.T) {
+	nodeURL := "vless://700229f2-3709-4fc5-8d8e-ae1af6ed8d58@154.31.116.16:45478?type=tcp&security=reality&pbk=Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM&fp=random&sni=music.apple.com&sid=0892831900b76d85&spx=%2F&flow=xtls-rprx-vision#%E4%B8%9C%E4%BA%AC"
+
+	node, err := parseVLESSNode(nodeURL)
+	if err != nil {
+		t.Fatalf("parseVLESSNode error: %v", err)
+	}
+
+	// 模拟 DB JSON 往返（*RealityConfig 无 tag 时序列化为 PascalCase）
+	jsonBytes, _ := json.Marshal(node.Options)
+	var dbConfig map[string]interface{}
+	json.Unmarshal(jsonBytes, &dbConfig)
+
+	t.Logf("DB JSON: %s", jsonBytes)
+	t.Logf("DB Config reality: %#v", dbConfig["reality"])
+
+	proxyNodes := []*ProxyNode{{
+		Protocol: node.Protocol,
+		Name:     node.Name,
+		Server:   node.Server,
+		Port:     node.Port,
+		Options:  dbConfig,
+	}}
+
+	proxies, _ := buildProxies(proxyNodes)
+	p := proxies[0]
+
+	if p.Reality == nil {
+		t.Fatal("proxy.Reality 为 nil，DB 路径修复失败")
+	}
+	if p.Reality.PublicKey != "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM" {
+		t.Errorf("PublicKey 错误: %q", p.Reality.PublicKey)
+	}
+	if p.Reality.ShortID != "0892831900b76d85" {
+		t.Errorf("ShortID 错误: %q", p.Reality.ShortID)
+	}
+	t.Logf("Reality: %+v", p.Reality)
+}
+func TestAddVLESSFieldsFromDB(t *testing.T) {
+	proxy := &Proxy{Name: "东京", Type: "vless", Server: "154.31.116.16", Port: 45478}
+	opts := map[string]interface{}{
+		"uuid":    "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+		"network": "tcp",
+		"tls":     true,
+		"sni":     "music.apple.com",
+		"flow":    "xtls-rprx-vision",
+		// DB JSON 反序列化：*RealityConfig{} 无 tag 时序列化为 PascalCase
+		"reality": map[string]interface{}{
+			"PublicKey": "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
+			"ShortID":   "0892831900b76d85",
+		},
+	}
+	addVLESSFields(proxy, opts)
+
+	if proxy.Reality == nil {
+		t.Fatal("DB 路径: proxy.Reality 为 nil")
+	}
+	if proxy.Reality.PublicKey != "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM" {
+		t.Errorf("PublicKey 错误: %q", proxy.Reality.PublicKey)
+	}
+	if proxy.Reality.ShortID != "0892831900b76d85" {
+		t.Errorf("ShortID 错误: %q", proxy.Reality.ShortID)
+	}
+}
+func TestVLESSRealityEndToEnd(t *testing.T) {
+	clashYAML := `proxies:
+  - name: 东京
+    type: vless
+    server: 154.31.116.16
+    port: 45478
+    uuid: 700229f2-3709-4fc5-8d8e-ae1af6ed8d58
+    network: tcp
+    tls: true
+    udp: true
+    flow: xtls-rprx-vision
+    sni: music.apple.com
+    client-fingerprint: random
+    reality-opts:
+      public-key: Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM
+      short-id: "0892831900b76d85"
+`
+	nodes, err := parseClashYAML(clashYAML)
+	if err != nil || len(nodes) == 0 {
+		t.Fatalf("parseClashYAML failed: %v", err)
+	}
+
+	node := nodes[0]
+	t.Logf("options map: %#v", node.Options)
+
+	ro := node.Options["reality-opts"]
+	t.Logf("reality-opts type=%T value=%#v", ro, ro)
+
+	proxies, _ := buildProxies(nodes)
+	if len(proxies) == 0 {
+		t.Fatal("buildProxies returned empty")
+	}
+	p := proxies[0]
+	if p.Reality == nil {
+		t.Fatal("proxy.Reality is nil")
+	}
+	if p.Reality.PublicKey == "" {
+		t.Errorf("PublicKey 为空，options=%#v", node.Options)
+	}
+	t.Logf("Reality=%+v", p.Reality)
 }
