@@ -23,6 +23,11 @@ var (
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;:]*[A-Za-z]`)
 
+// ParseNodeURL 解析任意协议的节点 URL（导出版本）
+func ParseNodeURL(nodeURL string) (*ProxyNode, error) {
+	return parseNodeURL(nodeURL)
+}
+
 // parseNodeURL 解析任意协议的节点 URL
 func parseNodeURL(nodeURL string) (*ProxyNode, error) {
 	nodeURL = strings.TrimSpace(nodeURL)

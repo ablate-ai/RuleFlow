@@ -452,6 +452,62 @@
       );
     };
 
+    /* ===================== URL 批量导入 Modal ===================== */
+    const ImportModal = ({ onClose, onImported, addToast }) => {
+      const [content, setContent] = useState('');
+      const [importing, setImporting] = useState(false);
+
+      const handleImport = async () => {
+        if (!content.trim()) return;
+        setImporting(true);
+        try {
+          const result = await api.post('/api/nodes/import', { content });
+          const { created, errors } = result.data;
+          if (created > 0) addToast(`成功导入 ${created} 个节点`, 'ok');
+          if (errors && errors.length > 0) addToast(`${errors.length} 条解析失败`, 'err');
+          if (created > 0) { onImported(); onClose(); }
+        } catch (err) {
+          addToast('导入失败：' + err.message, 'err');
+        } finally {
+          setImporting(false);
+        }
+      };
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="mh">
+              <span className="mht">URL 批量导入</span>
+              <button className="btic" onClick={onClose}><IcoX /></button>
+            </div>
+            <div className="mb">
+              <div className="fg">
+                <label className="fl">
+                  节点链接
+                  <span className="flo">每行一条，支持 ss/vless/vmess/trojan/hysteria2/tuic</span>
+                </label>
+                <textarea
+                  className="fc"
+                  rows="10"
+                  placeholder={"ss://YWVzLTI1Ni1nY206...\nvless://700229f2-...\ntrojan://password@..."}
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  style={{fontFamily: 'monospace', fontSize: 12}}
+                />
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn btn-s" onClick={onClose}>取消</button>
+              <button className="btn btn-p" onClick={handleImport} disabled={importing || !content.trim()}>
+                {importing && <span className="spin"></span>}
+                {importing ? '导入中...' : '开始导入'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     /* ===================== 主应用 ===================== */
     const App = () => {
       /* 数据状态 */
@@ -468,6 +524,7 @@
       /* Modal 状态：null=关闭，{} 或 node 对象=打开 */
       const [modalNode, setModalNode] = useState(null);
       const [modalOpen, setModalOpen] = useState(false);
+      const [importOpen, setImportOpen] = useState(false);
 
       /* Toast 通知 */
       const [toasts, setToasts] = useState([]);
@@ -594,6 +651,9 @@
                 <div className="ps">管理所有代理节点，支持多协议和批量操作</div>
               </div>
               <div className="phr">
+                <button className="btn btn-s" onClick={() => setImportOpen(true)}>
+                  URL 导入
+                </button>
                 <button className="btn btn-p" onClick={openCreate}>
                   <IcoPlus />添加节点
                 </button>
@@ -834,6 +894,15 @@
               node={modalNode}
               onClose={closeModal}
               onSaved={handleSaved}
+              addToast={addToast}
+            />
+          )}
+
+          {/* URL 批量导入 Modal */}
+          {importOpen && (
+            <ImportModal
+              onClose={() => setImportOpen(false)}
+              onImported={() => { loadNodes(); loadStats(); }}
               addToast={addToast}
             />
           )}

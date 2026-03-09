@@ -503,6 +503,60 @@ func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // ==================== 节点管理 API ====================
 
+// ImportNodes 通过 URL 批量导入节点
+func (h *Handlers) ImportNodes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+		return
+	}
+
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "无效的请求体")
+		return
+	}
+
+	lines := strings.Split(req.Content, "\n")
+	type importErr struct {
+		URL   string `json:"url"`
+		Error string `json:"error"`
+	}
+	var created int
+	var errors []importErr
+
+	ctx := r.Context()
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		proxyNode, err := app.ParseNodeURL(line)
+		if err != nil {
+			errors = append(errors, importErr{URL: line, Error: err.Error()})
+			continue
+		}
+		node := &database.Node{
+			Name:     proxyNode.Name,
+			Protocol: proxyNode.Protocol,
+			Server:   proxyNode.Server,
+			Port:     proxyNode.Port,
+			Config:   proxyNode.Options,
+		}
+		if err := h.nodeService.AddManualNode(ctx, node); err != nil {
+			errors = append(errors, importErr{URL: line, Error: err.Error()})
+			continue
+		}
+		created++
+	}
+
+	SendSuccess(w, map[string]interface{}{
+		"created": created,
+		"errors":  errors,
+	})
+}
+
 // CreateNode 创建节点（手动添加）
 func (h *Handlers) CreateNode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

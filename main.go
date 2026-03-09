@@ -173,7 +173,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 	http.Handle("/web/", webAuth(http.StripPrefix("/web/", fs)))
 
 	// 主页和原有订阅接口（向后兼容）
-	http.HandleFunc("/", app.IndexHandler)
+	http.Handle("/", webAuth(http.HandlerFunc(app.IndexHandler)))
 
 	// 订阅接口（原有模式）
 	http.HandleFunc("/sub", func(w http.ResponseWriter, r *http.Request) {
@@ -327,6 +327,14 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		apiMux.HandleFunc("/api/nodes/stats", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
 				apiHandlers.GetNodeStats(w, r)
+			} else {
+				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+			}
+		})
+
+		apiMux.HandleFunc("/api/nodes/import", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				apiHandlers.ImportNodes(w, r)
 			} else {
 				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
 			}
