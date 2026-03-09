@@ -163,6 +163,7 @@
     const IcoWarn = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m10.29 3.86-8.17 14.17A1 1 0 0 0 3 20h18a1 1 0 0 0 .88-1.48l-8.17-14.17a1 1 0 0 0-1.75.01z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
     const IcoLink = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
     const IcoTag = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>;
+    const IcoRefresh = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
 
     /* ===== API 封装 ===== */
     const api = {
@@ -284,6 +285,7 @@
       const [form, setForm] = useState(defaultForm);
       const [saving, setSaving] = useState(false);
       const [deleting, setDeleting] = useState(false);
+      const [refreshing, setRefreshing] = useState(null); // 正在清除缓存的策略 name
 
       /* 添加 Toast */
       const addToast = useCallback((msg, type = 'ok') => {
@@ -407,6 +409,25 @@
         }
       };
 
+      /* 清除策略关联的订阅缓存 */
+      const handleClearCache = async (policy) => {
+        const ids = (policy.subscription_ids || []).map(Number);
+        const names = subscriptions.filter(s => ids.includes(s.id)).map(s => s.name);
+        if (names.length === 0) {
+          addToast('该策略没有关联订阅源，无需清除缓存', 'warn');
+          return;
+        }
+        setRefreshing(policy.name);
+        try {
+          await Promise.all(names.map(n => api.delete(`/api/cache/${n}`)));
+          addToast('缓存已清除');
+        } catch (err) {
+          addToast('清除缓存失败：' + err.message, 'err');
+        } finally {
+          setRefreshing(null);
+        }
+      };
+
       /* 打开删除确认 Modal */
       const openDelete = (policy) => {
         setDeleteTarget(policy);
@@ -503,6 +524,17 @@
                     <div className="item-r">
                       <button className="btic green" title="复制配置链接" onClick={() => handleCopyLink(policy)}>
                         <IcoCopy />
+                      </button>
+                      <button
+                        className="btic"
+                        title="清除订阅缓存"
+                        disabled={refreshing === policy.name}
+                        onClick={() => handleClearCache(policy)}
+                      >
+                        {refreshing === policy.name
+                          ? <span className="spin"></span>
+                          : <IcoRefresh />
+                        }
                       </button>
                       <button className="btic blue" title="编辑策略" onClick={() => openEdit(policy)}>
                         <IcoEdit />
