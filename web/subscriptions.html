@@ -460,6 +460,17 @@
         catch { return '未知'; }
       };
 
+      // 格式化字节为 GiB（保留两位小数）
+      const fmtGiB = (bytes) => (bytes / (1024 ** 3)).toFixed(2) + ' GiB';
+
+      // 格式化 Unix 时间戳为日期 + 剩余天数
+      const fmtExpire = (ts) => {
+        const d = new Date(ts * 1000);
+        const dateStr = d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const daysLeft = Math.ceil((d - Date.now()) / 86400000);
+        return daysLeft > 0 ? `${dateStr}（剩 ${daysLeft} 天）` : `${dateStr}（已过期）`;
+      };
+
       return (
         <div className="app">
           <Sidebar active="subs" />
