@@ -28,10 +28,106 @@ func ResolveProjectPath(path string) string {
 	return path
 }
 
-// adaptConfigForTarget 根据目标客户端类型调整配置
+// --- yaml.Node 操作辅助函数 ---
+
+// yamlMappingNode 从文档节点取出顶层 MappingNode
+func yamlMappingNode(doc *yaml.Node) *yaml.Node {
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
+		return doc.Content[0]
+	}
+	if doc.Kind == yaml.MappingNode {
+		return doc
+	}
+	return nil
+}
+
+// yamlFindInMapping 在 MappingNode 中查找 key，返回 value 节点（未找到返回 nil）
+func yamlFindInMapping(mapping *yaml.Node, key string) *yaml.Node {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
+}
+
+// yamlHasKey 检查 MappingNode 中是否存在某个 key
+func yamlHasKey(mapping *yaml.Node, key string) bool {
+	return yamlFindInMapping(mapping, key) != nil
+}
+
+// yamlDeleteFromMapping 从 MappingNode 中删除指定 key（及其 value）
+func yamlDeleteFromMapping(mapping *yaml.Node, key string) {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content = append(mapping.Content[:i], mapping.Content[i+2:]...)
+			return
+		}
+	}
+}
+
+// yamlSetInMapping 在 MappingNode 中设置或新增 key-value
+func yamlSetInMapping(mapping *yaml.Node, key string, value *yaml.Node) {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content[i+1] = value
+			return
+		}
+	}
+	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: key, Tag: "!!str"}
+	mapping.Content = append(mapping.Content, keyNode, value)
+}
+
+// yamlValueToNode 将任意 Go 值序列化为 yaml.Node（用于将修改后的数据写回文档树）
+func yamlValueToNode(v interface{}) (*yaml.Node, error) {
+	b, err := yaml.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(b, &doc); err != nil {
+		return nil, err
+	}
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
+		return doc.Content[0], nil
+	}
+	return &doc, nil
+}
+
+// adaptConfigForTargetNode 根据目标客户端类型调整 yaml.Node 树中的配置
+// 使用 yaml.Node 操作，保留原始 YAML 格式（包括引号风格）
+func adaptConfigForTargetNode(mapping *yaml.Node, target string) {
+	if target != "stash" {
+		return
+	}
+	// 移除 Clash 专属字段
+	for _, key := range []string{"port", "socks-port", "redir-port", "mixed-port", "allow-lan", "external-controller", "secret", "tun"} {
+		yamlDeleteFromMapping(mapping, key)
+	}
+	// 调整 DNS 配置
+	dnsNode := yamlFindInMapping(mapping, "dns")
+	if dnsNode != nil && dnsNode.Kind == yaml.MappingNode {
+		yamlDeleteFromMapping(dnsNode, "prefer-h3")
+		yamlDeleteFromMapping(dnsNode, "fake-ip-filter-mode")
+		if !yamlHasKey(dnsNode, "fake-ip-filter") {
+			filterNode, _ := yamlValueToNode([]string{"*.lan", "*.local"})
+			yamlSetInMapping(dnsNode, "fake-ip-filter", filterNode)
+		}
+	}
+}
+
+// adaptConfigForTarget 根据目标客户端类型调整配置（仅用于 BuildYAMLFromDefaultTemplate）
 func adaptConfigForTarget(cfg map[string]interface{}, target string) {
 	if target == "stash" {
-		// Stash 特定的配置调整
 		// 移除 Clash 特定的端口设置
 		delete(cfg, "port")
 		delete(cfg, "socks-port")
@@ -40,26 +136,16 @@ func adaptConfigForTarget(cfg map[string]interface{}, target string) {
 		delete(cfg, "allow-lan")
 		delete(cfg, "external-controller")
 		delete(cfg, "secret")
-
-		// 移除 TUN 配置（Stash 在 iOS 上不支持）
 		delete(cfg, "tun")
 
-		// 调整 DNS 配置以兼容 Stash
 		if dns, ok := cfg["dns"].(map[string]interface{}); ok {
-			// 移除 Clash 特定的 DNS 设置
 			delete(dns, "prefer-h3")
 			delete(dns, "fake-ip-filter-mode")
-
-			// 确保 fake-ip-filter 存在且格式正确
 			if _, hasFakeIP := dns["fake-ip-filter"]; !hasFakeIP {
 				dns["fake-ip-filter"] = []string{"*.lan", "*.local"}
 			}
 		}
-
-		// 设置 allow-lan 为 false（已删除，不再设置）
-		// Stash 不需要这个配置
 	}
-	// 对于 Clash，保持原有配置不变
 }
 
 func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{}, error) {
@@ -148,44 +234,61 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 		return "", fmt.Errorf("读取模板文件失败: %w", err)
 	}
 
-	var cfg map[string]interface{}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	// 用 yaml.Node 解析，保留原始格式（含引号风格）
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return "", fmt.Errorf("解析模板文件失败: %w", err)
 	}
+	mapping := yamlMappingNode(&doc)
+	if mapping == nil {
+		return "", fmt.Errorf("模板文件格式无效：根节点不是映射")
+	}
 
-	// 根据目标类型调整配置
-	adaptConfigForTarget(cfg, target)
+	// 根据目标类型调整配置（直接操作 yaml.Node，不破坏其他节点的格式）
+	adaptConfigForTargetNode(mapping, target)
 
 	proxies, nodeNames := buildProxies(nodes)
-	cfg["proxies"] = proxies
+	proxiesNode, err := yamlValueToNode(proxies)
+	if err != nil {
+		return "", fmt.Errorf("生成 proxies 失败: %w", err)
+	}
+	yamlSetInMapping(mapping, "proxies", proxiesNode)
 
-	rawGroups, ok := cfg["proxy-groups"]
-	if ok {
-		adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
-		if err != nil {
-			return "", err
+	rawGroupsNode := yamlFindInMapping(mapping, "proxy-groups")
+	if rawGroupsNode != nil {
+		var rawGroups interface{}
+		if err := rawGroupsNode.Decode(&rawGroups); err == nil {
+			adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
+			if err != nil {
+				return "", err
+			}
+			groupsNode, err := yamlValueToNode(adaptedGroups)
+			if err != nil {
+				return "", fmt.Errorf("生成 proxy-groups 失败: %w", err)
+			}
+			yamlSetInMapping(mapping, "proxy-groups", groupsNode)
 		}
-		cfg["proxy-groups"] = adaptedGroups
 	} else {
-		cfg["proxy-groups"] = []Group{
-			{
-				Name:    "🚀 节点选择",
-				Type:    "select",
-				Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...),
-			},
-			{
-				Name:    "♻️ 自动选择",
-				Type:    "url-test",
-				Proxies: nodeNames,
-			},
+		defaultGroups := []Group{
+			{Name: "🚀 节点选择", Type: "select", Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...)},
+			{Name: "♻️ 自动选择", Type: "url-test", Proxies: nodeNames},
 		}
+		groupsNode, err := yamlValueToNode(defaultGroups)
+		if err != nil {
+			return "", fmt.Errorf("生成 proxy-groups 失败: %w", err)
+		}
+		yamlSetInMapping(mapping, "proxy-groups", groupsNode)
 	}
 
-	if _, ok := cfg["rules"]; !ok {
-		cfg["rules"] = cloneRules(defaultRules)
+	if !yamlHasKey(mapping, "rules") {
+		rulesNode, err := yamlValueToNode(cloneRules(defaultRules))
+		if err != nil {
+			return "", fmt.Errorf("生成 rules 失败: %w", err)
+		}
+		yamlSetInMapping(mapping, "rules", rulesNode)
 	}
 
-	yamlData, err := yaml.Marshal(cfg)
+	yamlData, err := yaml.Marshal(&doc)
 	if err != nil {
 		return "", fmt.Errorf("生成配置失败")
 	}
@@ -198,43 +301,60 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)
 	}
 
-	var cfg map[string]interface{}
-	if err := yaml.Unmarshal([]byte(templateContent), &cfg); err != nil {
+	// 用 yaml.Node 解析，保留原始格式（含引号风格）
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(templateContent), &doc); err != nil {
 		return "", fmt.Errorf("解析模板内容失败: %w", err)
 	}
+	mapping := yamlMappingNode(&doc)
+	if mapping == nil {
+		return "", fmt.Errorf("模板内容格式无效：根节点不是映射")
+	}
 
-	adaptConfigForTarget(cfg, target)
+	adaptConfigForTargetNode(mapping, target)
 
 	proxies, nodeNames := buildProxies(nodes)
-	cfg["proxies"] = proxies
+	proxiesNode, err := yamlValueToNode(proxies)
+	if err != nil {
+		return "", fmt.Errorf("生成 proxies 失败: %w", err)
+	}
+	yamlSetInMapping(mapping, "proxies", proxiesNode)
 
-	rawGroups, ok := cfg["proxy-groups"]
-	if ok {
-		adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
-		if err != nil {
-			return "", err
+	rawGroupsNode := yamlFindInMapping(mapping, "proxy-groups")
+	if rawGroupsNode != nil {
+		var rawGroups interface{}
+		if err := rawGroupsNode.Decode(&rawGroups); err == nil {
+			adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
+			if err != nil {
+				return "", err
+			}
+			groupsNode, err := yamlValueToNode(adaptedGroups)
+			if err != nil {
+				return "", fmt.Errorf("生成 proxy-groups 失败: %w", err)
+			}
+			yamlSetInMapping(mapping, "proxy-groups", groupsNode)
 		}
-		cfg["proxy-groups"] = adaptedGroups
 	} else {
-		cfg["proxy-groups"] = []Group{
-			{
-				Name:    "🚀 节点选择",
-				Type:    "select",
-				Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...),
-			},
-			{
-				Name:    "♻️ 自动选择",
-				Type:    "url-test",
-				Proxies: nodeNames,
-			},
+		defaultGroups := []Group{
+			{Name: "🚀 节点选择", Type: "select", Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...)},
+			{Name: "♻️ 自动选择", Type: "url-test", Proxies: nodeNames},
 		}
+		groupsNode, err := yamlValueToNode(defaultGroups)
+		if err != nil {
+			return "", fmt.Errorf("生成 proxy-groups 失败: %w", err)
+		}
+		yamlSetInMapping(mapping, "proxy-groups", groupsNode)
 	}
 
-	if _, ok := cfg["rules"]; !ok {
-		cfg["rules"] = cloneRules(defaultRules)
+	if !yamlHasKey(mapping, "rules") {
+		rulesNode, err := yamlValueToNode(cloneRules(defaultRules))
+		if err != nil {
+			return "", fmt.Errorf("生成 rules 失败: %w", err)
+		}
+		yamlSetInMapping(mapping, "rules", rulesNode)
 	}
 
-	yamlData, err := yaml.Marshal(cfg)
+	yamlData, err := yaml.Marshal(&doc)
 	if err != nil {
 		return "", fmt.Errorf("生成配置失败")
 	}
