@@ -35,22 +35,6 @@ steps:
         - ${DRONE_COMMIT_SHA:0:8}
         - latest
 
-  - name: upload_manifest
-    image: zot.ooxo.cc/appleboy/drone-scp
-    depends_on:
-      - build_docker
-    settings:
-      host:
-        from_secret: k8s_host
-      username:
-        from_secret: k8s_username
-      key:
-        from_secret: k8s_key
-      port: 22
-      target: /tmp/ruleflow
-      source:
-        - ruleflow.yaml
-
   - name: deploy
     image: zot.ooxo.cc/appleboy/drone-ssh
     depends_on:
