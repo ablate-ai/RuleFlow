@@ -111,7 +111,7 @@ func main() {
 	// 优雅关闭
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: nil, // 使用默认的 http.DefaultServeMux
+		Handler: api.LoggingMiddleware(api.CORSMiddleware(api.RecoveryMiddleware(http.DefaultServeMux))),
 	}
 
 	go func() {
@@ -162,9 +162,6 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 
 	// API 路由（如果启用）
 	if apiHandlers != nil {
-		// 应用中间件
-		_ = api.LoggingMiddleware(api.CORSMiddleware(api.RecoveryMiddleware(http.DefaultServeMux)))
-
 		// 订阅管理 API
 		http.HandleFunc("/api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
