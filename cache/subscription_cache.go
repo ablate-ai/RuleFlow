@@ -25,8 +25,6 @@ func NewSubscriptionCache(client *Client, ttl time.Duration) *SubscriptionCache 
 const (
 	// CacheKeySubContent 订阅内容缓存键格式：ruleflow:sub:content:<name>
 	CacheKeySubContent = "ruleflow:sub:content:%s"
-	// CacheKeyConfig 配置缓存键格式：ruleflow:config:<name>:<target>
-	CacheKeyConfig = "ruleflow:config:%s:%s"
 	// CacheKeyLock 分布式锁键格式：ruleflow:lock:fetch:<name>
 	CacheKeyLock = "ruleflow:lock:fetch:%s"
 	// CacheKeyPolicyConfig 策略配置缓存键格式：ruleflow:policy:config:<token>
@@ -43,34 +41,6 @@ type UserInfo struct {
 	Expire   *int64 `json:"expire,omitempty"`
 }
 
-// CachedConfig 缓存的配置数据
-type CachedConfig struct {
-	YAML      string    `json:"yaml"`
-	NodeCount int       `json:"node_count"`
-	FetchedAt time.Time `json:"fetched_at"`
-}
-
-// GetConfig 获取缓存的配置
-func (c *SubscriptionCache) GetConfig(ctx context.Context, name, target string) (*CachedConfig, error) {
-	key := fmt.Sprintf(CacheKeyConfig, name, target)
-	data, err := c.client.Get(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-
-	// 这里简化处理，实际使用中应该解析 JSON
-	// 为了保持简单，我们直接存储 YAML 字符串，使用分隔符分隔元数据
-	return &CachedConfig{
-		YAML: data,
-	}, nil
-}
-
-// SetConfig 设置配置缓存
-func (c *SubscriptionCache) SetConfig(ctx context.Context, name, target string, yaml string, nodeCount int) error {
-	key := fmt.Sprintf(CacheKeyConfig, name, target)
-	return c.client.Set(ctx, key, yaml, c.ttl)
-}
-
 // GetContent 获取缓存的订阅内容
 func (c *SubscriptionCache) GetContent(ctx context.Context, name string) (string, error) {
 	key := fmt.Sprintf(CacheKeySubContent, name)
@@ -81,12 +51,6 @@ func (c *SubscriptionCache) GetContent(ctx context.Context, name string) (string
 func (c *SubscriptionCache) SetContent(ctx context.Context, name, content string) error {
 	key := fmt.Sprintf(CacheKeySubContent, name)
 	return c.client.Set(ctx, key, content, c.ttl)
-}
-
-// DeleteConfig 删除配置缓存
-func (c *SubscriptionCache) DeleteConfig(ctx context.Context, name, target string) error {
-	key := fmt.Sprintf(CacheKeyConfig, name, target)
-	return c.client.Delete(ctx, key)
 }
 
 // GetUserInfo 获取订阅流量信息
@@ -129,9 +93,7 @@ func (c *SubscriptionCache) DeleteUserInfo(ctx context.Context, name string) err
 // DeleteAll 删除订阅相关缓存（不含流量信息，流量信息仅在删除订阅时清除）
 func (c *SubscriptionCache) DeleteAll(ctx context.Context, name string) error {
 	contentKey := fmt.Sprintf(CacheKeySubContent, name)
-	clashKey := fmt.Sprintf(CacheKeyConfig, name, "clash")
-	stashKey := fmt.Sprintf(CacheKeyConfig, name, "stash")
-	return c.client.Delete(ctx, contentKey, clashKey, stashKey)
+	return c.client.Delete(ctx, contentKey)
 }
 
 // DeleteAllByPattern 按模式删除所有缓存

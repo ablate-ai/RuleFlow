@@ -24,43 +24,13 @@ func NewSubscriptionService(repo *database.SubscriptionRepo, cache *cache.Subscr
 	}
 }
 
-// GetConfig 获取订阅配置（带缓存）
+// GetConfig 获取订阅配置
 func (s *SubscriptionService) GetConfig(ctx context.Context, name, target string, fetchFunc func(string) (string, int, error)) (string, int, error) {
-	// 1. 尝试从缓存获取
-	cached, err := s.cache.GetConfig(ctx, name, target)
-	if err == nil && cached.YAML != "" {
-		return cached.YAML, 0, nil // 从缓存返回
-	}
-
-	// 2. 检查是否可以获取锁（防止并发刷新）
-	acquired, err := s.cache.AcquireFetchLock(ctx, name)
-	if err != nil {
-		// Redis 错误，降级为直接获取
-		return s.fetchAndCacheConfig(ctx, name, target, fetchFunc)
-	}
-
-	if !acquired {
-		// 其他实例正在获取，等待一小段时间后重试缓存
-		select {
-		case <-time.After(500 * time.Millisecond):
-			cached, err := s.cache.GetConfig(ctx, name, target)
-			if err == nil && cached.YAML != "" {
-				return cached.YAML, 0, nil
-			}
-			return "", 0, fmt.Errorf("订阅正在刷新中，请稍后再试")
-		case <-ctx.Done():
-			return "", 0, ctx.Err()
-		}
-	}
-
-	// 3. 获取锁成功，执行获取逻辑
-	defer s.cache.ReleaseFetchLock(ctx, name)
-
-	return s.fetchAndCacheConfig(ctx, name, target, fetchFunc)
+	return s.fetchConfig(ctx, name, fetchFunc)
 }
 
-// fetchAndCacheConfig 获取并缓存配置
-func (s *SubscriptionService) fetchAndCacheConfig(ctx context.Context, name, target string, fetchFunc func(string) (string, int, error)) (string, int, error) {
+// fetchConfig 从上游获取配置
+func (s *SubscriptionService) fetchConfig(ctx context.Context, name string, fetchFunc func(string) (string, int, error)) (string, int, error) {
 	// 从数据库获取订阅配置
 	sub, err := s.repo.GetByName(ctx, name)
 	if err != nil {
@@ -87,19 +57,12 @@ func (s *SubscriptionService) fetchAndCacheConfig(ctx context.Context, name, tar
 	// 更新数据库记录成功
 	_ = s.repo.UpdateFetchResult(ctx, name, nodeCount, nil)
 
-	// 缓存配置
-	_ = s.cache.SetConfig(ctx, name, target, yaml, nodeCount)
-
 	return yaml, nodeCount, nil
 }
 
 // RefreshConfig 手动刷新订阅配置
 func (s *SubscriptionService) RefreshConfig(ctx context.Context, name, target string, fetchFunc func(string) (string, int, error)) (string, int, error) {
-	// 清除缓存
-	_ = s.cache.DeleteConfig(ctx, name, target)
-
-	// 重新获取配置
-	return s.GetConfig(ctx, name, target, fetchFunc)
+	return s.fetchConfig(ctx, name, fetchFunc)
 }
 
 // CreateSubscription 创建订阅
