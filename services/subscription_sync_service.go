@@ -91,6 +91,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 
 	// 4.3 批量插入新节点
 	if err := s.nodeRepo.BatchCreate(ctx, dbNodes); err != nil {
+		log.Printf("[sync] 插入新节点失败: %v", err)
 		return 0, fmt.Errorf("插入新节点失败: %w", err)
 	}
 

@@ -130,6 +130,7 @@ func isValidProtocol(protocol string) bool {
 		"vmess":     true,
 		"vless":     true,
 		"ss":        true,
+		"anytls":    true,
 		"hysteria2": true,
 		"tuic":      true,
 	}

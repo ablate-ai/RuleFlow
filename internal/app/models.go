@@ -42,6 +42,9 @@ type Proxy struct {
 	WSOpts         *WSOpts     `yaml:"ws-opts,omitempty"`
 	HTTPOpts       *HTTPOpts   `yaml:"http-opts,omitempty"`
 	DialerProxy    string      `yaml:"dialer-proxy,omitempty"`
+	IdleSessionCheckInterval int `yaml:"idle-session-check-interval,omitempty"`
+	IdleSessionTimeout       int `yaml:"idle-session-timeout,omitempty"`
+	MinIdleSession           int `yaml:"min-idle-session,omitempty"`
 }
 
 type WSOpts struct {
@@ -67,7 +70,7 @@ type Group struct {
 
 // ProxyNode 通用代理节点
 type ProxyNode struct {
-	Protocol    string                 // 协议类型: trojan, vmess, vless, ss, ss2022, hysteria2, tuic
+	Protocol    string                 // 协议类型: trojan, vmess, vless, ss, anytls, hysteria2, tuic
 	Name        string                 // 节点名称
 	Server      string                 // 服务器地址
 	Port        int                    // 端口
@@ -182,6 +185,8 @@ func buildProxies(nodes []*ProxyNode) ([]Proxy, []string) {
 			addShadowsocksFields(&proxy, node.Options)
 		case "hysteria2", "hy2":
 			addHysteria2Fields(&proxy, node.Options)
+		case "anytls":
+			addAnyTLSFields(&proxy, node.Options)
 		case "tuic":
 			addTUICFields(&proxy, node.Options)
 		}
@@ -372,6 +377,33 @@ func addHysteria2Fields(proxy *Proxy, opts map[string]interface{}) {
 	}
 }
 
+func addAnyTLSFields(proxy *Proxy, opts map[string]interface{}) {
+	if password, ok := opts["password"].(string); ok {
+		proxy.Password = password
+	}
+	if sni, ok := opts["sni"].(string); ok && sni != "" {
+		proxy.SNI = sni
+	}
+	if skip, ok := boolOption(opts, "skipCertVerify", "skip-cert-verify"); ok {
+		proxy.SkipCertVerify = skip
+	}
+	if fingerprint, ok := stringOption(opts, "fingerprint", "client-fingerprint"); ok {
+		proxy.Fingerprint = fingerprint
+	}
+	if alpn, ok := stringSliceOption(opts, "alpn"); ok {
+		proxy.Alpn = alpn
+	}
+	if v, ok := intOption(opts, "idleSessionCheckInterval", "idle-session-check-interval"); ok {
+		proxy.IdleSessionCheckInterval = v
+	}
+	if v, ok := intOption(opts, "idleSessionTimeout", "idle-session-timeout"); ok {
+		proxy.IdleSessionTimeout = v
+	}
+	if v, ok := intOption(opts, "minIdleSession", "min-idle-session"); ok {
+		proxy.MinIdleSession = v
+	}
+}
+
 func addTUICFields(proxy *Proxy, opts map[string]interface{}) {
 	if uuid, ok := opts["uuid"].(string); ok {
 		proxy.UUID = uuid
@@ -382,6 +414,60 @@ func addTUICFields(proxy *Proxy, opts map[string]interface{}) {
 	if sni, ok := opts["sni"].(string); ok && sni != "" {
 		proxy.SNI = sni
 	}
+}
+
+func stringOption(opts map[string]interface{}, keys ...string) (string, bool) {
+	for _, key := range keys {
+		if value, ok := opts[key].(string); ok && value != "" {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+func boolOption(opts map[string]interface{}, keys ...string) (bool, bool) {
+	for _, key := range keys {
+		if value, ok := opts[key].(bool); ok {
+			return value, true
+		}
+	}
+	return false, false
+}
+
+func intOption(opts map[string]interface{}, keys ...string) (int, bool) {
+	for _, key := range keys {
+		switch value := opts[key].(type) {
+		case int:
+			return value, true
+		case int64:
+			return int(value), true
+		case float64:
+			return int(value), true
+		}
+	}
+	return 0, false
+}
+
+func stringSliceOption(opts map[string]interface{}, keys ...string) ([]string, bool) {
+	for _, key := range keys {
+		switch value := opts[key].(type) {
+		case []string:
+			if len(value) > 0 {
+				return value, true
+			}
+		case []interface{}:
+			out := make([]string, 0, len(value))
+			for _, item := range value {
+				if s, ok := item.(string); ok && s != "" {
+					out = append(out, s)
+				}
+			}
+			if len(out) > 0 {
+				return out, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func builtInProxyName(name string) bool {

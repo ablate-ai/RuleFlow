@@ -399,6 +399,51 @@ func TestAddVLESSFieldsFromDB(t *testing.T) {
 		t.Errorf("ShortID 错误: %q", proxy.Reality.ShortID)
 	}
 }
+
+func TestBuildProxiesSupportsAnyTLS(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "anytls",
+			Name:     "SG AnyTLS",
+			Server:   "sg.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password":            "secret",
+				"sni":                 "sg.example.com",
+				"client-fingerprint":  "chrome",
+				"skip-cert-verify":    true,
+				"alpn":                []interface{}{"h2", "http/1.1"},
+				"idle-session-timeout": 30,
+			},
+		},
+	}
+
+	proxies, _ := buildProxies(nodes)
+	if len(proxies) != 1 {
+		t.Fatalf("buildProxies() 返回代理数 = %d, want 1", len(proxies))
+	}
+
+	proxy := proxies[0]
+	if proxy.Type != "anytls" {
+		t.Fatalf("proxy.Type = %s, want anytls", proxy.Type)
+	}
+	if proxy.Password != "secret" {
+		t.Fatalf("proxy.Password = %s, want secret", proxy.Password)
+	}
+	if proxy.Fingerprint != "chrome" {
+		t.Fatalf("proxy.Fingerprint = %s, want chrome", proxy.Fingerprint)
+	}
+	if !proxy.SkipCertVerify {
+		t.Fatal("proxy.SkipCertVerify = false, want true")
+	}
+	if proxy.IdleSessionTimeout != 30 {
+		t.Fatalf("proxy.IdleSessionTimeout = %d, want 30", proxy.IdleSessionTimeout)
+	}
+	if len(proxy.Alpn) != 2 || proxy.Alpn[0] != "h2" || proxy.Alpn[1] != "http/1.1" {
+		t.Fatalf("proxy.Alpn = %#v, want [h2 http/1.1]", proxy.Alpn)
+	}
+}
+
 func TestVLESSRealityEndToEnd(t *testing.T) {
 	clashYAML := `proxies:
   - name: 东京

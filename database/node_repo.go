@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -295,7 +296,7 @@ func (r *NodeRepo) BatchCreate(ctx context.Context, nodes []Node) error {
 	if len(nodes) == 0 {
 		return nil
 	}
-	return r.batchInsert(ctx, nodes)
+	return r.batchInsert(ctx, dedupeNodes(nodes))
 }
 
 // batchInsert 批量插入（备用方案）
@@ -309,7 +310,6 @@ func (r *NodeRepo) batchInsert(ctx context.Context, nodes []Node) error {
 	query := `
 		INSERT INTO nodes (name, protocol, server, port, config, source, source_id, enabled, tags)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (source, name, server, port) DO NOTHING
 	`
 
 	for _, node := range nodes {
@@ -334,6 +334,28 @@ func (r *NodeRepo) batchInsert(ctx context.Context, nodes []Node) error {
 	}
 
 	return nil
+}
+
+// dedupeNodes 在批量插入前按业务唯一键去重，避免依赖数据库冲突约束。
+func dedupeNodes(nodes []Node) []Node {
+	seen := make(map[string]struct{}, len(nodes))
+	result := make([]Node, 0, len(nodes))
+
+	for _, node := range nodes {
+		key := strings.Join([]string{
+			node.Source,
+			node.Name,
+			node.Server,
+			fmt.Sprintf("%d", node.Port),
+		}, "\x00")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, node)
+	}
+
+	return result
 }
 
 // BatchUpdateEnabled 批量更新启用状态

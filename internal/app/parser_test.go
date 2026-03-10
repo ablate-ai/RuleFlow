@@ -155,6 +155,28 @@ func TestParseVLESSNode(t *testing.T) {
 	}
 }
 
+func TestParseClashYAMLNormalizesHY2(t *testing.T) {
+	clashYAML := `proxies:
+  - name: HY2 节点
+    type: hy2
+    server: example.com
+    port: 443
+    password: secret
+    sni: example.com
+`
+
+	nodes, err := parseClashYAML(clashYAML)
+	if err != nil {
+		t.Fatalf("parseClashYAML() error = %v", err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("parseClashYAML() 节点数 = %d, want 1", len(nodes))
+	}
+	if nodes[0].Protocol != "hysteria2" {
+		t.Fatalf("parseClashYAML() Protocol = %s, want hysteria2", nodes[0].Protocol)
+	}
+}
+
 func TestParseShadowsocksNode(t *testing.T) {
 	tests := []struct {
 		name    string

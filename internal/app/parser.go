@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net/url"
 	"regexp"
 	"strings"
@@ -665,9 +666,17 @@ func parseClashYAML(content string) ([]*ProxyNode, error) {
 
 	nodes := make([]*ProxyNode, 0, len(cfg.Proxies))
 	for _, p := range cfg.Proxies {
-		proxyType, _ := p["type"].(string)
 		name, _ := p["name"].(string)
+		rawProxyType, _ := p["type"].(string)
+		proxyType, ok := normalizeProxyProtocol(rawProxyType)
 		server, _ := p["server"].(string)
+		if !ok {
+			if name == "" {
+				name = server
+			}
+			log.Printf("[parse] 跳过不支持的 YAML 节点协议: name=%q type=%q server=%q", name, rawProxyType, server)
+			continue
+		}
 
 		var port int
 		switch v := p["port"].(type) {
@@ -700,6 +709,17 @@ func parseClashYAML(content string) ([]*ProxyNode, error) {
 		})
 	}
 	return nodes, nil
+}
+
+func normalizeProxyProtocol(protocol string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(protocol)) {
+	case "trojan", "vmess", "vless", "ss", "anytls", "hysteria2", "tuic":
+		return strings.ToLower(strings.TrimSpace(protocol)), true
+	case "hy2":
+		return "hysteria2", true
+	default:
+		return "", false
+	}
 }
 
 // ParseSubscription 解析订阅内容，支持多种协议

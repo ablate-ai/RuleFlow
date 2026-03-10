@@ -346,6 +346,18 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		v, _ := opts[key].(bool)
 		return v
 	}
+	intOpt := func(key string) int {
+		switch v := opts[key].(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		default:
+			return 0
+		}
+	}
 	underlyingProxy := strings.TrimSpace(node.DialerProxy)
 	if underlyingProxy == "" {
 		if v, ok := opts["underlying-proxy"].(string); ok {
@@ -421,6 +433,49 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		skipVerify := boolOpt("skipCertVerify")
 		return appendUnderlyingProxy(fmt.Sprintf("%s = hysteria2, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
 			name, node.Server, node.Port, password, sni, skipVerify))
+
+	case "anytls":
+		password := strOpt("password")
+		sni := strOpt("sni")
+		skipVerify := boolOpt("skipCertVerify") || boolOpt("skip-cert-verify")
+		parts := []string{
+			fmt.Sprintf("%s = anytls", name),
+			node.Server,
+			fmt.Sprintf("%d", node.Port),
+			fmt.Sprintf("password=%s", password),
+		}
+		if sni != "" {
+			parts = append(parts, fmt.Sprintf("sni=%s", sni))
+		}
+		if fingerprint := strOpt("client-fingerprint"); fingerprint != "" {
+			parts = append(parts, fmt.Sprintf("client-fingerprint=%s", fingerprint))
+		} else if fingerprint := strOpt("fingerprint"); fingerprint != "" {
+			parts = append(parts, fmt.Sprintf("client-fingerprint=%s", fingerprint))
+		}
+		if alpn, ok := opts["alpn"].([]interface{}); ok && len(alpn) > 0 {
+			values := make([]string, 0, len(alpn))
+			for _, item := range alpn {
+				if s, ok := item.(string); ok && s != "" {
+					values = append(values, s)
+				}
+			}
+			if len(values) > 0 {
+				parts = append(parts, fmt.Sprintf("alpn=%s", strings.Join(values, "|")))
+			}
+		} else if alpn, ok := opts["alpn"].([]string); ok && len(alpn) > 0 {
+			parts = append(parts, fmt.Sprintf("alpn=%s", strings.Join(alpn, "|")))
+		}
+		if interval := intOpt("idle-session-check-interval"); interval > 0 {
+			parts = append(parts, fmt.Sprintf("idle-session-check-interval=%d", interval))
+		}
+		if timeout := intOpt("idle-session-timeout"); timeout > 0 {
+			parts = append(parts, fmt.Sprintf("idle-session-timeout=%d", timeout))
+		}
+		if minIdle := intOpt("min-idle-session"); minIdle > 0 {
+			parts = append(parts, fmt.Sprintf("min-idle-session=%d", minIdle))
+		}
+		parts = append(parts, fmt.Sprintf("skip-cert-verify=%v", skipVerify))
+		return appendUnderlyingProxy(strings.Join(parts, ", "))
 
 	case "tuic":
 		uuid := strOpt("uuid")

@@ -204,6 +204,42 @@ __NODES__
 	}
 }
 
+func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
+	node := &ProxyNode{
+		Protocol: "anytls",
+		Name:     "SG AnyTLS",
+		Server:   "sg.example.com",
+		Port:     443,
+		Options: map[string]interface{}{
+			"password":                     "secret",
+			"sni":                          "sg.example.com",
+			"client-fingerprint":           "chrome",
+			"skip-cert-verify":             true,
+			"alpn":                         []interface{}{"h2", "http/1.1"},
+			"idle-session-check-interval":  15,
+			"idle-session-timeout":         30,
+			"min-idle-session":             2,
+		},
+	}
+
+	line := surgeProxyLine(node, "SG AnyTLS")
+	if !strings.Contains(line, "= anytls, sg.example.com, 443, password=secret") {
+		t.Fatalf("缺少 anytls 基础字段，实际输出:\n%s", line)
+	}
+	if !strings.Contains(line, "client-fingerprint=chrome") {
+		t.Fatalf("缺少 client-fingerprint，实际输出:\n%s", line)
+	}
+	if !strings.Contains(line, "alpn=h2|http/1.1") {
+		t.Fatalf("缺少 alpn，实际输出:\n%s", line)
+	}
+	if !strings.Contains(line, "idle-session-timeout=30") {
+		t.Fatalf("缺少 idle-session-timeout，实际输出:\n%s", line)
+	}
+	if !strings.Contains(line, "skip-cert-verify=true") {
+		t.Fatalf("缺少 skip-cert-verify，实际输出:\n%s", line)
+	}
+}
+
 func TestSurgeProxyLinePrefersExplicitUnderlyingProxyOption(t *testing.T) {
 	node := &ProxyNode{
 		Protocol:    "ss",

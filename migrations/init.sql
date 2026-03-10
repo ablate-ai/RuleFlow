@@ -105,7 +105,7 @@ CREATE TABLE nodes (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_synced_at TIMESTAMP,
     CONSTRAINT nodes_protocol_check
-        CHECK (protocol IN ('trojan', 'vmess', 'vless', 'ss', 'hysteria2', 'tuic')),
+        CHECK (protocol IN ('trojan', 'vmess', 'vless', 'ss', 'anytls', 'hysteria2', 'tuic')),
     CONSTRAINT nodes_source_check
         CHECK (source ~ '^subscription:|^manual$'),
     UNIQUE(source, name, server, port)
@@ -122,7 +122,7 @@ CREATE TRIGGER update_nodes_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE nodes IS '节点表，存储订阅和手动添加的代理节点';
-COMMENT ON COLUMN nodes.protocol IS '协议类型：trojan, vmess, vless, ss, hysteria2, tuic';
+COMMENT ON COLUMN nodes.protocol IS '协议类型：trojan, vmess, vless, ss, anytls, hysteria2, tuic';
 COMMENT ON COLUMN nodes.config IS '协议特定配置（密码、UUID 等），JSON 格式';
 COMMENT ON COLUMN nodes.source IS '节点来源：subscription:{name} 或 manual';
 COMMENT ON COLUMN nodes.source_id IS '订阅 ID（用于订阅节点）';
