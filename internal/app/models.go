@@ -242,6 +242,20 @@ func addTrojanFields(proxy *Proxy, opts map[string]interface{}) {
 	if skip, ok := opts["skipCertVerify"].(bool); ok {
 		proxy.SkipCertVerify = skip
 	}
+	if network, ok := opts["network"].(string); ok && network != "" {
+		proxy.Network = network
+	} else if ws, ok := opts["ws"].(bool); ok && ws {
+		proxy.Network = "ws"
+	}
+	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
+		proxy.WSOpts = &WSOpts{
+			Path: wsPath,
+		}
+	} else if wsPath, ok := opts["ws-path"].(string); ok && wsPath != "" {
+		proxy.WSOpts = &WSOpts{
+			Path: wsPath,
+		}
+	}
 }
 
 func addVMessFields(proxy *Proxy, opts map[string]interface{}) {

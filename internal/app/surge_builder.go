@@ -369,8 +369,27 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		password := strOpt("password")
 		sni := strOpt("sni")
 		skipVerify := boolOpt("skipCertVerify")
-		return appendUnderlyingProxy(fmt.Sprintf("%s = trojan, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
-			name, node.Server, node.Port, password, sni, skipVerify))
+		parts := []string{
+			fmt.Sprintf("%s = trojan", name),
+			node.Server,
+			fmt.Sprintf("%d", node.Port),
+			fmt.Sprintf("password=%s", password),
+			fmt.Sprintf("sni=%s", sni),
+			fmt.Sprintf("skip-cert-verify=%v", skipVerify),
+		}
+		network := strOpt("network")
+		if network == "" && boolOpt("ws") {
+			network = "ws"
+		}
+		if network == "ws" {
+			parts = append(parts, "ws=true")
+			if wsPath := strOpt("wsPath"); wsPath != "" {
+				parts = append(parts, fmt.Sprintf("ws-path=%s", wsPath))
+			} else if wsPath := strOpt("ws-path"); wsPath != "" {
+				parts = append(parts, fmt.Sprintf("ws-path=%s", wsPath))
+			}
+		}
+		return appendUnderlyingProxy(strings.Join(parts, ", "))
 
 	case "vmess":
 		uuid := strOpt("uuid")

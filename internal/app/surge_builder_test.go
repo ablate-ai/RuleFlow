@@ -223,3 +223,26 @@ func TestSurgeProxyLinePrefersExplicitUnderlyingProxyOption(t *testing.T) {
 		t.Fatalf("期望优先使用 ProxyNode.DialerProxy，实际行为为: %s", line)
 	}
 }
+
+func TestSurgeProxyLineSupportsTrojanWebSocket(t *testing.T) {
+	node := &ProxyNode{
+		Protocol: "trojan",
+		Name:     "us.lax.dmit",
+		Server:   "cdn.wwm.app",
+		Port:     443,
+		Options: map[string]interface{}{
+			"password": "d85ec159-128e-4903-bf8e-b4313c3631c0",
+			"sni":      "cdn.wwm.app",
+			"network":  "ws",
+			"wsPath":   "/d85ec159-128e-4903-bf8e-b4313c3631c0",
+		},
+	}
+
+	line := surgeProxyLine(node, "🇺🇸 us.lax.dmit")
+	if !strings.Contains(line, "ws=true") {
+		t.Fatalf("期望 trojan ws 节点输出 ws=true，实际为: %s", line)
+	}
+	if !strings.Contains(line, "ws-path=/d85ec159-128e-4903-bf8e-b4313c3631c0") {
+		t.Fatalf("期望 trojan ws 节点输出 ws-path，实际为: %s", line)
+	}
+}

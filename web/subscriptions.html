@@ -677,7 +677,7 @@
                         value={form.name}
                         onChange={e => setForm({ ...form, name: e.target.value })}
                       />
-                      <div className="fhint">同步节点时会自动使用该名称作为前缀，例如 <code>[{form.name || 'my-subscription'}] 节点A</code></div>
+                      <div className="fhint">同步节点时会自动使用该名称作为前缀，例如 <code>{form.name || 'my-subscription'}-节点A</code></div>
                     </div>
 
                     {/* 订阅地址 */}

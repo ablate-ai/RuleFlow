@@ -311,6 +311,28 @@ func TestAddVLESSFieldsFromClashYAML(t *testing.T) {
 	}
 }
 
+func TestAddTrojanFieldsWithWebSocketOptions(t *testing.T) {
+	proxy := &Proxy{Name: "US WS", Type: "trojan", Server: "cdn.wwm.app", Port: 443, UDP: true}
+	opts := map[string]interface{}{
+		"password": "test-password",
+		"sni":      "cdn.wwm.app",
+		"network":  "ws",
+		"wsPath":   "/test-path",
+	}
+
+	addTrojanFields(proxy, opts)
+
+	if proxy.Network != "ws" {
+		t.Fatalf("期望 trojan network=ws，实际为 %q", proxy.Network)
+	}
+	if proxy.WSOpts == nil {
+		t.Fatal("期望 trojan 生成 ws-opts，实际为 nil")
+	}
+	if proxy.WSOpts.Path != "/test-path" {
+		t.Fatalf("期望 ws path 为 /test-path，实际为 %q", proxy.WSOpts.Path)
+	}
+}
+
 
 // 模拟完整手动导入路径：vless:// URL → DB JSON 往返 → 生成 YAML
 func TestVLESSManualImportFullPath(t *testing.T) {

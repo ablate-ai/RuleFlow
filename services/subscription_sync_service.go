@@ -83,7 +83,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	// 4. 开始事务处理
 	// 使用完全替换策略
 	source := fmt.Sprintf("subscription:%s", sub.Name)
-	namePrefix := fmt.Sprintf("[%s] ", strings.TrimSpace(sub.Name))
+	namePrefix := fmt.Sprintf("%s-", strings.TrimSpace(sub.Name))
 
 	// 4.1 删除该订阅的旧节点。按 source_id 删除，避免订阅改名后旧 source 残留。
 	deleted, err := s.nodeRepo.DeleteBySourceID(ctx, sub.ID)
