@@ -892,7 +892,11 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	// 优先从 Redis 缓存读取
 	if h.policyCache != nil {
 		if cached, err := h.policyCache.GetPolicyConfig(ctx, token); err == nil && cached != "" {
-			w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+			if policy, err := h.configPolicyService.GetByToken(ctx, token); err == nil && policy.Target == "surge" {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			} else {
+				w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+			}
 			w.Header().Set("X-Cache", "HIT")
 			fmt.Fprint(w, cached)
 			return

@@ -674,7 +674,7 @@
                       onChange={e => setForm(f => ({ ...f, template_name: e.target.value }))}
                     >
                       <option value="">默认模板</option>
-                      {templates.map(tpl => (
+                      {templates.filter(tpl => tpl.target === form.target).map(tpl => (
                         <option key={tpl.name} value={tpl.name}>
                           {tpl.name}{tpl.is_default ? ' (默认)' : ''}
                         </option>
