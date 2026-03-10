@@ -282,7 +282,7 @@
       const [toasts, setToasts] = useState([]);
 
       /* 表单状态 */
-      const defaultForm = { name: '', target: 'clash', subscription_ids: [], node_ids: [], template_name: '', description: '', enabled: true };
+      const defaultForm = { name: '', target: 'clash-meta', subscription_ids: [], node_ids: [], template_name: '', description: '', enabled: true };
       const [form, setForm] = useState(defaultForm);
       const [saving, setSaving] = useState(false);
       const [deleting, setDeleting] = useState(false);
@@ -697,7 +697,7 @@
                       onChange={e => setForm(f => ({ ...f, template_name: e.target.value }))}
                     >
                       <option value="">内置模板</option>
-                      {templates.filter(tpl => tpl.target === form.target).map(tpl => (
+                      {templates.filter(tpl => form.target === 'surge' ? tpl.target === 'surge' : tpl.target !== 'surge').map(tpl => (
                         <option key={tpl.name} value={tpl.name}>
                           {tpl.name}
                         </option>
