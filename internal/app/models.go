@@ -216,13 +216,16 @@ func buildProxiesFromTrojan(nodes []TrojanNode) ([]Proxy, []string) {
 	return proxies, proxyNames
 }
 
-// ensureNodeName 确保节点有名称
+// ensureNodeName 确保节点有名称，并自动在前面添加国家 emoji
 func ensureNodeName(node *ProxyNode, index int) string {
+	var name string
 	if node.Name != "" && node.Name != node.Server {
-		return node.Name
+		name = node.Name
+	} else {
+		protocol := strings.ToUpper(node.Protocol)
+		name = fmt.Sprintf("%s-%d", protocol, index+1)
 	}
-	protocol := strings.ToUpper(node.Protocol)
-	return fmt.Sprintf("%s-%d", protocol, index+1)
+	return addCountryEmoji(name)
 }
 
 // 协议特定字段添加函数
