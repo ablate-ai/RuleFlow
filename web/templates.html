@@ -471,12 +471,13 @@
         try {
           if (editItem) {
             await api.put(`/api/templates/${editItem.id}`, payload);
+            setEditItem(item => item ? { ...item, ...payload } : item);
             addToast('模板已更新');
           } else {
             await api.post('/api/templates', payload);
             addToast('模板已创建');
+            closeModal();
           }
-          closeModal();
           loadTemplates();
         } catch (err) {
           addToast('保存失败：' + err.message, 'err');
