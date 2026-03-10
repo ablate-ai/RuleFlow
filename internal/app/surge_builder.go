@@ -8,12 +8,35 @@ import (
 
 // BuildSurgeFromTemplateContent 从模板内容（字符串）构建 Surge INI 配置
 func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (string, error) {
-	// 收集节点名称和节点行
-	nodeNames := make([]string, 0, len(nodes))
-	nodeLines := make([]string, 0, len(nodes))
-	for i, node := range nodes {
+	clonedNodes := cloneProxyNodes(nodes)
+
+	// 收集节点名称
+	nodeNames := make([]string, 0, len(clonedNodes))
+	nodeNameSet := make(map[string]struct{}, len(clonedNodes))
+	nodeAliases := make(map[string]string, len(clonedNodes)*2)
+	for i, node := range clonedNodes {
 		name := ensureNodeName(node, i)
 		nodeNames = append(nodeNames, name)
+		nodeNameSet[name] = struct{}{}
+		nodeAliases[name] = name
+		rawName := strings.TrimSpace(node.Name)
+		if rawName != "" {
+			nodeAliases[rawName] = name
+		}
+	}
+
+	relayMap := surgeTemplateDialerMap(templateContent, nodeNames, nodeNameSet, nodeAliases)
+	for i, node := range clonedNodes {
+		name := ensureNodeName(node, i)
+		if relay, ok := relayMap[name]; ok {
+			node.DialerProxy = relay
+		}
+	}
+
+	// 渲染最终节点行
+	nodeLines := make([]string, 0, len(clonedNodes))
+	for i, node := range clonedNodes {
+		name := ensureNodeName(node, i)
 		nodeLines = append(nodeLines, surgeProxyLine(node, name))
 	}
 
@@ -26,8 +49,6 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 	proxyNodesInserted := false
 	// 缓存 [Proxy] section 末尾插入位置
 	pendingProxyLines := []string(nil)
-
-	filterRe := regexp.MustCompile(`(?i),?\s*filter=([^,\r\n]+)`)
 
 	for idx, rawLine := range lines {
 		line := strings.TrimRight(rawLine, "\r")
@@ -64,29 +85,17 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 			}
 
 		case "[Proxy Group]":
-			if !strings.Contains(line, "__NODES__") {
+			_, filterPattern, excludeFilterPattern, _, sanitizedLine := parseSurgeProxyGroupLine(line)
+			if strings.Contains(line, "__NODES__") {
+				filtered := filterNodesByPattern(nodeNames, filterPattern, excludeFilterPattern)
+				filtered = filterExistingNodeNames(filtered, nodeNameSet)
+				expansion := strings.Join(filtered, ", ")
+				line = strings.ReplaceAll(sanitizedLine, "__NODES__", expansion)
+				line = cleanCommas(line)
 				out = append(out, line)
 				continue
 			}
-
-			// 提取 filter= 参数
-			var filterPattern string
-			match := filterRe.FindStringSubmatch(line)
-			if match != nil {
-				filterPattern = strings.TrimSpace(match[1])
-				// 从行中移除 filter= 参数
-				line = filterRe.ReplaceAllString(line, "")
-			}
-
-			// 按 filter 筛选节点
-			filtered := filterNodesByPattern(nodeNames, filterPattern)
-
-			// 替换 __NODES__ 为逗号分隔的节点名
-			expansion := strings.Join(filtered, ", ")
-			line = strings.ReplaceAll(line, "__NODES__", expansion)
-			// 清理多余的逗号（如 __NODES__ 为空时可能产生 ",,"）
-			line = cleanCommas(line)
-			out = append(out, line)
+			out = append(out, cleanCommas(sanitizedLine))
 
 		default:
 			out = append(out, line)
@@ -99,6 +108,183 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 	}
 
 	return strings.Join(out, "\n"), nil
+}
+
+func cloneProxyNodes(nodes []*ProxyNode) []*ProxyNode {
+	cloned := make([]*ProxyNode, 0, len(nodes))
+	for _, node := range nodes {
+		if node == nil {
+			continue
+		}
+		copyNode := *node
+		cloned = append(cloned, &copyNode)
+	}
+	return cloned
+}
+
+func surgeTemplateDialerMap(templateContent string, nodeNames []string, nodeNameSet map[string]struct{}, nodeAliases map[string]string) map[string]string {
+	lines := strings.Split(templateContent, "\n")
+	groupNames := collectSurgeProxyGroupNames(lines)
+	relayMap := make(map[string]string)
+
+	section := ""
+	for _, rawLine := range lines {
+		line := strings.TrimRight(rawLine, "\r")
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			section = trimmed
+			continue
+		}
+		if section != "[Proxy Group]" {
+			continue
+		}
+
+		_, filterPattern, excludeFilterPattern, relayPattern, sanitizedLine := parseSurgeProxyGroupLine(line)
+		if relayPattern == "" {
+			continue
+		}
+		relayName := findSurgeRelay(relayPattern, groupNames, nodeNames)
+		if relayName == "" {
+			continue
+		}
+		members := surgeGroupNodeMembers(sanitizedLine, nodeNames, nodeNameSet, nodeAliases, filterPattern, excludeFilterPattern)
+		for _, nodeName := range members {
+			relayMap[nodeName] = relayName
+		}
+	}
+
+	return relayMap
+}
+
+func collectSurgeProxyGroupNames(lines []string) []string {
+	groupNames := make([]string, 0)
+	seen := make(map[string]struct{})
+	section := ""
+	for _, rawLine := range lines {
+		line := strings.TrimRight(rawLine, "\r")
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			section = trimmed
+			continue
+		}
+		if section != "[Proxy Group]" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, ";") {
+			continue
+		}
+		if name, ok := surgePolicyName(line); ok {
+			if _, exists := seen[name]; !exists {
+				seen[name] = struct{}{}
+				groupNames = append(groupNames, name)
+			}
+		}
+	}
+	return groupNames
+}
+
+func parseSurgeProxyGroupLine(line string) (groupName string, filterPattern string, excludeFilterPattern string, relayPattern string, sanitized string) {
+	sanitized = line
+	groupName, _ = surgePolicyName(line)
+	for _, pattern := range []*regexp.Regexp{
+		regexp.MustCompile(`(?i),?\s*exclude-filter=([^,\r\n]+)`),
+		regexp.MustCompile(`(?i),?\s*filter=([^,\r\n]+)`),
+		regexp.MustCompile(`(?i),?\s*dialer-proxy=([^,\r\n]+)`),
+		regexp.MustCompile(`(?i),?\s*underlying-proxy=([^,\r\n]+)`),
+	} {
+		match := pattern.FindStringSubmatch(sanitized)
+		if match == nil {
+			continue
+		}
+		value := strings.TrimSpace(match[1])
+		key := strings.ToLower(strings.TrimSpace(strings.SplitN(match[0], "=", 2)[0]))
+		switch {
+		case strings.Contains(key, "exclude-filter"):
+			excludeFilterPattern = value
+		case strings.Contains(key, "filter"):
+			filterPattern = value
+		case strings.Contains(key, "dialer-proxy"), strings.Contains(key, "underlying-proxy"):
+			relayPattern = value
+		}
+		sanitized = pattern.ReplaceAllString(sanitized, "")
+	}
+	return groupName, filterPattern, excludeFilterPattern, relayPattern, sanitized
+}
+
+func surgeGroupNodeMembers(line string, nodeNames []string, nodeNameSet map[string]struct{}, nodeAliases map[string]string, filterPattern string, excludeFilterPattern string) []string {
+	members := make([]string, 0)
+	if strings.Contains(line, "__NODES__") {
+		members = append(members, filterNodesByPattern(nodeNames, filterPattern, excludeFilterPattern)...)
+	}
+
+	right, ok := surgePolicyRightPart(line)
+	if !ok {
+		return dedupeStrings(filterExistingNodeNames(members, nodeNameSet))
+	}
+	parts := strings.Split(right, ",")
+	for i, part := range parts {
+		token := strings.TrimSpace(part)
+		if token == "" || i == 0 || token == "__NODES__" || strings.Contains(token, "=") {
+			continue
+		}
+		if finalName, exists := nodeAliases[token]; exists {
+			members = append(members, finalName)
+		}
+	}
+
+	return dedupeStrings(filterExistingNodeNames(members, nodeNameSet))
+}
+
+func surgePolicyName(line string) (string, bool) {
+	left, _, found := strings.Cut(line, "=")
+	if !found {
+		return "", false
+	}
+	name := strings.TrimSpace(left)
+	if name == "" {
+		return "", false
+	}
+	return name, true
+}
+
+func surgePolicyRightPart(line string) (string, bool) {
+	_, right, found := strings.Cut(line, "=")
+	if !found {
+		return "", false
+	}
+	right = strings.TrimSpace(right)
+	if right == "" {
+		return "", false
+	}
+	return right, true
+}
+
+func findSurgeRelay(pattern string, groupNames []string, nodeNames []string) string {
+	if pattern == "" {
+		return ""
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return ""
+	}
+	for _, name := range groupNames {
+		if re.MatchString(name) {
+			return name
+		}
+	}
+	for _, name := range nodeNames {
+		if re.MatchString(name) {
+			return name
+		}
+	}
+	return ""
+}
+
+func filterExistingNodeNames(names []string, known map[string]struct{}) []string {
+	filtered := make([]string, 0, len(names))
+	for _, name := range names {
+		if _, ok := known[name]; ok {
+			filtered = append(filtered, name)
+		}
+	}
+	return filtered
 }
 
 // BuildSurgeFromDefaultTemplate 使用内置默认结构生成最小 Surge 配置
@@ -160,14 +346,31 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		v, _ := opts[key].(bool)
 		return v
 	}
+	underlyingProxy := strings.TrimSpace(node.DialerProxy)
+	if underlyingProxy == "" {
+		if v, ok := opts["underlying-proxy"].(string); ok {
+			underlyingProxy = strings.TrimSpace(v)
+		}
+	}
+	if underlyingProxy == "" {
+		if v, ok := opts["dialer-proxy"].(string); ok {
+			underlyingProxy = strings.TrimSpace(v)
+		}
+	}
+	appendUnderlyingProxy := func(line string) string {
+		if underlyingProxy == "" {
+			return line
+		}
+		return fmt.Sprintf("%s, underlying-proxy=%s", line, underlyingProxy)
+	}
 
 	switch node.Protocol {
 	case "trojan":
 		password := strOpt("password")
 		sni := strOpt("sni")
 		skipVerify := boolOpt("skipCertVerify")
-		return fmt.Sprintf("%s = trojan, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
-			name, node.Server, node.Port, password, sni, skipVerify)
+		return appendUnderlyingProxy(fmt.Sprintf("%s = trojan, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
+			name, node.Server, node.Port, password, sni, skipVerify))
 
 	case "vmess":
 		uuid := strOpt("uuid")
@@ -177,35 +380,35 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		}
 		tls := boolOpt("tls")
 		sni := strOpt("sni")
-		return fmt.Sprintf("%s = vmess, %s, %d, username=%s, encrypt-method=%s, tls=%v, sni=%s",
-			name, node.Server, node.Port, uuid, security, tls, sni)
+		return appendUnderlyingProxy(fmt.Sprintf("%s = vmess, %s, %d, username=%s, encrypt-method=%s, tls=%v, sni=%s",
+			name, node.Server, node.Port, uuid, security, tls, sni))
 
 	case "vless":
 		uuid := strOpt("uuid")
 		tls := boolOpt("tls")
 		sni := strOpt("sni")
-		return fmt.Sprintf("%s = vless, %s, %d, uuid=%s, tls=%v, sni=%s",
-			name, node.Server, node.Port, uuid, tls, sni)
+		return appendUnderlyingProxy(fmt.Sprintf("%s = vless, %s, %d, uuid=%s, tls=%v, sni=%s",
+			name, node.Server, node.Port, uuid, tls, sni))
 
 	case "ss":
 		cipher := strOpt("cipher")
 		password := strOpt("password")
-		return fmt.Sprintf("%s = ss, %s, %d, encrypt-method=%s, password=%s",
-			name, node.Server, node.Port, cipher, password)
+		return appendUnderlyingProxy(fmt.Sprintf("%s = ss, %s, %d, encrypt-method=%s, password=%s",
+			name, node.Server, node.Port, cipher, password))
 
 	case "hysteria2", "hy2":
 		password := strOpt("password")
 		sni := strOpt("sni")
 		skipVerify := boolOpt("skipCertVerify")
-		return fmt.Sprintf("%s = hysteria2, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
-			name, node.Server, node.Port, password, sni, skipVerify)
+		return appendUnderlyingProxy(fmt.Sprintf("%s = hysteria2, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
+			name, node.Server, node.Port, password, sni, skipVerify))
 
 	case "tuic":
 		uuid := strOpt("uuid")
 		password := strOpt("password")
 		sni := strOpt("sni")
-		return fmt.Sprintf("%s = tuic-v5, %s, %d, token=%s, password=%s, sni=%s",
-			name, node.Server, node.Port, uuid, password, sni)
+		return appendUnderlyingProxy(fmt.Sprintf("%s = tuic-v5, %s, %d, token=%s, password=%s, sni=%s",
+			name, node.Server, node.Port, uuid, password, sni))
 
 	default:
 		// 未知协议，生成注释行
@@ -213,19 +416,31 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 	}
 }
 
-// filterNodesByPattern 按正则模式过滤节点名列表
-func filterNodesByPattern(nodeNames []string, pattern string) []string {
-	if pattern == "" {
-		return nodeNames
+// filterNodesByPattern 按正则模式过滤节点名列表，支持包含（filter）和排除（excludeFilter）
+func filterNodesByPattern(nodeNames []string, filterPattern, excludePattern string) []string {
+	result := nodeNames
+	if filterPattern != "" {
+		re, err := regexp.Compile(filterPattern)
+		if err == nil {
+			included := make([]string, 0, len(result))
+			for _, n := range result {
+				if re.MatchString(n) {
+					included = append(included, n)
+				}
+			}
+			result = included
+		}
 	}
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return nodeNames
-	}
-	result := make([]string, 0, len(nodeNames))
-	for _, n := range nodeNames {
-		if re.MatchString(n) {
-			result = append(result, n)
+	if excludePattern != "" {
+		re, err := regexp.Compile(excludePattern)
+		if err == nil {
+			excluded := make([]string, 0, len(result))
+			for _, n := range result {
+				if !re.MatchString(n) {
+					excluded = append(excluded, n)
+				}
+			}
+			result = excluded
 		}
 	}
 	return result
