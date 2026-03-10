@@ -1,5 +1,7 @@
 ENV_FILE ?= .env
 MIGRATION_FILE := migrations/init.sql
+GOFLAGS ?= -buildvcs=false
+GOCACHE_DIR ?= $(CURDIR)/.cache/go-build
 
 .PHONY: help env-check migrate build run test
 
@@ -20,10 +22,10 @@ migrate: env-check
 	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; test -n "$$DATABASE_URL" || { echo "DATABASE_URL 未设置"; exit 1; }; psql "$$DATABASE_URL" -f "$(MIGRATION_FILE)"'
 
 build:
-	go build -o ruleflow .
+	GOCACHE=$(GOCACHE_DIR) GOFLAGS="$(GOFLAGS)" go build -o ruleflow .
 
 run: env-check
-	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; go run .'
+	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; GOCACHE="$(GOCACHE_DIR)" GOFLAGS="$(GOFLAGS)" go run .'
 
 test:
-	GOCACHE=$(CURDIR)/.cache/go-build go test ./...
+	GOCACHE=$(GOCACHE_DIR) GOFLAGS="$(GOFLAGS)" go test ./...
