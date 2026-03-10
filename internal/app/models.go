@@ -25,6 +25,7 @@ type Proxy struct {
 	Type           string      `yaml:"type"`
 	Server         string      `yaml:"server"`
 	Port           int         `yaml:"port"`
+	Version        int         `yaml:"version,omitempty"`
 	Password       string      `yaml:"password,omitempty"`
 	UDP            bool        `yaml:"udp,omitempty"`
 	SNI            string      `yaml:"sni,omitempty"`
@@ -405,6 +406,7 @@ func addAnyTLSFields(proxy *Proxy, opts map[string]interface{}) {
 }
 
 func addTUICFields(proxy *Proxy, opts map[string]interface{}) {
+	proxy.Version = 5
 	if uuid, ok := opts["uuid"].(string); ok {
 		proxy.UUID = uuid
 	}
