@@ -942,16 +942,24 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// 生成 YAML
+	// 生成配置
 	target := policy.Target
 	if target == "" {
 		target = "clash"
 	}
-	var yamlContent string
-	if templateContent != "" {
-		yamlContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
+	var configContent string
+	if target == "surge" {
+		if templateContent != "" {
+			configContent, err = app.BuildSurgeFromTemplateContent(proxyNodes, templateContent)
+		} else {
+			configContent, err = app.BuildSurgeFromDefaultTemplate(proxyNodes)
+		}
 	} else {
-		yamlContent, err = app.BuildYAMLFromDefaultTemplate(proxyNodes, target)
+		if templateContent != "" {
+			configContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
+		} else {
+			configContent, err = app.BuildYAMLFromDefaultTemplate(proxyNodes, target)
+		}
 	}
 	if err != nil {
 		http.Error(w, "生成配置失败: "+err.Error(), http.StatusInternalServerError)
@@ -960,16 +968,24 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 
 	// 写入 Redis 缓存
 	if h.policyCache != nil {
-		_ = h.policyCache.SetPolicyConfig(ctx, token, yamlContent)
+		_ = h.policyCache.SetPolicyConfig(ctx, token, configContent)
 	}
 
-	filename := "clash_config.yaml"
-	if target == "stash" {
+	var filename string
+	switch target {
+	case "stash":
 		filename = "stash_config.yaml"
+	case "surge":
+		filename = "surge_config.conf"
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	default:
+		filename = "clash_config.yaml"
 	}
-	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+	if target != "surge" {
+		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
 	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
 	w.Header().Set("X-Cache", "MISS")
-	fmt.Fprint(w, yamlContent)
+	fmt.Fprint(w, configContent)
 }
