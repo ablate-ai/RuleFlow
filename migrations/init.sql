@@ -40,7 +40,6 @@ CREATE TABLE templates (
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
     content TEXT NOT NULL,
-    is_default BOOLEAN NOT NULL DEFAULT false,
     target VARCHAR(20) NOT NULL DEFAULT 'clash',
     tags TEXT[] DEFAULT '{}',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -50,7 +49,6 @@ CREATE TABLE templates (
 );
 
 CREATE INDEX idx_templates_name ON templates(name);
-CREATE INDEX idx_templates_default ON templates(is_default) WHERE is_default = true;
 CREATE INDEX idx_templates_target ON templates(target);
 
 CREATE TRIGGER update_templates_updated_at
@@ -85,7 +83,7 @@ CREATE TRIGGER update_config_policies_updated_at
 COMMENT ON TABLE config_policies IS '配置生成策略表';
 COMMENT ON COLUMN config_policies.subscription_ids IS '关联的订阅源 ID，可以从多个订阅源合并节点';
 COMMENT ON COLUMN config_policies.node_ids IS '直接指定的手动节点 ID 列表';
-COMMENT ON COLUMN config_policies.template_name IS '使用的规则模板，为空则使用系统默认模板';
+COMMENT ON COLUMN config_policies.template_name IS '使用的规则模板，为空则使用内置模板';
 COMMENT ON COLUMN config_policies.node_filters IS '节点过滤条件，JSON 格式存储复杂的过滤逻辑';
 
 CREATE TABLE nodes (

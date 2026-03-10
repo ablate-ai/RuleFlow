@@ -179,6 +179,8 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 	webAuth := api.WebAuthMiddleware(cfg.AdminPassword)
 	fs := http.FileServer(http.Dir(app.ResolveProjectPath("web")))
 	http.Handle("/web/", webAuth(http.StripPrefix("/web/", fs)))
+	rulesFS := http.FileServer(http.Dir(app.ResolveProjectPath("rules")))
+	http.Handle("/rules/", webAuth(http.StripPrefix("/rules/", rulesFS)))
 
 	// 主页和原有订阅接口（向后兼容）
 	http.Handle("/", webAuth(http.HandlerFunc(app.IndexHandler)))

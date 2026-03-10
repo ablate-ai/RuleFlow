@@ -29,30 +29,12 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, tpl *database.Temp
 	if exists {
 		return fmt.Errorf("模板名称已存在: %s", tpl.Name)
 	}
-
-	// 如果是第一个模板，自动设置为默认
-	if tpl.IsDefault {
-		return s.templateRepo.Create(ctx, tpl)
-	}
-
-	// 检查是否已有默认模板
-	_, err = s.templateRepo.GetDefault(ctx)
-	if err != nil && err.Error() == "未找到默认模板" {
-		// 没有默认模板，将此模板设为默认
-		tpl.IsDefault = true
-	}
-
 	return s.templateRepo.Create(ctx, tpl)
 }
 
 // GetTemplateByName 根据名称获取模板
 func (s *TemplateService) GetTemplateByName(ctx context.Context, name string) (*database.Template, error) {
 	return s.templateRepo.GetByName(ctx, name)
-}
-
-// GetDefaultTemplate 获取默认模板
-func (s *TemplateService) GetDefaultTemplate(ctx context.Context) (*database.Template, error) {
-	return s.templateRepo.GetDefault(ctx)
 }
 
 // ListTemplates 列出所有模板

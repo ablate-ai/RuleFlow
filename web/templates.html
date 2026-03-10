@@ -108,11 +108,14 @@
     .bdg-pk { background: #fce7f3; color: #be185d; } .bdg-pk .bdg-dot { background: #ec4899; }
     .bdg-gray { background: #f3f4f6; color: #4b5563; }
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
+    .overlay-full { padding: 0; background: rgba(17,24,39,.36); backdrop-filter: blur(6px); }
     .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
     .modal-sm { max-width: 420px; } .modal-md { max-width: 540px; } .modal-lg { max-width: 680px; } .modal-xl { max-width: 860px; }
+    .modal-full { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; }
     .mh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
     .mht { font-size: 16px; font-weight: 600; color: var(--t1); }
     .mb { padding: 22px; }
+    .mb-full { flex: 1; min-height: 0; overflow: auto; padding: 24px; background: #f8fafc; }
     .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--bdr); background: #f9fafb; border-radius: 0 0 var(--rxl) var(--rxl); }
     .tc { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
     .toast { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-radius: var(--rl); font-size: 13.5px; font-weight: 500; box-shadow: var(--sh3); min-width: 260px; max-width: 380px; pointer-events: all; animation: si .25s ease; }
@@ -135,7 +138,19 @@
     .empty-d { font-size: 13px; color: var(--t2); max-width: 280px; line-height: 1.6; }
     .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
     /* Monaco 容器 */
-    .monaco-wrap { border: 1px solid var(--bdr); border-radius: var(--rm); overflow: hidden; }
+    .monaco-wrap { border: 1px solid var(--bdr); border-radius: var(--rm); overflow: hidden; background: #fff; }
+    .editor-layout { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 18px; align-items: start; min-height: 0; }
+    .editor-panel { background: #fff; border: 1px solid var(--bdr); border-radius: var(--rl); padding: 18px; box-shadow: var(--sh1); }
+    .editor-pane { min-height: calc(100vh - 220px); display: flex; flex-direction: column; }
+    .editor-form-group { margin-bottom: 0; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+    .editor-pane .monaco-wrap { min-height: 520px; height: calc(100vh - 300px); flex: none; }
+    .editor-pane .fhint { margin-top: 8px; }
+    .full-subtitle { font-size: 12.5px; color: var(--t2); margin-top: 2px; }
+    @media (max-width: 980px) {
+      .editor-layout { grid-template-columns: 1fr; }
+      .editor-pane { min-height: 60vh; }
+      .editor-pane .monaco-wrap { min-height: 420px; height: 60vh; }
+    }
     @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
     @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -273,7 +288,7 @@
 
     /* ===== Monaco 编辑器组件 ===== */
     /* 封装为独立组件，方便管理生命周期 */
-    const MonacoEditor = ({ value, onChange }) => {
+    const MonacoEditor = ({ value, onChange, height = '420px' }) => {
       const containerRef = useRef(null);   // DOM 挂载点
       const editorRef = useRef(null);      // Monaco 实例
       const isUpdating = useRef(false);    // 防止循环触发
@@ -340,7 +355,7 @@
       }, [value]);
 
       return (
-        <div className="monaco-wrap" style={{ height: '420px' }}>
+        <div className="monaco-wrap" style={{ height }}>
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
         </div>
       );
@@ -362,7 +377,7 @@
       const [toasts, setToasts] = useState([]);
 
       /* 表单状态 */
-      const defaultForm = { name: '', target: 'clash', is_default: false, description: '', content: '' };
+      const defaultForm = { name: '', target: 'clash', description: '', content: '' };
       const [form, setForm] = useState(defaultForm);
       const [saving, setSaving] = useState(false);
       const [deleting, setDeleting] = useState(false);
@@ -396,12 +411,17 @@
 
       useEffect(() => { loadTemplates(); }, []);
 
-      /* 加载默认模板文件内容（新建时使用） */
+      /* 加载内置模板文件内容（新建时使用） */
       const loadDefaultContent = async () => {
         try {
           const res = await fetch('/rules/template.yaml');
           if (res.ok) {
-            return await res.text();
+            const text = await res.text();
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
+              throw new Error('内置模板响应不是 YAML');
+            }
+            return text;
           }
         } catch (_) {}
         return '';
@@ -422,7 +442,6 @@
         const f = {
           name: tpl.name,
           target: tpl.target || 'clash',
-          is_default: tpl.is_default || false,
           description: tpl.description || '',
           content: tpl.content || '',
         };
@@ -543,11 +562,6 @@
                       {/* 名称与徽章 */}
                       <div className="item-name">
                         {tpl.name}
-                        {tpl.is_default && (
-                          <span className="bdg bdg-g">
-                            <span className="bdg-dot"></span>默认
-                          </span>
-                        )}
                         <TargetBadge target={tpl.target} />
                       </div>
                       {/* 描述 */}
@@ -579,69 +593,67 @@
 
           {/* 新建/编辑 Modal（XL 尺寸，容纳编辑器） */}
           {showModal && (
-            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
-              <div className="modal modal-xl">
+            <div className="overlay overlay-full" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+              <div className="modal modal-full">
                 <div className="mh">
-                  <span className="mht">{editItem ? `编辑模板：${editItem.name}` : '新建规则模板'}</span>
+                  <div>
+                    <div className="mht">{editItem ? `编辑模板：${editItem.name}` : '新建规则模板'}</div>
+                    <div className="full-subtitle">全屏编辑模式，便于查看和修改大段 YAML 模板</div>
+                  </div>
                   <button className="btic" onClick={closeModal}><IcoX /></button>
                 </div>
-                <div className="mb">
-                  {/* 名称 + 目标类型 */}
-                  <div className="frow">
-                    <div className="fg">
-                      <label className="fl">模板名称</label>
-                      <input
-                        className="fc"
-                        type="text"
-                        placeholder="my-template"
-                        value={form.name}
-                        disabled={!!editItem}
-                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                      />
+                <div className="mb mb-full">
+                  <div className="editor-layout">
+                    <div className="editor-panel">
+                      <div className="frow">
+                        <div className="fg">
+                          <label className="fl">模板名称</label>
+                          <input
+                            className="fc"
+                            type="text"
+                            placeholder="my-template"
+                            value={form.name}
+                            disabled={!!editItem}
+                            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                          />
+                        </div>
+                        <div className="fg">
+                          <label className="fl">目标客户端</label>
+                          <select
+                            className="fc"
+                            value={form.target}
+                            onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
+                          >
+                            {TARGET_OPTIONS.map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="fg">
+                        <label className="fl">描述 <span className="flo">可选</span></label>
+                        <textarea
+                          className="fc"
+                          placeholder="简要描述此模板的用途或适用场景..."
+                          rows={4}
+                          value={form.description}
+                          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                        />
+                      </div>
+
                     </div>
-                    <div className="fg">
-                      <label className="fl">目标客户端</label>
-                      <select
-                        className="fc"
-                        value={form.target}
-                        onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
-                      >
-                        {TARGET_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+
+                    <div className="editor-pane">
+                      <div className="fg editor-form-group">
+                        <label className="fl">模板内容 <span className="flo">YAML 格式</span></label>
+                        <MonacoEditor
+                          value={editorContent}
+                          onChange={handleEditorChange}
+                          height="calc(100vh - 300px)"
+                        />
+                      </div>
                     </div>
-                  </div>
-
-                  {/* 描述 */}
-                  <div className="fg">
-                    <label className="fl">描述 <span className="flo">可选</span></label>
-                    <textarea
-                      className="fc"
-                      placeholder="简要描述此模板的用途或适用场景..."
-                      rows={2}
-                      value={form.description}
-                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    />
-                  </div>
-
-                  {/* 设为默认 Toggle */}
-                  <div className="fg">
-                    <Toggle
-                      checked={form.is_default}
-                      onChange={v => setForm(f => ({ ...f, is_default: v }))}
-                      label="设为默认模板"
-                    />
-                    <div className="fhint">默认模板将在配置策略未指定模板时自动使用</div>
-                  </div>
-
-                  {/* Monaco 编辑器 */}
-                  <div className="fg" style={{ marginBottom: 0 }}>
-                    <label className="fl">模板内容 <span className="flo">YAML 格式</span></label>
-                    <MonacoEditor
-                      value={editorContent}
-                      onChange={handleEditorChange}
-                    />
                   </div>
                 </div>
                 <div className="mf">
@@ -668,7 +680,7 @@
                     确定要删除模板 <strong>"{deleteTarget.name}"</strong> 吗？
                   </p>
                   <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
-                    此操作不可撤销，使用该模板的配置策略将回退至默认模板。
+                    此操作不可撤销，使用该模板的配置策略将改为使用内置模板。
                   </p>
                 </div>
                 <div className="mf">

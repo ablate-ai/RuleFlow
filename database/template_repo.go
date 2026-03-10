@@ -14,7 +14,6 @@ type Template struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Content     string    `json:"content"`
-	IsDefault   bool      `json:"is_default"`
 	Target      string    `json:"target"`
 	Tags        []string  `json:"tags"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -34,26 +33,17 @@ func NewTemplateRepo(db *DB) *TemplateRepo {
 // Create 创建模板
 func (r *TemplateRepo) Create(ctx context.Context, tpl *Template) error {
 	query := `
-		INSERT INTO templates (name, description, content, is_default, target, tags)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO templates (name, description, content, target, tags)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
-		tpl.Name, tpl.Description, tpl.Content, tpl.IsDefault, tpl.Target, tpl.Tags,
+		tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
 	).Scan(&tpl.ID, &tpl.CreatedAt, &tpl.UpdatedAt)
 
 	if err != nil {
 		return fmt.Errorf("创建模板失败: %w", err)
-	}
-
-	// 如果设置为默认模板，需要将其他模板的 is_default 设为 false
-	if tpl.IsDefault {
-		query = `UPDATE templates SET is_default = false WHERE id != $1`
-		_, err = r.db.Pool.Exec(ctx, query, tpl.ID)
-		if err != nil {
-			return fmt.Errorf("更新默认模板失败: %w", err)
-		}
 	}
 
 	return nil
@@ -62,7 +52,7 @@ func (r *TemplateRepo) Create(ctx context.Context, tpl *Template) error {
 // GetByName 根据名称获取模板
 func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, error) {
 	query := `
-		SELECT id, name, description, content, is_default, target, tags,
+		SELECT id, name, description, content, target, tags,
 		       created_at, updated_at
 		FROM templates
 		WHERE name = $1
@@ -74,7 +64,6 @@ func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, e
 		&tpl.Name,
 		&tpl.Description,
 		&tpl.Content,
-		&tpl.IsDefault,
 		&tpl.Target,
 		&tpl.Tags,
 		&tpl.CreatedAt,
@@ -91,41 +80,10 @@ func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, e
 	return tpl, nil
 }
 
-// GetDefault 获取默认模板
-func (r *TemplateRepo) GetDefault(ctx context.Context) (*Template, error) {
-	query := `
-		SELECT id, name, description, content, is_default, tags,
-		       created_at, updated_at
-		FROM templates
-		WHERE is_default = true
-	`
-
-	tpl := &Template{}
-	err := r.db.Pool.QueryRow(ctx, query).Scan(
-		&tpl.ID,
-		&tpl.Name,
-		&tpl.Description,
-		&tpl.Content,
-		&tpl.IsDefault,
-		&tpl.Tags,
-		&tpl.CreatedAt,
-		&tpl.UpdatedAt,
-	)
-
-	if err == pgx.ErrNoRows {
-		return nil, fmt.Errorf("未找到默认模板")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("查询默认模板失败: %w", err)
-	}
-
-	return tpl, nil
-}
-
 // List 列出所有模板
 func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 	query := `
-		SELECT id, name, description, content, is_default, target, tags,
+		SELECT id, name, description, content, target, tags,
 		       created_at, updated_at
 		FROM templates
 		ORDER BY created_at DESC
@@ -145,7 +103,6 @@ func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 			&tpl.Name,
 			&tpl.Description,
 			&tpl.Content,
-			&tpl.IsDefault,
 			&tpl.Target,
 			&tpl.Tags,
 			&tpl.CreatedAt,
@@ -168,13 +125,13 @@ func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 func (r *TemplateRepo) Update(ctx context.Context, tpl *Template) error {
 	query := `
 		UPDATE templates
-		SET description = $2, content = $3, is_default = $4, target = $5, tags = $6
+		SET description = $2, content = $3, target = $4, tags = $5
 		WHERE name = $1
 		RETURNING updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
-		tpl.Name, tpl.Description, tpl.Content, tpl.IsDefault, tpl.Target, tpl.Tags,
+		tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
 	).Scan(&tpl.UpdatedAt)
 
 	if err == pgx.ErrNoRows {
@@ -182,15 +139,6 @@ func (r *TemplateRepo) Update(ctx context.Context, tpl *Template) error {
 	}
 	if err != nil {
 		return fmt.Errorf("更新模板失败: %w", err)
-	}
-
-	// 如果设置为默认模板，需要将其他模板的 is_default 设为 false
-	if tpl.IsDefault {
-		query = `UPDATE templates SET is_default = false WHERE id != $1`
-		_, err = r.db.Pool.Exec(ctx, query, tpl.ID)
-		if err != nil {
-			return fmt.Errorf("更新默认模板失败: %w", err)
-		}
 	}
 
 	return nil
