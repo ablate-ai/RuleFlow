@@ -264,9 +264,6 @@
         });
       }
 
-      if (issues.length === 0) {
-        return [{ level: 'ok', title: '目前没有明显异常', desc: '服务、订阅、模板和策略都处于可继续工作的状态。' }];
-      }
       return issues.slice(0, 5);
     }
 
@@ -385,6 +382,9 @@
       const enabledPolicies = policies.filter(p => p.enabled).length;
       const sourceCount    = Object.keys(nodeStats.by_source || {}).length;
       const issues         = loaded ? buildIssueItems(subscriptions, templates, policies, health) : [];
+      const displayIssues  = loaded && issues.length === 0
+        ? [{ level: 'ok', title: '目前没有明显异常', desc: '服务、订阅、模板和策略都处于可继续工作的状态。' }]
+        : issues;
       const protocolItems  = Object.entries(nodeStats.by_protocol || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
       const protocolMax    = Math.max(...protocolItems.map(([, c]) => c), 1);
       const templateTypes  = [...new Set(templates.map(t => t.target).filter(Boolean))].join(' / ');
@@ -410,7 +410,7 @@
 
       const issueNoteText = (() => {
         if (!loaded) return '加载中';
-        if (issues[0]?.level === 'ok') return '当前没有明显异常';
+        if (issues.length === 0) return '当前没有明显异常';
         if (impactedCount > 0) return `涉及 ${impactedCount} 个异常订阅及系统配置状态`;
         return '当前存在系统配置或健康状态问题';
       })();
@@ -499,7 +499,7 @@
                   <div className="issue-list">
                     {!loaded
                       ? <div className="empty">加载中...</div>
-                      : issues.map((issue, i) => <IssueItem key={i} issue={issue} />)
+                      : displayIssues.map((issue, i) => <IssueItem key={i} issue={issue} />)
                     }
                   </div>
                 </div>
