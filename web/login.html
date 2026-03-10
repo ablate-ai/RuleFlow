@@ -216,7 +216,8 @@
     </form>
   </div>
 
-  <div class="footer">RuleFlow &copy; 2025</div>
+  <div class="footer">RuleFlow &copy; <span id="yr"></span></div>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
 </div>
 
 <script>
