@@ -892,7 +892,7 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateConfig 根据配置策略 token 生成 YAML 配置（带 Redis 缓存）
-// 路由: GET /config?token=xxx
+// 路由: GET /subscribe?token=xxx
 func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)

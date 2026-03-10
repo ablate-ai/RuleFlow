@@ -11,7 +11,7 @@ import (
 )
 
 func getRuleTemplateFilePath() string {
-	return ResolveProjectPath("rules/template.yaml")
+	return ResolveProjectPath("rules/clash.yaml")
 }
 
 func ResolveProjectPath(path string) string {

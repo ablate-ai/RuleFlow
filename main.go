@@ -22,22 +22,20 @@ func main() {
 	// 加载配置
 	cfg := config.Load()
 
-	// 初始化数据库和 Redis（可选）
-	var db *database.DB
+	// 初始化数据库和 Redis（数据库必需，Redis 可选）
 	var redisClient *cache.Client
 	var subscriptionService *services.SubscriptionService
 
-	// 尝试连接数据库
-	if strings.TrimSpace(cfg.DatabaseURL) != "" {
-		var err error
-		db, err = database.New(cfg.DatabaseURL)
-		if err != nil {
-			log.Printf("⚠️ 数据库连接失败（将使用无数据库模式）: %v\n", err)
-		} else {
-			log.Printf("✅ 数据库连接成功\n")
-			defer db.Close()
-		}
+	if strings.TrimSpace(cfg.DatabaseURL) == "" {
+		log.Fatal("❌ DATABASE_URL 未设置，RuleFlow 需要 PostgreSQL 才能启动")
 	}
+
+	db, err := database.New(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("❌ 数据库连接失败: %v\n", err)
+	}
+	log.Printf("✅ 数据库连接成功\n")
+	defer db.Close()
 
 	// 尝试连接 Redis
 	if os.Getenv("REDIS_ADDR") != "" {
@@ -60,25 +58,23 @@ func main() {
 	if redisClient != nil {
 		subscriptionCache = cache.NewSubscriptionCache(redisClient, time.Duration(cfg.CacheTTLSeconds)*time.Second)
 	}
-	if db != nil {
-		subscriptionRepo := database.NewSubscriptionRepo(db)
-		subscriptionService = services.NewSubscriptionService(subscriptionRepo, subscriptionCache)
+	subscriptionRepo := database.NewSubscriptionRepo(db)
+	subscriptionService = services.NewSubscriptionService(subscriptionRepo, subscriptionCache)
 
-		// 创建模板服务
-		templateRepo := database.NewTemplateRepo(db)
-		templateService = services.NewTemplateService(templateRepo)
+	// 创建模板服务
+	templateRepo := database.NewTemplateRepo(db)
+	templateService = services.NewTemplateService(templateRepo)
 
-		// 创建配置策略服务
-		configPolicyRepo := database.NewConfigPolicyRepo(db)
-		nodeRepo := database.NewNodeRepo(db)
-		configPolicyService = services.NewConfigPolicyService(configPolicyRepo, subscriptionRepo, nodeRepo)
+	// 创建配置策略服务
+	configPolicyRepo := database.NewConfigPolicyRepo(db)
+	nodeRepo := database.NewNodeRepo(db)
+	configPolicyService = services.NewConfigPolicyService(configPolicyRepo, subscriptionRepo, nodeRepo)
 
-		// 创建节点服务
-		nodeService = services.NewNodeService(nodeRepo)
+	// 创建节点服务
+	nodeService = services.NewNodeService(nodeRepo)
 
-		// 创建订阅同步服务
-		subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo)
-	}
+	// 创建订阅同步服务
+	subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo)
 
 	// 启动自动刷新调度器
 	schedulerCtx, cancelScheduler := context.WithCancel(context.Background())
@@ -89,10 +85,7 @@ func main() {
 	}
 
 	// 创建 API 处理器
-	var apiHandlers *api.Handlers
-	if subscriptionService != nil && templateService != nil && configPolicyService != nil && nodeService != nil && subscriptionSyncService != nil {
-		apiHandlers = api.NewHandlers(subscriptionService, templateService, configPolicyService, nodeService, subscriptionSyncService, subscriptionCache)
-	}
+	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, nodeService, subscriptionSyncService, subscriptionCache)
 
 	// 设置路由
 	setupRoutes(cfg, apiHandlers)
@@ -100,12 +93,10 @@ func main() {
 	// 启动服务器
 	port := cfg.Port
 	log.Printf("🚀 服务器启动: http://localhost:%s\n", port)
-	if subscriptionService != nil && templateService != nil {
-		log.Printf("💡 管理界面: http://localhost:%s/web/admin.html\n", port)
-		log.Printf("💡 管理接口: http://localhost:%s/api/subscriptions\n", port)
-		log.Printf("💡 模板接口: http://localhost:%s/api/templates\n", port)
-		log.Printf("💡 健康检查: http://localhost:%s/health\n", port)
-	}
+	log.Printf("💡 管理界面: http://localhost:%s/dashboard\n", port)
+	log.Printf("💡 管理接口: http://localhost:%s/api/subscriptions\n", port)
+	log.Printf("💡 模板接口: http://localhost:%s/api/templates\n", port)
+	log.Printf("💡 健康检查: http://localhost:%s/health\n", port)
 
 	// 优雅关闭
 	server := &http.Server{
@@ -156,7 +147,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) {
 				api.SetSessionCookie(w, cfg.AdminPassword)
 				next := r.FormValue("next")
 				if next == "" {
-					next = "/web/index.html"
+					next = "/dashboard"
 				}
 				http.Redirect(w, r, next, http.StatusFound)
 			} else {
@@ -180,18 +171,31 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) {
 	rulesFS := http.FileServer(http.Dir(app.ResolveProjectPath("rules")))
 	http.Handle("/rules/", webAuth(http.StripPrefix("/rules/", rulesFS)))
 
-	// 主页
-	http.Handle("/", webAuth(http.HandlerFunc(app.IndexHandler)))
+	// 页面路由（无 .html 后缀）
+	servePage := func(file string) http.Handler {
+		return webAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, app.ResolveProjectPath(file))
+		}))
+	}
+	http.Handle("/dashboard",     servePage("web/index.html"))
+	http.Handle("/subscriptions", servePage("web/subscriptions.html"))
+	http.Handle("/nodes",         servePage("web/nodes.html"))
+	http.Handle("/templates",     servePage("web/templates.html"))
+	http.Handle("/configs",       servePage("web/configs.html"))
+
+	// 根路径重定向到仪表盘
+	http.Handle("/", webAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/dashboard", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	})))
 
 	// API 路由（统一用子 mux，整体加鉴权）
 	apiMux := http.NewServeMux()
 
-	if apiHandlers == nil {
-		// 数据库未启用时，所有 /api/ 请求返回 JSON 错误而非 HTML
-		apiMux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
-			api.SendError(w, http.StatusServiceUnavailable, "数据库模式未启用，API 功能不可用")
-		})
-	} else {
+	{
 		// 订阅管理 API
 		apiMux.HandleFunc("/api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
@@ -342,8 +346,8 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) {
 			}
 		})
 
-		// 配置生成（供客户端直接订阅）GET /config?token=xxx，不需要鉴权
-		http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		// 配置生成（供客户端直接订阅）GET /subscribe?token=xxx，不需要鉴权
+		http.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
 			apiHandlers.GenerateConfig(w, r)
 		})
 
