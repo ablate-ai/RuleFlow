@@ -411,15 +411,16 @@
 
       /* 清除策略关联的订阅缓存 */
       const handleClearCache = async (policy) => {
-        const ids = (policy.subscription_ids || []).map(Number);
-        const names = subscriptions.filter(s => ids.includes(s.id)).map(s => s.name);
-        if (names.length === 0) {
-          addToast('该策略没有关联订阅源，无需清除缓存', 'warn');
-          return;
-        }
         setRefreshing(policy.name);
         try {
-          await Promise.all(names.map(n => api.delete(`/api/cache/${n}`)));
+          const tasks = [];
+          // 清除订阅内容缓存
+          const ids = (policy.subscription_ids || []).map(Number);
+          const names = subscriptions.filter(s => ids.includes(s.id)).map(s => s.name);
+          names.forEach(n => tasks.push(api.delete(`/api/cache/${n}`)));
+          // 清除该策略生成的配置缓存
+          tasks.push(api.delete(`/api/config-policies/${policy.id}/cache`));
+          await Promise.all(tasks);
           addToast('缓存已清除');
         } catch (err) {
           addToast('清除缓存失败：' + err.message, 'err');

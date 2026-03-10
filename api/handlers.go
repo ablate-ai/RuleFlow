@@ -79,17 +79,21 @@ func (h *Handlers) GetSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取订阅名称
-	// 假设路径格式为 /api/subscriptions/{name}
+	// 从 URL 路径中提取订阅 ID
+	// 路径格式为 /api/subscriptions/{id}
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
+		return
+	}
 
 	ctx := r.Context()
-	sub, err := h.subscriptionService.GetSubscription(ctx, name)
+	sub, err := h.subscriptionService.GetSubscriptionByID(ctx, id)
 	if err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
@@ -157,16 +161,20 @@ func (h *Handlers) DeleteSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取订阅名称
+	// 从 URL 路径中提取订阅 ID
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
+		return
+	}
 
 	ctx := r.Context()
-	if err := h.subscriptionService.DeleteSubscription(ctx, name); err != nil {
+	if err := h.subscriptionService.DeleteSubscriptionByID(ctx, id); err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -519,6 +527,39 @@ func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
 	SendSuccess(w, map[string]string{"message": "配置策略已删除"})
 }
 
+// ClearPolicyConfigCache 清除指定策略的生成配置缓存
+func (h *Handlers) ClearPolicyConfigCache(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+		return
+	}
+
+	parts := strings.Split(r.URL.Path, "/")
+	// 路径: /api/config-policies/{id}/cache → parts[3] = id
+	if len(parts) < 4 {
+		SendError(w, http.StatusBadRequest, "无效的路径")
+		return
+	}
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的策略 ID")
+		return
+	}
+
+	ctx := r.Context()
+	policy, err := h.configPolicyService.GetByID(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, "策略不存在")
+		return
+	}
+
+	if h.policyCache != nil && policy.Token != "" {
+		_ = h.policyCache.DeletePolicyConfig(ctx, policy.Token)
+	}
+
+	SendSuccess(w, map[string]string{"message": "配置缓存已清除"})
+}
+
 // ==================== 节点管理 API ====================
 
 // ImportNodes 通过 URL 批量导入节点
@@ -809,17 +850,27 @@ func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取订阅名称
-	// 路径格式：/api/subscriptions/{name}/sync
+	// 从 URL 路径中提取订阅 ID
+	// 路径格式：/api/subscriptions/{id}/sync
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 5 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	subscriptionName := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
+		return
+	}
 
 	ctx := r.Context()
-	count, err := h.subscriptionSyncService.SyncSubscription(ctx, subscriptionName)
+	sub, err := h.subscriptionService.GetSubscriptionByID(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	count, err := h.subscriptionSyncService.SyncSubscription(ctx, sub.Name)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -838,16 +889,26 @@ func (h *Handlers) GetSubscriptionSyncStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// 从 URL 路径中提取订阅名称
+	// 从 URL 路径中提取订阅 ID
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 5 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	subscriptionName := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
+		return
+	}
 
 	ctx := r.Context()
-	status, err := h.subscriptionSyncService.GetSyncStatus(ctx, subscriptionName)
+	sub, err := h.subscriptionService.GetSubscriptionByID(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	status, err := h.subscriptionSyncService.GetSyncStatus(ctx, sub.Name)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error())
 		return

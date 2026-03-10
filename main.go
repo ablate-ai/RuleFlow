@@ -291,6 +291,15 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 		})
 
 		apiMux.HandleFunc("/api/config-policies/", func(w http.ResponseWriter, r *http.Request) {
+			// /api/config-policies/{id}/cache
+			if strings.HasSuffix(r.URL.Path, "/cache") {
+				if r.Method == http.MethodDelete {
+					apiHandlers.ClearPolicyConfigCache(w, r)
+				} else {
+					api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
+				}
+				return
+			}
 			switch r.Method {
 			case http.MethodGet:
 				apiHandlers.GetConfigPolicy(w, r)
