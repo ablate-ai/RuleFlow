@@ -26,3 +26,4 @@ coverage.html
 
 # 环境变量
 .env
+.env.docker

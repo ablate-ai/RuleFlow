@@ -1,0 +1,38 @@
+services:
+  ruleflow:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ruleflow:local
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PORT: ${PORT:-8080}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ruleflow:password@postgres:5432/ruleflow?sslmode=disable}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-3600}
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ruleflow}
+      POSTGRES_USER: ${POSTGRES_USER:-ruleflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../migrations/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  pgdata:
