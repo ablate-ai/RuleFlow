@@ -294,8 +294,8 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 
 func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target string) (string, error) {
 	// 验证目标类型
-	if target != "clash" && target != "stash" {
-		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)
+	if target != "clash-meta" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash)", target)
 	}
 
 	data, err := os.ReadFile(sourcePath)
@@ -379,8 +379,8 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 
 // BuildYAMLFromTemplateContent 从模板内容（字符串）构建 YAML 配置
 func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, target string) (string, error) {
-	if target != "clash" && target != "stash" {
-		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)
+	if target != "clash-meta" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash)", target)
 	}
 
 	// 用 yaml.Node 解析，保留原始格式（含引号风格）
@@ -456,8 +456,8 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 	return string(yamlData), nil
 }
 func BuildYAMLFromDefaultTemplate(nodes []*ProxyNode, target string) (string, error) {
-	if target != "clash" && target != "stash" {
-		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)
+	if target != "clash-meta" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash)", target)
 	}
 
 	cfg := map[string]interface{}{}

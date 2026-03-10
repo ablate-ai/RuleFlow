@@ -41,8 +41,8 @@ func TestBuildYAMLConfigForTargets(t *testing.T) {
 		wantErr        bool
 	}{
 		{
-			name:   "Clash 配置",
-			target: "clash",
+			name:   "Clash Meta 配置",
+			target: "clash-meta",
 			expectedFields: []string{
 				"port", "socks-port", "external-controller", "proxies", "proxy-groups", "rules",
 			},
@@ -143,18 +143,18 @@ func TestFullConfigGeneration(t *testing.T) {
 		},
 	}
 
-	// 测试 Clash 配置
-	clashConfig, err := buildYAMLFromSourceTemplate(nodes, templatePath, "clash")
+	// 测试 Clash Meta 配置
+	clashConfig, err := buildYAMLFromSourceTemplate(nodes, templatePath, "clash-meta")
 	if err != nil {
-		t.Fatalf("生成 Clash 配置失败: %v", err)
+		t.Fatalf("生成 Clash Meta 配置失败: %v", err)
 	}
 
-	// 验证 Clash 配置包含必要字段
+	// 验证 Clash Meta 配置包含必要字段
 	if !strings.Contains(clashConfig, "port:") {
-		t.Error("Clash 配置缺少 port 字段")
+		t.Error("Clash Meta 配置缺少 port 字段")
 	}
 	if !strings.Contains(clashConfig, "HK Node 1") {
-		t.Error("Clash 配置缺少节点 HK Node 1")
+		t.Error("Clash Meta 配置缺少节点 HK Node 1")
 	}
 
 	// 测试 Stash 配置

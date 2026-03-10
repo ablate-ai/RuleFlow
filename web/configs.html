@@ -258,7 +258,7 @@
 
     /* ===== 目标类型徽章 ===== */
     const TargetBadge = ({ target }) => {
-      const map = { clash: ['Clash', 'bdg-b'], stash: ['Stash', 'bdg-p'], surge: ['Surge', 'bdg-o'] };
+      const map = { 'clash-meta': ['Clash Meta', 'bdg-b'], stash: ['Stash', 'bdg-p'], surge: ['Surge', 'bdg-o'] };
       const [label, cls] = map[target] || [target, 'bdg-gray'];
       return <span className={`bdg ${cls}`}><span className="bdg-dot"></span>{label}</span>;
     };
@@ -601,7 +601,7 @@
                         value={form.target}
                         onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
                       >
-                        <option value="clash">Clash</option>
+                        <option value="clash-meta">Clash Meta</option>
                         <option value="stash">Stash</option>
                         <option value="surge">Surge</option>
                       </select>

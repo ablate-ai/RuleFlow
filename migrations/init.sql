@@ -73,7 +73,7 @@ CREATE TABLE config_policies (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT config_policies_target_check
-        CHECK (target IN ('clash', 'stash', 'surge'))
+        CHECK (target IN ('clash-meta', 'stash', 'surge'))
 );
 
 CREATE INDEX idx_config_policies_name ON config_policies(name);

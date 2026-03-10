@@ -975,7 +975,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	// 生成配置
 	target := policy.Target
 	if target == "" {
-		target = "clash"
+		target = "clash-meta"
 	}
 	var configContent string
 	if target == "surge" {
@@ -1008,8 +1008,10 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	case "surge":
 		filename = "surge_config.conf"
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	case "clash-meta":
+		filename = "clash_meta_config.yaml"
 	default:
-		filename = "clash_config.yaml"
+		filename = "clash_meta_config.yaml"
 	}
 	if target != "surge" {
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
