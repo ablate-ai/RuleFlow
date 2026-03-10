@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -182,6 +183,28 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 			continue
 		}
 
+		// 读取并移除 filter 字段，用于服务端按正则过滤节点
+		filterPattern, _ := groupMap["filter"].(string)
+		delete(groupMap, "filter")
+		var filterRe *regexp.Regexp
+		if filterPattern != "" {
+			filterRe, _ = regexp.Compile(filterPattern)
+		}
+
+		// filterNodes 根据正则过滤节点列表
+		filterNodes := func(names []string) []string {
+			if filterRe == nil {
+				return names
+			}
+			result := make([]string, 0, len(names))
+			for _, n := range names {
+				if filterRe.MatchString(n) {
+					result = append(result, n)
+				}
+			}
+			return result
+		}
+
 		filtered := make([]string, 0, len(rawProxies))
 		for _, p := range rawProxies {
 			name, ok := p.(string)
@@ -190,7 +213,7 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 			}
 
 			if name == "__NODES__" {
-				filtered = append(filtered, nodeNames...)
+				filtered = append(filtered, filterNodes(nodeNames)...)
 				continue
 			}
 			if _, exists := known[name]; exists || builtInProxyName(name) {
@@ -201,8 +224,9 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		if len(filtered) == 0 {
 			switch strings.ToLower(groupType) {
 			case "select", "url-test", "fallback", "load-balance":
-				if len(nodeNames) > 0 {
-					filtered = append(filtered, nodeNames...)
+				candidates := filterNodes(nodeNames)
+				if len(candidates) > 0 {
+					filtered = append(filtered, candidates...)
 				} else {
 					filtered = append(filtered, "DIRECT")
 				}
