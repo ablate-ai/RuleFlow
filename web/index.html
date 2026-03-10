@@ -4,43 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RuleFlow - 控制台</title>
+  <link rel="stylesheet" href="/web/shared/base.css">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
-
     :root {
-      --sw: 240px;
-      --sbg: #111827; --sho: rgba(255,255,255,0.05); --sab: rgba(24,200,101,0.12);
-      --st: #9ca3af; --sat: #18c865; --sbd: rgba(255,255,255,0.07);
-      --bg: #f3f4f6; --card: #fff; --bdr: #e5e7eb;
-      --t1: #111827; --t2: #6b7280; --t3: #9ca3af;
-      --grn: #18c865; --grnd: #15b25a; --grnbg: rgba(24,200,101,0.1);
-      --red: #ef4444; --redbg: #fef2f2; --redt: #991b1b;
-      --blu: #3b82f6; --blubg: #eff6ff; --blut: #1e40af;
-      --org: #f97316; --orgbg: #fff7ed; --orgt: #9a3412;
-      --ylw: #eab308; --ylwbg: #fefce8; --ylwt: #854d0e;
-      --sh1: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
       --sh2: 0 8px 18px rgba(17,24,39,.08);
-      --rm: 8px; --rl: 12px; --rxl: 16px;
     }
-
-    .app { display: flex; min-height: 100vh; }
-    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--sw); background: var(--sbg); display: flex; flex-direction: column; border-right: 1px solid var(--sbd); z-index: 100; overflow-y: auto; }
-    .main { margin-left: var(--sw); flex: 1; padding: 28px 32px; min-width: 0; }
-    .sb-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--sbd); }
-    .sb-logo { width: 30px; height: 30px; background: var(--grn); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .sb-logo svg { color: #fff; }
-    .sb-name { font-size: 16px; font-weight: 700; color: #fff; }
-    .sb-nav { padding: 12px 8px; flex: 1; }
-    .sb-sec { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px 8px; }
-    .nav-lnk { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; color: var(--st); text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: all .15s; }
-    .nav-lnk:hover { background: var(--sho); color: #fff; }
-    .nav-lnk.active { background: var(--sab); color: var(--sat); }
-    .nav-lnk svg { width: 15px; height: 15px; flex-shrink: 0; }
-    .sb-foot { padding: 12px 16px; border-top: 1px solid var(--sbd); display: flex; align-items: center; justify-content: space-between; }
-    .sb-ftxt { font-size: 11px; color: var(--t3); }
-    .sb-logout { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--t3); text-decoration: none; padding: 4px 8px; border-radius: 6px; transition: all .15s; }
-    .sb-logout:hover { background: rgba(239,68,68,.15); color: #ef4444; }
 
     .hero {
       background: linear-gradient(135deg, #ffffff 0%, #f7faf8 58%, #eefbf3 100%);
@@ -76,7 +47,6 @@
     .pill-bad { color: var(--redt); background: var(--redbg); border-color: #fecaca; }
     .pill-bad .pill-dot { background: var(--red); }
     .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
-
     .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: var(--rm); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; text-decoration: none; }
     .btn:disabled { opacity: .55; cursor: not-allowed; }
     .btn svg { width: 14px; height: 14px; }
@@ -213,12 +183,7 @@
       .stats, .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .grid { grid-template-columns: 1fr; }
     }
-    @media (max-width: 900px) {
-      .sidebar { position: static; width: 100%; }
-      .app { display: block; }
-      .main { margin-left: 0; padding: 18px; }
-      .hero { flex-direction: column; }
-    }
+    @media (max-width: 900px) { .hero { flex-direction: column; } }
     @media (max-width: 720px) {
       .stats, .quick-grid { grid-template-columns: 1fr; }
       .sub-row { grid-template-columns: 1fr; }
@@ -227,218 +192,12 @@
   </style>
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="sb-brand">
-        <div class="sb-logo">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-          </svg>
-        </div>
-        <span class="sb-name">RuleFlow</span>
-      </div>
-      <div class="sb-nav">
-        <div class="sb-sec">主菜单</div>
-        <a href="/" class="nav-lnk active">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          控制台
-        </a>
-        <a href="/web/subscriptions.html" class="nav-lnk">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
-          订阅源
-        </a>
-        <a href="/web/nodes.html" class="nav-lnk">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-          节点管理
-        </a>
-        <a href="/web/templates.html" class="nav-lnk">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          规则模板
-        </a>
-        <a href="/web/configs.html" class="nav-lnk">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          配置策略
-        </a>
-      </div>
-      <div class="sb-foot">
-        <span class="sb-ftxt">RuleFlow</span>
-        <a href="/logout" class="sb-logout">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          退出
-        </a>
-      </div>
-    </aside>
+  <div id="root"></div>
 
-    <main class="main">
-      <section class="hero">
-        <div>
-          <div class="hero-title">控制台</div>
-          <div class="hero-sub">首页不再堆接口和入口，直接告诉你系统现在是否健康、哪些订阅异常、哪些资源不足，以及下一步最该处理什么。</div>
-          <div class="hero-meta">
-            <div class="pill pill-ok" id="hero-status">
-              <span class="pill-dot"></span>
-              <span>正在检查服务状态</span>
-            </div>
-            <div class="pill" id="hero-updated">
-              <span>最后刷新：加载中</span>
-            </div>
-          </div>
-        </div>
-        <div class="hero-actions">
-          <button class="btn btn-p" id="btn-refresh" onclick="loadDashboard()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9A9 9 0 0 1 17 5l6 5"/><path d="M20.49 15A9 9 0 0 1 7 19l-6-5"/></svg>
-            刷新概览
-          </button>
-        </div>
-      </section>
+  <script type="text/babel" src="/web/shared/components.js" data-presets="react"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
 
-      <section class="stats">
-        <div class="stat">
-          <div class="stat-top">
-            <div>
-              <div class="stat-kicker">订阅源</div>
-              <div class="stat-v" id="stat-subs-active"><div class="skel"></div></div>
-            </div>
-            <div class="stat-ic" style="background: var(--grnbg);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
-            </div>
-          </div>
-          <div class="stat-l">启用订阅 / 全部订阅</div>
-          <div class="stat-note" id="stat-subs-note">加载中</div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-top">
-            <div>
-              <div class="stat-kicker">待处理</div>
-              <div class="stat-v" id="stat-issues"><div class="skel"></div></div>
-            </div>
-            <div class="stat-ic" style="background: var(--redbg);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-          </div>
-          <div class="stat-l">当前需要处理的问题项</div>
-          <div class="stat-note" id="stat-issues-note">加载中</div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-top">
-            <div>
-              <div class="stat-kicker">节点可用性</div>
-              <div class="stat-v" id="stat-nodes-enabled"><div class="skel"></div></div>
-            </div>
-            <div class="stat-ic" style="background: var(--blubg);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blu)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-            </div>
-          </div>
-          <div class="stat-l">启用节点 / 总节点</div>
-          <div class="stat-note" id="stat-nodes-note">加载中</div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-top">
-            <div>
-              <div class="stat-kicker">配置能力</div>
-              <div class="stat-v" id="stat-policies-enabled"><div class="skel"></div></div>
-            </div>
-            <div class="stat-ic" style="background: var(--orgbg);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--org)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </div>
-          </div>
-          <div class="stat-l">启用策略 / 模板数</div>
-          <div class="stat-note" id="stat-policies-note">加载中</div>
-        </div>
-      </section>
-
-      <section class="grid">
-        <div class="card">
-          <div class="card-h">
-            <div>
-              <div class="card-ht">待处理事项</div>
-              <div class="card-hs">优先展示真正影响可用性的异常</div>
-            </div>
-          </div>
-          <div class="card-b">
-            <div class="issue-list" id="issues-list"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h">
-            <div>
-              <div class="card-ht">资源概览</div>
-              <div class="card-hs">看整体是否够用，而不是看一堆接口路径</div>
-            </div>
-          </div>
-          <div class="card-b">
-            <div class="mini-grid">
-              <div class="mini-stat">
-                <div class="mini-label">模板数量</div>
-                <div class="mini-value" id="mini-templates">--</div>
-                <div class="mini-note" id="mini-templates-note">加载中</div>
-              </div>
-              <div class="mini-stat">
-                <div class="mini-label">节点来源</div>
-                <div class="mini-value" id="mini-source-count">--</div>
-                <div class="mini-note">区分订阅导入与手动节点</div>
-              </div>
-            </div>
-
-            <div class="breakdown">
-              <div class="muted" style="font-size:12px;">节点协议分布</div>
-              <div id="protocol-breakdown"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid" style="margin-bottom:22px;">
-        <div class="card">
-          <div class="card-h">
-            <div>
-              <div class="card-ht">订阅状态</div>
-              <div class="card-hs">先看最近同步和错误，不看装饰信息</div>
-            </div>
-            <a href="/web/subscriptions.html" class="btn btn-s">进入订阅管理</a>
-          </div>
-          <div class="card-b">
-            <div class="sub-list" id="subscriptions-list"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h">
-            <div>
-              <div class="card-ht">快捷操作</div>
-              <div class="card-hs">常用动作保留，但不再抢主视线</div>
-            </div>
-          </div>
-          <div class="card-b">
-            <div class="quick-grid">
-              <a href="/web/subscriptions.html" class="quick-card">
-                <div class="quick-title">订阅源</div>
-                <div class="quick-desc">新增订阅、手动同步、排查拉取失败</div>
-              </a>
-              <a href="/web/nodes.html" class="quick-card">
-                <div class="quick-title">节点管理</div>
-                <div class="quick-desc">筛选禁用节点，查看协议和来源分布</div>
-              </a>
-              <a href="/web/configs.html" class="quick-card">
-                <div class="quick-title">配置策略</div>
-                <div class="quick-desc">确认启用策略是否足够，补齐 token 配置</div>
-              </a>
-              <a href="/web/templates.html" class="quick-card">
-                <div class="quick-title">规则模板</div>
-                <div class="quick-desc">维护 Clash、Stash、Surge 模板内容</div>
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <script>
     const DAY_MS = 24 * 60 * 60 * 1000;
 
     function formatTime(value) {
@@ -459,57 +218,33 @@
       return `${Math.floor(diff / DAY_MS)} 天前`;
     }
 
-    function escapeHtml(text) {
-      return String(text ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    function setText(id, value) {
-      const el = document.getElementById(id);
-      if (el) el.textContent = value;
-    }
-
-    function setHtml(id, value) {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = value;
-    }
-
     function buildIssueItems(subscriptions, templates, policies, health) {
       const issues = [];
       const now = Date.now();
 
-      const failedSubs = subscriptions.filter((sub) => Boolean(sub.last_fetch_error));
+      const failedSubs = subscriptions.filter(s => Boolean(s.last_fetch_error));
       if (failedSubs.length > 0) {
         issues.push({
           level: 'bad',
           title: `${failedSubs.length} 个订阅最近拉取失败`,
-          desc: `优先检查 ${failedSubs.slice(0, 2).map((sub) => sub.name).join('、')}${failedSubs.length > 2 ? ' 等订阅' : ''} 的 URL、鉴权或远端可达性。`
+          desc: `优先检查 ${failedSubs.slice(0, 2).map(s => s.name).join('、')}${failedSubs.length > 2 ? ' 等订阅' : ''} 的 URL、鉴权或远端可达性。`,
         });
       }
 
-      const staleSubs = subscriptions.filter((sub) => {
-        if (!sub.enabled) return false;
-        if (!sub.last_fetched_at) return true;
-        return now - new Date(sub.last_fetched_at).getTime() > DAY_MS;
-      });
+      const staleSubs = subscriptions.filter(s => s.enabled && (!s.last_fetched_at || now - new Date(s.last_fetched_at).getTime() > DAY_MS));
       if (staleSubs.length > 0) {
         issues.push({
           level: failedSubs.length > 0 ? 'warn' : 'bad',
           title: `${staleSubs.length} 个启用订阅超过 24 小时未更新`,
-          desc: `这些订阅可能已经过期，节点与流量信息不一定可信。`
+          desc: '这些订阅可能已经过期，节点与流量信息不一定可信。',
         });
       }
 
-      const enabledPolicies = policies.filter((item) => item.enabled);
-      if (enabledPolicies.length === 0) {
+      if (policies.filter(p => p.enabled).length === 0) {
         issues.push({
           level: 'warn',
           title: '当前没有启用的配置策略',
-          desc: '即使订阅和节点正常，也无法稳定产出可供客户端使用的配置。'
+          desc: '即使订阅和节点正常，也无法稳定产出可供客户端使用的配置。',
         });
       }
 
@@ -517,7 +252,7 @@
         issues.push({
           level: 'warn',
           title: '当前没有任何规则模板',
-          desc: '建议至少准备一套模板，否则配置策略无法完整工作。'
+          desc: '建议至少准备一套模板，否则配置策略无法完整工作。',
         });
       }
 
@@ -525,213 +260,344 @@
         issues.push({
           level: 'bad',
           title: '系统健康状态不是 healthy',
-          desc: `当前状态为 ${health.status}，请检查数据库或 Redis 连接。`
+          desc: `当前状态为 ${health.status}，请检查数据库或 Redis 连接。`,
         });
       }
 
       if (issues.length === 0) {
-        return [{
-          level: 'ok',
-          title: '目前没有明显异常',
-          desc: '服务、订阅、模板和策略都处于可继续工作的状态。'
-        }];
+        return [{ level: 'ok', title: '目前没有明显异常', desc: '服务、订阅、模板和策略都处于可继续工作的状态。' }];
       }
-
       return issues.slice(0, 5);
     }
 
-    function renderIssues(issues) {
-      const container = document.getElementById('issues-list');
-      if (!container) return;
-      container.innerHTML = issues.map((issue) => `
-        <div class="issue-item">
-          <div class="issue-main">
-            <div class="issue-title">${escapeHtml(issue.title)}</div>
-            <div class="issue-desc">${escapeHtml(issue.desc)}</div>
-          </div>
-          <span class="tag tag-${issue.level === 'bad' ? 'bad' : issue.level === 'warn' ? 'warn' : 'ok'}">
-            ${issue.level === 'bad' ? '高优先级' : issue.level === 'warn' ? '注意' : '正常'}
-          </span>
-        </div>
-      `).join('');
-    }
-
     function getSubStatus(sub) {
-      if (sub.last_fetch_error) {
-        return { label: '失败', cls: 'tag-bad' };
-      }
-      if (!sub.enabled) {
-        return { label: '已停用', cls: 'tag-warn' };
-      }
-      if (!sub.last_fetched_at) {
-        return { label: '未同步', cls: 'tag-warn' };
-      }
-      const diff = Date.now() - new Date(sub.last_fetched_at).getTime();
-      if (diff > DAY_MS) {
-        return { label: '过旧', cls: 'tag-warn' };
-      }
+      if (sub.last_fetch_error) return { label: '失败', cls: 'tag-bad' };
+      if (!sub.enabled)         return { label: '已停用', cls: 'tag-warn' };
+      if (!sub.last_fetched_at) return { label: '未同步', cls: 'tag-warn' };
+      if (Date.now() - new Date(sub.last_fetched_at).getTime() > DAY_MS)
+                                return { label: '过旧', cls: 'tag-warn' };
       return { label: '正常', cls: 'tag-ok' };
     }
 
-    function renderSubscriptions(subscriptions) {
-      const container = document.getElementById('subscriptions-list');
-      if (!container) return;
+    /* ===== 子组件 ===== */
 
-      if (!subscriptions.length) {
-        container.innerHTML = '<div class="empty">还没有订阅源，先去创建一个可同步的订阅。</div>';
-        return;
-      }
+    const Skel = () => <div className="skel" />;
 
-      const sorted = [...subscriptions].sort((a, b) => {
-        const score = (sub) => {
-          if (sub.last_fetch_error) return 0;
-          if (!sub.enabled) return 1;
-          if (!sub.last_fetched_at) return 2;
-          const diff = Date.now() - new Date(sub.last_fetched_at).getTime();
-          if (diff > DAY_MS) return 3;
+    const StatCard = ({ kicker, value, label, note, iconBg, icon, loaded }) => (
+      <div className="stat">
+        <div className="stat-top">
+          <div>
+            <div className="stat-kicker">{kicker}</div>
+            <div className="stat-v">{loaded ? value : <Skel />}</div>
+          </div>
+          <div className="stat-ic" style={{ background: iconBg }}>{icon}</div>
+        </div>
+        <div className="stat-l">{label}</div>
+        <div className="stat-note">{loaded ? note : '加载中'}</div>
+      </div>
+    );
+
+    const IssueItem = ({ issue }) => (
+      <div className="issue-item">
+        <div className="issue-main">
+          <div className="issue-title">{issue.title}</div>
+          <div className="issue-desc">{issue.desc}</div>
+        </div>
+        <span className={`tag tag-${issue.level === 'bad' ? 'bad' : issue.level === 'warn' ? 'warn' : 'ok'}`}>
+          {issue.level === 'bad' ? '高优先级' : issue.level === 'warn' ? '注意' : '正常'}
+        </span>
+      </div>
+    );
+
+    const SubRow = ({ sub }) => {
+      const status = getSubStatus(sub);
+      const detail = sub.last_fetch_error ? sub.last_fetch_error : `最近同步：${formatTime(sub.last_fetched_at)}`;
+      return (
+        <div className="sub-row">
+          <div>
+            <div className="sub-name">{sub.name}</div>
+            <div className="sub-meta">{detail}</div>
+          </div>
+          <div className="sub-cell">{sub.node_count ?? 0} 节点</div>
+          <div className="sub-cell">{sub.auto_refresh ? '自动刷新' : '手动'}</div>
+          <div className="sub-cell">
+            <span className={`tag ${status.cls}`}>{status.label}</span>{' '}
+            <span className="muted">{formatAgo(sub.last_fetched_at)}</span>
+          </div>
+        </div>
+      );
+    };
+
+    const BreakItem = ({ label, count, max }) => (
+      <div className="break-item">
+        <div className="break-label">{label}</div>
+        <div className="break-bar">
+          <div className="break-fill" style={{ width: `${Math.max((count / max) * 100, 6)}%` }} />
+        </div>
+        <div className="break-count">{count}</div>
+      </div>
+    );
+
+    /* ===== 主应用 ===== */
+
+    const App = () => {
+      const [health, setHealth]             = useState(null);
+      const [subscriptions, setSubscriptions] = useState([]);
+      const [nodeStats, setNodeStats]       = useState({});
+      const [templates, setTemplates]       = useState([]);
+      const [policies, setPolicies]         = useState([]);
+      const [lastUpdated, setLastUpdated]   = useState(null);
+      const [loaded, setLoaded]             = useState(false);
+      const [refreshing, setRefreshing]     = useState(false);
+
+      const loadDashboard = useCallback(async () => {
+        setRefreshing(true);
+        try {
+          const [h, subRes, nodeStatsRes, tplRes, policyRes] = await Promise.all([
+            fetch('/health').then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch('/api/subscriptions').then(r => r.json()).catch(() => ({ data: [] })),
+            fetch('/api/nodes/stats').then(r => r.json()).catch(() => ({ data: {} })),
+            fetch('/api/templates').then(r => r.json()).catch(() => ({ data: [] })),
+            fetch('/api/config-policies').then(r => r.json()).catch(() => ({ data: [] })),
+          ]);
+          setHealth(h);
+          setSubscriptions(subRes.data || []);
+          setNodeStats(nodeStatsRes.data || {});
+          setTemplates(tplRes.data || []);
+          setPolicies(policyRes.data || []);
+          setLastUpdated(new Date());
+        } finally {
+          setLoaded(true);
+          setRefreshing(false);
+        }
+      }, []);
+
+      useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+      /* 派生数据 */
+      const enabledSubs    = subscriptions.filter(s => s.enabled).length;
+      const failedSubs     = subscriptions.filter(s => Boolean(s.last_fetch_error));
+      const staleSubs      = subscriptions.filter(s => s.enabled && (!s.last_fetched_at || Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS));
+      const impactedCount  = new Set([...failedSubs.map(s => s.name), ...staleSubs.map(s => s.name)]).size;
+      const totalNodes     = Number(nodeStats.total || 0);
+      const enabledNodes   = Number(nodeStats.enabled || 0);
+      const disabledNodes  = Math.max(totalNodes - enabledNodes, 0);
+      const enabledPolicies = policies.filter(p => p.enabled).length;
+      const sourceCount    = Object.keys(nodeStats.by_source || {}).length;
+      const issues         = loaded ? buildIssueItems(subscriptions, templates, policies, health) : [];
+      const protocolItems  = Object.entries(nodeStats.by_protocol || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
+      const protocolMax    = Math.max(...protocolItems.map(([, c]) => c), 1);
+      const templateTypes  = [...new Set(templates.map(t => t.target).filter(Boolean))].join(' / ');
+
+      const sortedSubs = [...subscriptions].sort((a, b) => {
+        const score = s => {
+          if (s.last_fetch_error) return 0;
+          if (!s.enabled) return 1;
+          if (!s.last_fetched_at) return 2;
+          if (Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS) return 3;
           return 4;
         };
-        const diff = score(a) - score(b);
-        if (diff !== 0) return diff;
-        return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+        const d = score(a) - score(b);
+        return d !== 0 ? d : new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
       }).slice(0, 6);
 
-      container.innerHTML = sorted.map((sub) => {
-        const status = getSubStatus(sub);
-        const detail = sub.last_fetch_error ? sub.last_fetch_error : `最近同步：${formatTime(sub.last_fetched_at)}`;
-        return `
-          <div class="sub-row">
-            <div>
-              <div class="sub-name">${escapeHtml(sub.name)}</div>
-              <div class="sub-meta">${escapeHtml(detail)}</div>
-            </div>
-            <div class="sub-cell">${sub.node_count ?? 0} 节点</div>
-            <div class="sub-cell">${sub.auto_refresh ? '自动刷新' : '手动'}</div>
-            <div class="sub-cell"><span class="tag ${status.cls}">${status.label}</span> <span class="muted">${escapeHtml(formatAgo(sub.last_fetched_at))}</span></div>
-          </div>
-        `;
-      }).join('');
-    }
+      const heroStatus = (() => {
+        if (!loaded) return { cls: 'pill pill-ok', label: '正在检查服务状态' };
+        if (health && health.status === 'healthy') return { cls: 'pill pill-ok', label: '服务运行正常' };
+        if (health && health.status) return { cls: 'pill pill-warn', label: `系统状态：${health.status}` };
+        return { cls: 'pill pill-bad', label: '服务状态获取失败' };
+      })();
 
-    function renderBreakdown(items) {
-      const container = document.getElementById('protocol-breakdown');
-      if (!container) return;
+      const issueNoteText = (() => {
+        if (!loaded) return '加载中';
+        if (issues[0]?.level === 'ok') return '当前没有明显异常';
+        if (impactedCount > 0) return `涉及 ${impactedCount} 个异常订阅及系统配置状态`;
+        return '当前存在系统配置或健康状态问题';
+      })();
 
-      if (!items.length) {
-        container.innerHTML = '<div class="empty">暂无节点协议数据</div>';
-        return;
-      }
+      return (
+        <div className="app">
+          <Sidebar active="home" />
+          <main className="main">
 
-      const max = Math.max(...items.map(([, count]) => count), 1);
-      container.innerHTML = items.map(([label, count]) => `
-        <div class="break-item">
-          <div class="break-label">${escapeHtml(label)}</div>
-          <div class="break-bar"><div class="break-fill" style="width:${Math.max((count / max) * 100, 6)}%"></div></div>
-          <div class="break-count">${count}</div>
+            {/* Hero */}
+            <section className="hero">
+              <div>
+                <div className="hero-title">控制台</div>
+                <div className="hero-sub">首页不再堆接口和入口，直接告诉你系统现在是否健康、哪些订阅异常、哪些资源不足，以及下一步最该处理什么。</div>
+                <div className="hero-meta">
+                  <div className={heroStatus.cls}>
+                    <span className="pill-dot"></span>
+                    <span>{heroStatus.label}</span>
+                  </div>
+                  <div className="pill">
+                    <span>{lastUpdated ? `最后刷新：${formatTime(lastUpdated.toISOString())}` : '最后刷新：加载中'}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="hero-actions">
+                <button className="btn btn-p" disabled={refreshing} onClick={loadDashboard}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9A9 9 0 0 1 17 5l6 5"/><path d="M20.49 15A9 9 0 0 1 7 19l-6-5"/>
+                  </svg>
+                  刷新概览
+                </button>
+              </div>
+            </section>
+
+            {/* Stats */}
+            <section className="stats">
+              <StatCard
+                loaded={loaded}
+                kicker="订阅源"
+                value={`${enabledSubs}/${subscriptions.length}`}
+                label="启用订阅 / 全部订阅"
+                note={subscriptions.length ? `${failedSubs.length} 个失败，${staleSubs.length} 个未及时更新` : '还没有订阅源'}
+                iconBg="var(--grnbg)"
+                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>}
+              />
+              <StatCard
+                loaded={loaded}
+                kicker="待处理"
+                value={String(issues.length)}
+                label="当前需要处理的问题项"
+                note={issueNoteText}
+                iconBg="var(--redbg)"
+                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
+              />
+              <StatCard
+                loaded={loaded}
+                kicker="节点可用性"
+                value={`${enabledNodes}/${totalNodes}`}
+                label="启用节点 / 总节点"
+                note={totalNodes ? `禁用节点 ${disabledNodes} 个` : '还没有节点数据'}
+                iconBg="var(--blubg)"
+                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blu)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>}
+              />
+              <StatCard
+                loaded={loaded}
+                kicker="配置能力"
+                value={`${enabledPolicies}/${templates.length}`}
+                label="启用策略 / 模板数"
+                note={`${policies.length} 个策略，${templates.length} 个模板`}
+                iconBg="var(--orgbg)"
+                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--org)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>}
+              />
+            </section>
+
+            {/* 待处理事项 + 资源概览 */}
+            <section className="grid">
+              <div className="card">
+                <div className="card-h">
+                  <div>
+                    <div className="card-ht">待处理事项</div>
+                    <div className="card-hs">优先展示真正影响可用性的异常</div>
+                  </div>
+                </div>
+                <div className="card-b">
+                  <div className="issue-list">
+                    {!loaded
+                      ? <div className="empty">加载中...</div>
+                      : issues.map((issue, i) => <IssueItem key={i} issue={issue} />)
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-h">
+                  <div>
+                    <div className="card-ht">资源概览</div>
+                    <div className="card-hs">看整体是否够用，而不是看一堆接口路径</div>
+                  </div>
+                </div>
+                <div className="card-b">
+                  <div className="mini-grid">
+                    <div className="mini-stat">
+                      <div className="mini-label">模板数量</div>
+                      <div className="mini-value">{loaded ? templates.length : '--'}</div>
+                      <div className="mini-note">{loaded ? (templates.length ? `${templateTypes} 模板可用` : '尚未创建模板') : '加载中'}</div>
+                    </div>
+                    <div className="mini-stat">
+                      <div className="mini-label">节点来源</div>
+                      <div className="mini-value">{loaded ? sourceCount : '--'}</div>
+                      <div className="mini-note">区分订阅导入与手动节点</div>
+                    </div>
+                  </div>
+                  <div className="breakdown">
+                    <div className="muted" style={{ fontSize: 12 }}>节点协议分布</div>
+                    {!loaded
+                      ? <div className="empty">加载中...</div>
+                      : protocolItems.length === 0
+                      ? <div className="empty">暂无节点协议数据</div>
+                      : protocolItems.map(([label, count]) => (
+                          <BreakItem key={label} label={label} count={count} max={protocolMax} />
+                        ))
+                    }
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 订阅状态 + 快捷操作 */}
+            <section className="grid" style={{ marginBottom: 22 }}>
+              <div className="card">
+                <div className="card-h">
+                  <div>
+                    <div className="card-ht">订阅状态</div>
+                    <div className="card-hs">先看最近同步和错误，不看装饰信息</div>
+                  </div>
+                  <a href="/subscriptions" className="btn btn-s">进入订阅管理</a>
+                </div>
+                <div className="card-b">
+                  <div className="sub-list">
+                    {!loaded
+                      ? <div className="empty">加载中...</div>
+                      : sortedSubs.length === 0
+                      ? <div className="empty">还没有订阅源，先去创建一个可同步的订阅。</div>
+                      : sortedSubs.map(sub => <SubRow key={sub.id} sub={sub} />)
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-h">
+                  <div>
+                    <div className="card-ht">快捷操作</div>
+                    <div className="card-hs">常用动作保留，但不再抢主视线</div>
+                  </div>
+                </div>
+                <div className="card-b">
+                  <div className="quick-grid">
+                    <a href="/subscriptions" className="quick-card">
+                      <div className="quick-title">订阅源</div>
+                      <div className="quick-desc">新增订阅、手动同步、排查拉取失败</div>
+                    </a>
+                    <a href="/nodes" className="quick-card">
+                      <div className="quick-title">节点管理</div>
+                      <div className="quick-desc">筛选禁用节点，查看协议和来源分布</div>
+                    </a>
+                    <a href="/configs" className="quick-card">
+                      <div className="quick-title">配置策略</div>
+                      <div className="quick-desc">确认启用策略是否足够，补齐 token 配置</div>
+                    </a>
+                    <a href="/templates" className="quick-card">
+                      <div className="quick-title">规则模板</div>
+                      <div className="quick-desc">维护 Clash、Stash、Surge 模板内容</div>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </main>
         </div>
-      `).join('');
-    }
+      );
+    };
 
-    function updateHealth(health) {
-      const el = document.getElementById('hero-status');
-      if (!el) return;
-
-      let cls = 'pill-ok';
-      let label = '服务运行正常';
-      if (!health || health.status !== 'healthy') {
-        cls = health && health.status ? 'pill-warn' : 'pill-bad';
-        label = health && health.status ? `系统状态：${health.status}` : '服务状态获取失败';
-      }
-
-      el.className = `pill ${cls}`;
-      el.innerHTML = `<span class="pill-dot"></span><span>${escapeHtml(label)}</span>`;
-    }
-
-    async function fetchJson(url) {
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`${url} -> ${res.status}`);
-      }
-      return res.json();
-    }
-
-    async function loadDashboard() {
-      const refreshBtn = document.getElementById('btn-refresh');
-      refreshBtn.disabled = true;
-
-      try {
-        const [health, subRes, nodeStatsRes, tplRes, policyRes] = await Promise.all([
-          fetchJson('/health').catch(() => null),
-          fetchJson('/api/subscriptions').catch(() => ({ data: [] })),
-          fetchJson('/api/nodes/stats').catch(() => ({ data: {} })),
-          fetchJson('/api/templates').catch(() => ({ data: [] })),
-          fetchJson('/api/config-policies').catch(() => ({ data: [] }))
-        ]);
-
-        const subscriptions = subRes.data || [];
-        const nodeStats = nodeStatsRes.data || {};
-        const templates = tplRes.data || [];
-        const policies = policyRes.data || [];
-
-        const enabledSubs = subscriptions.filter((sub) => sub.enabled).length;
-        const failedSubNames = new Set(
-          subscriptions
-            .filter((sub) => Boolean(sub.last_fetch_error))
-            .map((sub) => sub.name)
-        );
-        const staleSubNames = new Set(
-          subscriptions
-            .filter((sub) => sub.enabled && (!sub.last_fetched_at || Date.now() - new Date(sub.last_fetched_at).getTime() > DAY_MS))
-            .map((sub) => sub.name)
-        );
-        const impactedSubCount = new Set([...failedSubNames, ...staleSubNames]).size;
-        const totalNodes = Number(nodeStats.total || 0);
-        const enabledNodes = Number(nodeStats.enabled || 0);
-        const disabledNodes = Math.max(totalNodes - enabledNodes, 0);
-        const enabledPolicies = policies.filter((item) => item.enabled).length;
-        const sourceCount = Object.keys(nodeStats.by_source || {}).length;
-        const issues = buildIssueItems(subscriptions, templates, policies, health);
-
-        setText('stat-subs-active', `${enabledSubs}/${subscriptions.length}`);
-        setText('stat-subs-note', subscriptions.length ? `${failedSubNames.size} 个失败，${staleSubNames.size} 个未及时更新` : '还没有订阅源');
-        setText('stat-issues', String(issues.length));
-        setText(
-          'stat-issues-note',
-          issues[0]?.level === 'ok'
-            ? '当前没有明显异常'
-            : impactedSubCount > 0
-              ? `涉及 ${impactedSubCount} 个异常订阅及系统配置状态`
-              : '当前存在系统配置或健康状态问题'
-        );
-        setText('stat-nodes-enabled', `${enabledNodes}/${totalNodes}`);
-        setText('stat-nodes-note', totalNodes ? `禁用节点 ${disabledNodes} 个` : '还没有节点数据');
-        setText('stat-policies-enabled', `${enabledPolicies}/${templates.length}`);
-        setText('stat-policies-note', `${policies.length} 个策略，${templates.length} 个模板`);
-        setText('mini-templates', String(templates.length));
-        setText('mini-templates-note', templates.length ? `${[...new Set(templates.map((tpl) => tpl.target).filter(Boolean))].join(' / ')} 模板可用` : '尚未创建模板');
-        setText('mini-source-count', String(sourceCount));
-        setText('hero-updated', `最后刷新：${formatTime(new Date().toISOString())}`);
-
-        updateHealth(health);
-        renderIssues(issues);
-        renderSubscriptions(subscriptions);
-
-        const protocolItems = Object.entries(nodeStats.by_protocol || {})
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 6);
-        renderBreakdown(protocolItems);
-      } catch {
-        updateHealth(null);
-        setText('hero-updated', '最后刷新：失败');
-        renderIssues([{ level: 'bad', title: '控制台数据加载失败', desc: '请检查后端接口或当前登录状态。' }]);
-        renderSubscriptions([]);
-        renderBreakdown([]);
-      } finally {
-        refreshBtn.disabled = false;
-      }
-    }
-
-    loadDashboard();
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
