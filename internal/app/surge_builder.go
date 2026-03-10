@@ -481,7 +481,7 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		uuid := strOpt("uuid")
 		password := strOpt("password")
 		sni := strOpt("sni")
-		return appendUnderlyingProxy(fmt.Sprintf("%s = tuic-v5, %s, %d, token=%s, password=%s, sni=%s",
+		return appendUnderlyingProxy(fmt.Sprintf("%s = tuic-v5, %s, %d, uuid=%s, password=%s, sni=%s",
 			name, node.Server, node.Port, uuid, password, sni))
 
 	default:

@@ -277,6 +277,28 @@ func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
 	}
 }
 
+func TestSurgeProxyLineSupportsTUICUUID(t *testing.T) {
+	node := &ProxyNode{
+		Protocol: "tuic",
+		Name:     "JP TUIC",
+		Server:   "jp.example.com",
+		Port:     443,
+		Options: map[string]interface{}{
+			"uuid":     "949862c6-2854-475d-bf74-c73eda541d22",
+			"password": "949862c6-2854-475d-bf74-c73eda541d22",
+			"sni":      "jp.example.com",
+		},
+	}
+
+	line := surgeProxyLine(node, "JP TUIC")
+	if !strings.Contains(line, " = tuic-v5, jp.example.com, 443, uuid=949862c6-2854-475d-bf74-c73eda541d22") {
+		t.Fatalf("缺少 tuic uuid 字段，实际输出:\n%s", line)
+	}
+	if strings.Contains(line, "token=") {
+		t.Fatalf("tuic-v5 不应输出 token 字段，实际输出:\n%s", line)
+	}
+}
+
 func TestSurgeProxyLinePrefersExplicitUnderlyingProxyOption(t *testing.T) {
 	node := &ProxyNode{
 		Protocol:    "ss",
