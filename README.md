@@ -23,7 +23,7 @@
 
 ## 🚀 快速开始
 
-### 方式一：本地运行（数据库必需，Redis 可选）
+### 方式一：本地运行（数据库必需，Redis 可选，需本机安装 `psql`）
 
 ```bash
 # 1. 复制环境变量配置
@@ -41,60 +41,6 @@ make run
 
 ### 方式二：Docker
 
-```bash
-docker build -t ruleflow .
-
-# 带数据库和鉴权
-docker run -p 8080:8080 \
-  -e ADMIN_PASSWORD=your-password \
-  -e DATABASE_URL=postgresql://user:pass@host:5432/ruleflow \
-  -e REDIS_ADDR=redis:6379 \
-  ruleflow
-```
-
-`deploy/docker-compose.yaml` 示例：
-
-```yaml
-services:
-  ruleflow:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: ruleflow:local
-    restart: unless-stopped
-    ports:
-      - "${PORT:-8080}:8080"
-    environment:
-      PORT: ${PORT:-8080}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://ruleflow:password@postgres:5432/ruleflow?sslmode=disable}
-      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      REDIS_DB: ${REDIS_DB:-0}
-      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-3600}
-    depends_on:
-      - postgres
-      - redis
-
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ruleflow}
-      POSTGRES_USER: ${POSTGRES_USER:-ruleflow}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ../migrations/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-
-volumes:
-  pgdata:
-```
-
 GitHub 一键安装并启动：
 
 ```bash
@@ -102,6 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh 
 ```
 
 默认会把仓库安装到 `$HOME/RuleFlow`，自动检查 Docker、生成 `.env.docker` 并执行 Compose 启动，不会覆盖本地开发用的 `.env`。
+远程安装脚本还依赖本机可用的 `git`，用于首次克隆或后续更新仓库。
 
 GitHub 一键卸载：
 
@@ -124,6 +71,24 @@ curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.s
 sh install.sh
 sh uninstall.sh
 ```
+
+手动方式：
+
+```bash
+cp .env.example .env.docker
+# 编辑 .env.docker，按需修改端口、管理密码和外部访问地址
+
+docker build -t ruleflow .
+
+# 带数据库和鉴权
+docker run -p 8080:8080 \
+  -e ADMIN_PASSWORD=your-password \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/ruleflow \
+  -e REDIS_ADDR=redis:6379 \
+  ruleflow
+```
+
+`docker compose` 示例见 [deploy/docker-compose.yaml](/Users/c.chen/dev/RuleFlow/deploy/docker-compose.yaml)。
 
 手动启动命令：
 
@@ -218,17 +183,19 @@ proxies:
 __NODES__
 
 [Proxy Group]
-🇸🇬 SG = url-test, __NODES__, filter=SG|新加坡, url=http://cp.cloudflare.com/generate_204, interval=300
-🤖 AI = select, __NODES__, filter=US|美国, exclude-filter=IPLC|BGP, dialer-proxy=SG|新加坡
+🇸🇬 SG = url-test, __NODES__, policy-regex-filter=SG|新加坡, url=http://cp.cloudflare.com/generate_204, interval=300
+🤖 AI = select, __NODES__, policy-regex-filter=US|美国, exclude-filter=IPLC|BGP, dialer-proxy=🇸🇬 SG
 
 [Rule]
 RULE-SET,https://ruleset.skk.moe/Clash/non_ip/ai.txt,🤖 AI
 FINAL,🇸🇬 SG
 ```
 
-生成后 `filter=`、`exclude-filter=`、`dialer-proxy=` 均不保留；`dialer-proxy` 会被翻译为节点行的 `underlying-proxy=` 参数。
+Surge 模板里用于筛选节点的字段是 `policy-regex-filter=`，不是 `filter=`。
+生成后 `policy-regex-filter=`、`exclude-filter=`、`dialer-proxy=` 均不保留；`dialer-proxy` 会被翻译为节点行的 `underlying-proxy=` 参数。
 
-> **注意**：`dialer-proxy` 只对包含实际节点的组有效，不能在「组套组」的外层组上使用。
+> **注意**：`dialer-proxy` 只会作用到该组最终展开出的实际节点。
+> 中转目标会优先按组名匹配，找不到时再按节点名匹配；如果整组只引用其他组、不直接包含节点，则不会给任何节点注入 `underlying-proxy=`。
 
 ---
 
