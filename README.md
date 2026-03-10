@@ -23,19 +23,7 @@
 
 ## 🚀 快速开始
 
-### 方式一：直接运行（无数据库）
-
-```bash
-git clone <repo-url>
-cd RuleFlow
-go build -o ruleflow .
-./ruleflow
-# 访问 http://localhost:8080
-```
-
-在 `rules/template.yaml` 中维护规则模板，重启服务生效。
-
-### 方式二：完整模式（含数据库 + Redis）
+### 方式一：本地运行（数据库必需，Redis 可选）
 
 ```bash
 # 1. 复制环境变量配置
@@ -49,13 +37,12 @@ make migrate
 make run
 ```
 
-### 方式三：Docker
+内置模板位于 `rules/clash.yaml` 和 `rules/surge.conf`；也可以在 Web 控制台中上传自定义模板。
+
+### 方式二：Docker
 
 ```bash
 docker build -t ruleflow .
-
-# 基础运行
-docker run -p 8080:8080 ruleflow
 
 # 带数据库和鉴权
 docker run -p 8080:8080 \
@@ -65,36 +52,90 @@ docker run -p 8080:8080 \
   ruleflow
 ```
 
-**docker-compose 示例：**
+`deploy/docker-compose.yaml` 示例：
 
 ```yaml
 services:
   ruleflow:
-    image: ruleflow
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ruleflow:local
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
     environment:
-      ADMIN_PASSWORD: your-password
-      DATABASE_URL: postgresql://ruleflow:password@postgres:5432/ruleflow?sslmode=disable
-      REDIS_ADDR: redis:6379
+      PORT: ${PORT:-8080}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ruleflow:password@postgres:5432/ruleflow?sslmode=disable}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-3600}
     depends_on:
       - postgres
       - redis
 
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ruleflow
-      POSTGRES_USER: ruleflow
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-ruleflow}
+      POSTGRES_USER: ${POSTGRES_USER:-ruleflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ../migrations/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
 
 volumes:
   pgdata:
+```
+
+GitHub 一键安装并启动：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sh
+```
+
+默认会把仓库安装到 `$HOME/RuleFlow`，自动检查 Docker、生成 `.env.docker` 并执行 Compose 启动，不会覆盖本地开发用的 `.env`。
+
+GitHub 一键卸载：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sh
+```
+
+卸载脚本会默认查找 `$HOME/RuleFlow`，然后停止并删除 RuleFlow 相关容器、网络、数据卷，以及 `.env.docker`。这会清空 Docker 内置 PostgreSQL 的数据。
+
+如需自定义安装目录，可先设置 `RULEFLOW_DIR`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | RULEFLOW_DIR=/opt/RuleFlow sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | RULEFLOW_DIR=/opt/RuleFlow sh
+```
+
+仓库内本地执行：
+
+```bash
+sh install.sh
+sh uninstall.sh
+```
+
+手动启动命令：
+
+```bash
+docker compose --env-file .env.docker -f deploy/docker-compose.yaml up -d --build
+```
+
+手动卸载命令：
+
+```bash
+docker compose --env-file .env.docker -f deploy/docker-compose.yaml down -v --remove-orphans
+rm -f .env.docker
 ```
 
 ---
@@ -107,12 +148,12 @@ volumes:
 2. **同步节点**：点击同步按钮拉取节点列表
 3. **选择或上传模板**：使用内置模板或在「规则模板」页面上传自定义模板
 4. **创建配置策略**：绑定订阅源 + 模板 + 目标客户端，生成专属订阅链接
-5. **在客户端中使用**：将生成的 `/config?token=xxx` 链接填入客户端
+5. **在客户端中使用**：将生成的 `/subscribe?token=xxx` 链接填入客户端
 
 ### 订阅链接格式
 
 ```
-http://your-server:8080/config?token=<token>
+http://your-server:8080/subscribe?token=<token>
 ```
 
 Surge 客户端会自动识别响应中的 `#!MANAGED-CONFIG` 头，支持远程更新。
@@ -203,7 +244,7 @@ FINAL,🇸🇬 SG
 | 规则模板 | CRUD | `/api/templates` |
 | 配置策略 | CRUD | `/api/config-policies` |
 | 清除配置缓存 | DELETE | `/api/config-policies/{id}/cache` |
-| 生成配置 | GET | `/config?token=xxx` |
+| 生成配置 | GET | `/subscribe?token=xxx` |
 | 健康检查 | GET | `/health` |
 
 ---
@@ -215,7 +256,7 @@ FINAL,🇸🇬 SG
 | `PORT` | HTTP 服务端口 | `8080` |
 | `ADMIN_PASSWORD` | 控制台登录密码；为空则不启用鉴权 | 空 |
 | `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable` |
-| `REDIS_ADDR` | Redis 地址 | `localhost:6379` |
+| `REDIS_ADDR` | Redis 地址；为空或不可达时禁用缓存 | `localhost:6379` |
 | `REDIS_PASSWORD` | Redis 密码 | 空 |
 | `REDIS_DB` | Redis 数据库编号 | `0` |
 | `CACHE_TTL_SECONDS` | 配置缓存有效期（秒） | `3600` |
@@ -230,10 +271,10 @@ FINAL,🇸🇬 SG
 make migrate
 
 # 手动执行
-psql $DATABASE_URL < migrations/init.sql
+psql "$DATABASE_URL" -f migrations/init.sql
 ```
 
-新版本升级时执行 `migrations/` 目录下对应日期的增量迁移文件。
+当前仓库仅提供初始化脚本 `migrations/init.sql`。如后续引入增量迁移，会在该目录中补充并在发布说明中注明。
 
 ---
 
@@ -259,8 +300,11 @@ RuleFlow/
 ├── config/                          # 环境变量加载
 ├── web/                             # Web 控制台（HTML/React）
 ├── rules/                           # 内置规则模板
-│   └── template.yaml
+│   ├── clash.yaml
+│   └── surge.conf
 ├── migrations/                      # 数据库迁移脚本
+├── deploy/                          # 部署配置
+│   └── docker-compose.yaml
 ├── Dockerfile
 ├── Makefile
 └── .env.example
@@ -280,4 +324,4 @@ GOCACHE=$(pwd)/.cache/go-build go test ./...
 
 ## 📄 许可证
 
-MIT License
+本项目采用 [MIT License](LICENSE)。
