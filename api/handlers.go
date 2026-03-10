@@ -182,63 +182,6 @@ func (h *Handlers) DeleteSubscription(w http.ResponseWriter, r *http.Request) {
 	SendSuccess(w, map[string]string{"message": "订阅已删除"})
 }
 
-// RefreshSubscription 手动刷新订阅
-func (h *Handlers) RefreshSubscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取订阅名称
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 5 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	_ = parts[4] // 订阅名称
-
-	// 获取目标类型
-	_ = r.URL.Query().Get("target")
-	// 注意：这里需要传入实际的 fetch 函数，从主程序传入
-	// 这是一个简化版本，实际使用中需要从依赖注入获取
-	SendError(w, http.StatusNotImplemented, "功能需要集成到主路由")
-}
-
-// ClearCache 清除订阅缓存
-func (h *Handlers) ClearCache(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 检查是否清除所有缓存
-	if r.URL.Path == "/api/cache" {
-		ctx := r.Context()
-		if err := h.subscriptionService.ClearAllCache(ctx); err != nil {
-			SendError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		SendSuccess(w, map[string]string{"message": "所有缓存已清除"})
-		return
-	}
-
-	// 清除特定订阅的缓存
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	name := parts[3]
-
-	ctx := r.Context()
-	if err := h.subscriptionService.ClearCache(ctx, name); err != nil {
-		SendError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	SendSuccess(w, map[string]string{"message": "缓存已清除"})
-}
-
 // Health 健康检查
 func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

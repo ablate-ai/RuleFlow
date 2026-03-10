@@ -51,15 +51,17 @@ func main() {
 		}
 	}
 
-	// 创建订阅服务（如果数据库和 Redis 都可用）
+	// 创建订阅服务（数据库可用即可；Redis 仅用于策略配置缓存）
 	var templateService *services.TemplateService
 	var configPolicyService *services.ConfigPolicyService
 	var nodeService *services.NodeService
 	var subscriptionSyncService *services.SubscriptionSyncService
 	var subscriptionCache *cache.SubscriptionCache
-	if db != nil && redisClient != nil {
-		subscriptionRepo := database.NewSubscriptionRepo(db)
+	if redisClient != nil {
 		subscriptionCache = cache.NewSubscriptionCache(redisClient, time.Duration(cfg.CacheTTLSeconds)*time.Second)
+	}
+	if db != nil {
+		subscriptionRepo := database.NewSubscriptionRepo(db)
 		subscriptionService = services.NewSubscriptionService(subscriptionRepo, subscriptionCache)
 
 		// 创建模板服务
@@ -75,7 +77,7 @@ func main() {
 		nodeService = services.NewNodeService(nodeRepo)
 
 		// 创建订阅同步服务
-		subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo, subscriptionCache)
+		subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo)
 	}
 
 	// 启动自动刷新调度器
@@ -93,16 +95,12 @@ func main() {
 	}
 
 	// 设置路由
-	setupRoutes(cfg, apiHandlers, subscriptionService)
+	setupRoutes(cfg, apiHandlers)
 
 	// 启动服务器
 	port := cfg.Port
 	log.Printf("🚀 服务器启动: http://localhost:%s\n", port)
-	log.Printf("💡 Clash 订阅: http://localhost:%s/sub?url=<订阅地址>[&template=<模板路径>]\n", port)
-	log.Printf("💡 Stash 订阅: http://localhost:%s/sub?url=<订阅地址>&target=stash[&template=<模板路径>]\n", port)
-
 	if subscriptionService != nil && templateService != nil {
-		log.Printf("💡 数据库订阅: http://localhost:%s/sub/<订阅名称>?target=clash[&template=<模板路径>]\n", port)
 		log.Printf("💡 管理界面: http://localhost:%s/web/admin.html\n", port)
 		log.Printf("💡 管理接口: http://localhost:%s/api/subscriptions\n", port)
 		log.Printf("💡 模板接口: http://localhost:%s/api/templates\n", port)
@@ -142,7 +140,7 @@ func main() {
 	os.Exit(0)
 }
 
-func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionService *services.SubscriptionService) {
+func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) {
 	if cfg.AdminPassword != "" {
 		log.Printf("🔒 Web 控制台鉴权已启用\n")
 	} else {
@@ -182,24 +180,8 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 	rulesFS := http.FileServer(http.Dir(app.ResolveProjectPath("rules")))
 	http.Handle("/rules/", webAuth(http.StripPrefix("/rules/", rulesFS)))
 
-	// 主页和原有订阅接口（向后兼容）
+	// 主页
 	http.Handle("/", webAuth(http.HandlerFunc(app.IndexHandler)))
-
-	// 订阅接口（原有模式）
-	http.HandleFunc("/sub", func(w http.ResponseWriter, r *http.Request) {
-		subURL := r.URL.Query().Get("url")
-		if subURL != "" {
-			// 原有模式：直接从 URL 获取
-			app.SubHandler(w, r)
-		} else {
-			// 新模式：需要订阅服务
-			if subscriptionService == nil {
-				http.Error(w, "数据库模式未启用", http.StatusServiceUnavailable)
-				return
-			}
-			app.SubHandlerWithName(w, r, subscriptionService)
-		}
-	})
 
 	// API 路由（统一用子 mux，整体加鉴权）
 	apiMux := http.NewServeMux()
@@ -237,10 +219,6 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 				} else {
 					api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
 				}
-				return
-			}
-			if strings.HasSuffix(r.URL.Path, "/refresh") {
-				apiHandlers.RefreshSubscription(w, r)
 				return
 			}
 			switch r.Method {
@@ -310,23 +288,6 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, subscriptionServ
 			case http.MethodDelete:
 				apiHandlers.DeleteConfigPolicy(w, r)
 			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		// 缓存管理 API
-		apiMux.HandleFunc("/api/cache", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodDelete {
-				apiHandlers.ClearCache(w, r)
-			} else {
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		apiMux.HandleFunc("/api/cache/", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodDelete {
-				apiHandlers.ClearCache(w, r)
-			} else {
 				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
 			}
 		})

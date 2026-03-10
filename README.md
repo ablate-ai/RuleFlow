@@ -1,19 +1,17 @@
 # RuleFlow - Clash & Stash 规则转换工具
 
-将 Trojan 节点订阅转换为 Clash 和 Stash 配置文件的 Web 服务。
+将数据库中管理的订阅转换为 Clash 和 Stash 配置文件的 Web 服务。
 
 ## ✨ 功能特性
 
-- 🔗 **单节点转换** - 支持单个 Trojan 节点链接解析
-- 📋 **订阅转换** - 支持批量订阅内容（原始或 Base64 编码）
 - 🎯 **多客户端支持** - 支持 Clash 和 Stash 客户端配置生成
 - 🌐 **Web 界面** - 简洁美观的在线转换界面
 - ⚙️ **自动配置** - 生成完整的代理配置文件
 - 📥 **一键下载** - 直接下载生成的 YAML 配置
 - 🎯 **规则模板** - 通过 YAML 文件维护多套分流规则
 - 🗄️ **数据库支持** - PostgreSQL 持久化订阅配置（可选）
-- ⚡ **缓存加速** - Redis 缓存订阅内容，提升性能（可选）
-- 🔄 **管理 API** - 完整的订阅管理和缓存管理接口（可选）
+- ⚡ **缓存加速** - Redis 缓存生成配置（可选）
+- 🔄 **管理 API** - 完整的订阅管理接口（可选）
 
 ## 🚀 快速开始
 
@@ -52,22 +50,7 @@ PORT=3000 ./ruleflow
 
 ## 📖 使用方法
 
-### 方式 1: 单节点转换
-
-1. 打开浏览器访问 `http://localhost:8080`
-2. 点击「单节点转换」标签
-3. 粘贴 Trojan 节点链接
-4. 点击「转换配置」
-5. 下载生成的配置文件
-
-### 方式 2: 订阅转换
-
-1. 点击「订阅转换」标签
-2. 粘贴订阅内容（支持 Base64 编码）
-3. 点击「转换配置」
-4. 下载生成的配置文件
-
-### 方式 3: 数据库模式（新增）
+### 方式 1: 数据库模式
 
 如果启用了数据库和 Redis 支持，可以通过订阅名称访问配置：
 
@@ -82,8 +65,6 @@ curl -X POST http://localhost:8080/api/subscriptions \
     "enabled": true
   }'
 
-# 通过订阅名称获取配置
-curl "http://localhost:8080/sub/my-subscription?target=clash"
 ```
 
 ## 🔗 Trojan 链接格式
@@ -156,56 +137,10 @@ sudo systemctl start redis
 
 ## 📡 API 接口
 
-当配置了 `ADMIN_PASSWORD` 后，除 `/sub`、`/sub/{name}`、`/config`、`/health` 外，控制台相关接口需要先登录：
+当配置了 `ADMIN_PASSWORD` 后，除 `/config`、`/health` 外，控制台相关接口需要先登录：
 
 - `/web/*` 未登录时跳转到 `/login`
 - `/api/*` 未登录时返回 `401`
-
-### GET /sub
-
-把订阅地址转换为 Clash 或 Stash YAML 配置（推荐用于客户端订阅）。
-
-**查询参数:**
-
-- `url`（必填）: 原始订阅地址
-- `target`（可选）: 目标客户端类型，支持 `clash`（默认）或 `stash`
-
-**示例:**
-
-```bash
-# 生成 Clash 配置（默认）
-curl "http://localhost:8080/sub?url=https%3A%2F%2Fexample.com%2Fsub"
-
-# 生成 Stash 配置
-curl "http://localhost:8080/sub?url=https%3A%2F%2Fexample.com%2Fsub&target=stash"
-```
-
-**响应头:**
-
-- `X-Node-Count`: 节点数量
-- `X-Rule-Template`: 实际使用的模板名（`clash` 或 `stash`）
-- `Content-Disposition`: 文件名（`clash_config.yaml` 或 `stash_config.yaml`）
-
-### GET /sub/{name}（数据库模式）
-
-通过订阅名称获取配置（需要启用数据库和 Redis）。
-
-**查询参数:**
-
-- `target`（可选）: 目标客户端类型，支持 `clash`（默认）或 `stash`
-
-**示例:**
-
-```bash
-curl "http://localhost:8080/sub/my-subscription?target=clash"
-```
-
-**响应头:**
-
-- `X-Node-Count`: 节点数量
-- `X-Rule-Template`: 实际使用的模板名
-- `X-Cache`: `HIT` 或 `MISS`（标识是否来自缓存）
-- `Content-Disposition`: 文件名
 
 ### 订阅管理 API
 
@@ -290,38 +225,6 @@ curl "http://localhost:8080/sub/my-subscription?target=clash"
     "message": "订阅已删除"
   }
 }
-```
-
-### 缓存管理 API
-
-#### POST /api/subscriptions/{name}/refresh
-
-手动刷新订阅缓存。
-
-**示例:**
-
-```bash
-curl -X POST "http://localhost:8080/api/subscriptions/my-subscription/refresh?target=clash"
-```
-
-#### DELETE /api/cache/{name}
-
-清除指定订阅的缓存。
-
-**示例:**
-
-```bash
-curl -X DELETE "http://localhost:8080/api/cache/my-subscription"
-```
-
-#### DELETE /api/cache
-
-清除所有缓存。
-
-**示例:**
-
-```bash
-curl -X DELETE "http://localhost:8080/api/cache"
 ```
 
 ### 健康检查 API

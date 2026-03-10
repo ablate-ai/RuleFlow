@@ -3,14 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/c.chen/ruleflow/cache"
 	"github.com/c.chen/ruleflow/database"
 	"github.com/c.chen/ruleflow/internal/app"
 )
@@ -19,19 +16,16 @@ import (
 type SubscriptionSyncService struct {
 	subRepo  *database.SubscriptionRepo
 	nodeRepo *database.NodeRepo
-	subCache *cache.SubscriptionCache
 }
 
 // NewSubscriptionSyncService 创建订阅同步服务
 func NewSubscriptionSyncService(
 	subRepo *database.SubscriptionRepo,
 	nodeRepo *database.NodeRepo,
-	subCache *cache.SubscriptionCache,
 ) *SubscriptionSyncService {
 	return &SubscriptionSyncService{
 		subRepo:  subRepo,
 		nodeRepo: nodeRepo,
-		subCache: subCache,
 	}
 }
 
@@ -109,15 +103,15 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 		_ = err
 	}
 
-	// 6. 解析并缓存流量信息
-	if userInfoHeader != "" && s.subCache != nil {
-		if info := parseUserInfo(userInfoHeader); info != nil {
-			if err := s.subCache.SetUserInfo(ctx, sub.Name, info); err != nil {
-				log.Printf("[sync] 缓存流量信息失败: %v", err)
-			} else {
-				log.Printf("[sync] 流量信息已缓存: upload=%d download=%d total=%d", info.Upload, info.Download, info.Total)
-			}
-		}
+	// 6. 解析并持久化流量信息
+	var userInfo *database.UserInfo
+	if userInfoHeader != "" {
+		userInfo = parseUserInfo(userInfoHeader)
+	}
+	if err := s.subRepo.UpdateUserInfoByID(ctx, subscriptionID, userInfo); err != nil {
+		log.Printf("[sync] 保存流量信息失败: %v", err)
+	} else if userInfo != nil {
+		log.Printf("[sync] 流量信息已保存: upload=%d download=%d total=%d", userInfo.Upload, userInfo.Download, userInfo.Total)
 	}
 
 	log.Printf("[sync] 同步完成: %s，节点数: %d", sub.Name, nodeCount)
@@ -126,8 +120,8 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 
 // parseUserInfo 解析 Subscription-Userinfo 响应头
 // 格式：upload=1234; download=5678; total=10000000000; expire=1750000000
-func parseUserInfo(header string) *cache.UserInfo {
-	info := &cache.UserInfo{}
+func parseUserInfo(header string) *database.UserInfo {
+	info := &database.UserInfo{}
 	found := false
 	for _, part := range strings.Split(header, ";") {
 		part = strings.TrimSpace(part)
@@ -162,39 +156,12 @@ func parseUserInfo(header string) *cache.UserInfo {
 
 // fetchSubscriptionContent 从 URL 拉取订阅内容，同时返回 Subscription-Userinfo 响应头
 func (s *SubscriptionSyncService) fetchSubscriptionContent(ctx context.Context, url string) (content string, userInfoHeader string, err error) {
-	// 创建 HTTP 请求
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	content, headers, err := app.FetchSubscriptionContent(ctx, url)
 	if err != nil {
-		return "", "", fmt.Errorf("创建请求失败: %w", err)
+		return "", "", err
 	}
 
-	// 设置请求头
-	req.Header.Set("User-Agent", "Clash")
-	req.Header.Set("Accept", "*/*")
-
-	// 发送请求
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// 检查响应状态码
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("服务器返回错误状态码: %d", resp.StatusCode)
-	}
-
-	// 读取响应内容
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", fmt.Errorf("读取响应内容失败: %w", err)
-	}
-
-	return string(body), resp.Header.Get("Subscription-Userinfo"), nil
+	return content, headers.Get("Subscription-Userinfo"), nil
 }
 
 // convertToDBNodes 将解析的节点转换为数据库模型

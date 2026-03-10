@@ -787,52 +787,6 @@ func firstOrEmpty(s []string) string {
 	return s[0]
 }
 
-// parseSubscriptionToURLs 解析订阅内容返回 URL 字符串（向后兼容）
-func parseSubscriptionToURLs(content string) ([]string, error) {
-	lowerContent := strings.ToLower(content)
-	if strings.Contains(lowerContent, "<!doctype html>") || strings.Contains(lowerContent, "<html") {
-		return nil, fmt.Errorf("订阅服务器返回了 HTML 页面（可能是访问被拒绝或错误），请检查订阅地址是否正确")
-	}
-
-	originalContent := strings.TrimSpace(content)
-	if originalContent == "" {
-		return nil, fmt.Errorf("订阅服务器返回了空内容")
-	}
-
-	candidates := []string{originalContent}
-	if !strings.Contains(originalContent, "trojan://") {
-		compact := strings.NewReplacer("\n", "", "\r", "", "\t", "", " ", "").Replace(originalContent)
-		if decoded, ok := decodeSubscriptionBase64(compact); ok {
-			candidates = append(candidates, decoded)
-		}
-		if decoded, ok := decodeSubscriptionBase64ByLine(originalContent); ok {
-			candidates = append(candidates, decoded)
-		}
-	}
-
-	bestURLs := []string{}
-	for _, candidate := range candidates {
-		matches := trojanURLPattern.FindAllString(candidate, -1)
-		urls := make([]string, 0, len(matches))
-		for _, m := range matches {
-			link := strings.TrimSpace(m)
-			if link != "" {
-				urls = append(urls, link)
-			}
-		}
-		if len(urls) > len(bestURLs) {
-			bestURLs = urls
-		}
-	}
-
-	if len(bestURLs) == 0 {
-		lines := strings.Split(originalContent, "\n")
-		return nil, fmt.Errorf("未找到有效的 Trojan 链接（共 %d 行内容，请确认订阅地址是否有效）", len(lines))
-	}
-
-	return bestURLs, nil
-}
-
 func decodeSubscriptionBase64(content string) (string, bool) {
 	content = stripANSIEscape(content)
 	content = sanitizeBase64Content(content)
