@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/dlclark/regexp2"
 )
 
 // BuildSurgeFromTemplateContent 从模板内容（字符串）构建 Surge INI 配置
@@ -494,11 +496,11 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 func filterNodesByPattern(nodeNames []string, filterPattern, excludePattern string) []string {
 	result := nodeNames
 	if filterPattern != "" {
-		re, err := regexp.Compile(filterPattern)
+		matcher, err := compileNodeNameMatcher(filterPattern)
 		if err == nil {
 			included := make([]string, 0, len(result))
 			for _, n := range result {
-				if re.MatchString(n) {
+				if matcher(n) {
 					included = append(included, n)
 				}
 			}
@@ -506,11 +508,11 @@ func filterNodesByPattern(nodeNames []string, filterPattern, excludePattern stri
 		}
 	}
 	if excludePattern != "" {
-		re, err := regexp.Compile(excludePattern)
+		matcher, err := compileNodeNameMatcher(excludePattern)
 		if err == nil {
 			excluded := make([]string, 0, len(result))
 			for _, n := range result {
-				if !re.MatchString(n) {
+				if !matcher(n) {
 					excluded = append(excluded, n)
 				}
 			}
@@ -518,6 +520,21 @@ func filterNodesByPattern(nodeNames []string, filterPattern, excludePattern stri
 		}
 	}
 	return result
+}
+
+func compileNodeNameMatcher(pattern string) (func(string) bool, error) {
+	if re, err := regexp.Compile(pattern); err == nil {
+		return re.MatchString, nil
+	}
+
+	re2, err := regexp2.Compile(pattern, 0)
+	if err != nil {
+		return nil, err
+	}
+	return func(value string) bool {
+		matched, err := re2.MatchString(value)
+		return err == nil && matched
+	}, nil
 }
 
 // cleanCommas 清理多余的逗号（如连续逗号或行尾逗号）

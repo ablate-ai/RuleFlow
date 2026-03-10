@@ -241,6 +241,34 @@ HK = url-test, __NODES__, url = http://www.gstatic.com/generate_204, interval = 
 	}
 }
 
+func TestBuildSurgeFromTemplateContentPolicyRegexFilterSupportsLookahead(t *testing.T) {
+	nodes := []*ProxyNode{
+		{Name: "SG v1", Server: "sg-v1.example.com", Port: 443, Protocol: "trojan", Options: map[string]interface{}{"password": "a", "sni": "sg-v1.example.com"}},
+		{Name: "SG v2", Server: "sg-v2.example.com", Port: 443, Protocol: "trojan", Options: map[string]interface{}{"password": "b", "sni": "sg-v2.example.com"}},
+	}
+
+	templateContent := `[General]
+loglevel = notify
+
+[Proxy]
+__NODES__
+
+[Proxy Group]
+SG = select, __NODES__, policy-regex-filter=^((?!v2).)*$
+`
+
+	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("BuildSurgeFromTemplateContent() error = %v", err)
+	}
+	if !strings.Contains(config, "SG = select, 🇸🇬 SG v1") {
+		t.Fatalf("前瞻表达式未正确保留非 v2 节点:\n%s", config)
+	}
+	if strings.Contains(config, "SG = select, 🇸🇬 SG v2") || strings.Contains(config, "SG = select, 🇸🇬 SG v1, 🇸🇬 SG v2") {
+		t.Fatalf("前瞻表达式未正确排除 v2 节点:\n%s", config)
+	}
+}
+
 func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
 	node := &ProxyNode{
 		Protocol: "anytls",
