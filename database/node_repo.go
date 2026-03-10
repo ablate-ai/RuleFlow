@@ -278,6 +278,18 @@ func (r *NodeRepo) DeleteBySource(ctx context.Context, source string) (int64, er
 	return result.RowsAffected(), nil
 }
 
+// DeleteBySourceID 根据来源 ID 删除节点（订阅改名后同步使用）
+func (r *NodeRepo) DeleteBySourceID(ctx context.Context, sourceID int) (int64, error) {
+	query := `DELETE FROM nodes WHERE source_id = $1`
+
+	result, err := r.db.Pool.Exec(ctx, query, sourceID)
+	if err != nil {
+		return 0, fmt.Errorf("按来源 ID 删除节点失败: %w", err)
+	}
+
+	return result.RowsAffected(), nil
+}
+
 // BatchCreate 批量创建节点
 func (r *NodeRepo) BatchCreate(ctx context.Context, nodes []Node) error {
 	if len(nodes) == 0 {
@@ -352,6 +364,19 @@ func (r *NodeRepo) CountBySource(ctx context.Context, source string) (int64, err
 	err := r.db.Pool.QueryRow(ctx, query, source).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("统计节点数量失败: %w", err)
+	}
+
+	return count, nil
+}
+
+// CountBySourceID 统计指定来源 ID 的节点数量
+func (r *NodeRepo) CountBySourceID(ctx context.Context, sourceID int) (int64, error) {
+	query := `SELECT COUNT(*) FROM nodes WHERE source_id = $1`
+
+	var count int64
+	err := r.db.Pool.QueryRow(ctx, query, sourceID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("按来源 ID 统计节点数量失败: %w", err)
 	}
 
 	return count, nil

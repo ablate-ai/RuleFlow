@@ -83,16 +83,17 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	// 4. 开始事务处理
 	// 使用完全替换策略
 	source := fmt.Sprintf("subscription:%s", sub.Name)
+	namePrefix := fmt.Sprintf("[%s] ", strings.TrimSpace(sub.Name))
 
-	// 4.1 删除该订阅的旧节点
-	deleted, err := s.nodeRepo.DeleteBySource(ctx, source)
+	// 4.1 删除该订阅的旧节点。按 source_id 删除，避免订阅改名后旧 source 残留。
+	deleted, err := s.nodeRepo.DeleteBySourceID(ctx, sub.ID)
 	if err != nil {
 		return 0, fmt.Errorf("删除旧节点失败: %w", err)
 	}
 	log.Printf("[sync] 已删除旧节点: %d 个", deleted)
 
 	// 4.2 将解析的节点转换为数据库模型
-	dbNodes := s.convertToDBNodes(nodes, sub.ID, source)
+	dbNodes := s.convertToDBNodes(nodes, sub.ID, source, namePrefix)
 
 	// 4.3 批量插入新节点
 	if err := s.nodeRepo.BatchCreate(ctx, dbNodes); err != nil {
@@ -197,12 +198,16 @@ func (s *SubscriptionSyncService) fetchSubscriptionContent(ctx context.Context, 
 }
 
 // convertToDBNodes 将解析的节点转换为数据库模型
-func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int, source string) []database.Node {
+func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int, source string, namePrefix string) []database.Node {
 	dbNodes := make([]database.Node, 0, len(nodes))
 
 	for _, node := range nodes {
+		name := node.Name
+		if namePrefix != "" {
+			name = namePrefix + name
+		}
 		dbNode := database.Node{
-			Name:     node.Name,
+			Name:     name,
 			Protocol: node.Protocol,
 			Server:   node.Server,
 			Port:     node.Port,
@@ -233,10 +238,8 @@ func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptio
 	if err != nil {
 		return nil, fmt.Errorf("订阅不存在: %d", subscriptionID)
 	}
-	source := fmt.Sprintf("subscription:%s", sub.Name)
-
 	// 获取节点数量
-	nodeCount, err := s.nodeRepo.CountBySource(ctx, source)
+	nodeCount, err := s.nodeRepo.CountBySourceID(ctx, sub.ID)
 	if err != nil {
 		return nil, fmt.Errorf("获取节点数量失败: %w", err)
 	}

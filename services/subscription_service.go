@@ -67,6 +67,13 @@ func (s *SubscriptionService) RefreshConfig(ctx context.Context, name, target st
 
 // CreateSubscription 创建订阅
 func (s *SubscriptionService) CreateSubscription(ctx context.Context, sub *database.Subscription) error {
+	sub.Name = strings.TrimSpace(sub.Name)
+	sub.Description = strings.TrimSpace(sub.Description)
+	if sub.URL != nil {
+		trimmedURL := strings.TrimSpace(*sub.URL)
+		sub.URL = &trimmedURL
+	}
+
 	// 检查名称是否已存在
 	exists, err := s.repo.Exists(ctx, sub.Name)
 	if err != nil {
@@ -116,6 +123,13 @@ func (s *SubscriptionService) ListSubscriptions(ctx context.Context) ([]database
 
 // UpdateSubscription 更新订阅
 func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *database.Subscription) error {
+	sub.Name = strings.TrimSpace(sub.Name)
+	sub.Description = strings.TrimSpace(sub.Description)
+	if sub.URL != nil {
+		trimmedURL := strings.TrimSpace(*sub.URL)
+		sub.URL = &trimmedURL
+	}
+
 	// 验证 URL
 	if sub.URL == nil || strings.TrimSpace(*sub.URL) == "" {
 		return fmt.Errorf("订阅必须提供 URL")
