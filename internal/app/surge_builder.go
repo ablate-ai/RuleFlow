@@ -184,11 +184,10 @@ func parseSurgeProxyGroupLine(line string) (groupName string, filterPattern stri
 	sanitized = line
 	groupName, _ = surgePolicyName(line)
 	for _, pattern := range []*regexp.Regexp{
-		regexp.MustCompile(`(?i),?\s*exclude-filter=([^,\r\n]+)`),
-		regexp.MustCompile(`(?i),?\s*policy-regex-filter=([^,\r\n]+)`),
-		regexp.MustCompile(`(?i),?\s*filter=([^,\r\n]+)`),
-		regexp.MustCompile(`(?i),?\s*dialer-proxy=([^,\r\n]+)`),
-		regexp.MustCompile(`(?i),?\s*underlying-proxy=([^,\r\n]+)`),
+		regexp.MustCompile(`(?i)(?:^|,)\s*exclude-filter\s*=\s*([^,\r\n]+)`),
+		regexp.MustCompile(`(?i)(?:^|,)\s*policy-regex-filter\s*=\s*([^,\r\n]+)`),
+		regexp.MustCompile(`(?i)(?:^|,)\s*dialer-proxy\s*=\s*([^,\r\n]+)`),
+		regexp.MustCompile(`(?i)(?:^|,)\s*underlying-proxy\s*=\s*([^,\r\n]+)`),
 	} {
 		match := pattern.FindStringSubmatch(sanitized)
 		if match == nil {
@@ -200,8 +199,6 @@ func parseSurgeProxyGroupLine(line string) (groupName string, filterPattern stri
 		case strings.Contains(key, "exclude-filter"):
 			excludeFilterPattern = value
 		case strings.Contains(key, "policy-regex-filter"):
-			filterPattern = value
-		case strings.Contains(key, "filter"):
 			filterPattern = value
 		case strings.Contains(key, "dialer-proxy"), strings.Contains(key, "underlying-proxy"):
 			relayPattern = value

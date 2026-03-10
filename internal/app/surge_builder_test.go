@@ -204,6 +204,43 @@ __NODES__
 	}
 }
 
+func TestBuildSurgeFromTemplateContentPolicyRegexFilterWithSpaces(t *testing.T) {
+	nodes := []*ProxyNode{
+		{Name: "HK A", Server: "hk-a.example.com", Port: 443, Protocol: "trojan", Options: map[string]interface{}{"password": "a", "sni": "hk-a.example.com"}},
+		{Name: "SG A", Server: "sg-a.example.com", Port: 443, Protocol: "trojan", Options: map[string]interface{}{"password": "b", "sni": "sg-a.example.com"}},
+	}
+
+	templateContent := `[General]
+loglevel = notify
+
+[Proxy]
+__NODES__
+
+[Proxy Group]
+HK = url-test, __NODES__, url = http://www.gstatic.com/generate_204, interval = 1200, policy-regex-filter = HK
+`
+
+	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("BuildSurgeFromTemplateContent() error = %v", err)
+	}
+	if strings.Contains(config, "policy-regex-") {
+		t.Fatalf("生成配置中不应残留截断字段:\n%s", config)
+	}
+	if strings.Contains(config, "policy-regex-filter") {
+		t.Fatalf("生成配置中不应保留 policy-regex-filter 字段:\n%s", config)
+	}
+	if !strings.Contains(config, "HK = url-test, ") {
+		t.Fatalf("生成配置未正确保留其余参数并应用过滤:\n%s", config)
+	}
+	if !strings.Contains(config, "url = http://www.gstatic.com/generate_204, interval = 1200") {
+		t.Fatalf("生成配置未正确保留其余参数:\n%s", config)
+	}
+	if !strings.Contains(config, "🇭🇰 HK A") || strings.Contains(config, "HK = url-test, 🇸🇬 SG A") {
+		t.Fatalf("生成配置未正确应用 policy-regex-filter:\n%s", config)
+	}
+}
+
 func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
 	node := &ProxyNode{
 		Protocol: "anytls",
