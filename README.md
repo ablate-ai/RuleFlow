@@ -191,7 +191,7 @@ RULE-SET,https://ruleset.skk.moe/Clash/non_ip/ai.txt,🤖 AI
 FINAL,🇸🇬 SG
 ```
 
-Surge 模板里用于筛选节点的字段是 `policy-regex-filter=`，不是 `filter=`。
+Surge 模板使用 `policy-regex-filter=` 按正则筛选节点。
 生成后 `policy-regex-filter=`、`exclude-filter=`、`dialer-proxy=` 均不保留；`dialer-proxy` 会被翻译为节点行的 `underlying-proxy=` 参数。
 
 > **注意**：`dialer-proxy` 只会作用到该组最终展开出的实际节点。
