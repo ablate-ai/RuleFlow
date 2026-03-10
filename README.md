@@ -402,6 +402,109 @@ rule-providers:
 
 优先通过模板文件维护规则，不需要改代码：直接编辑 `rules/template.yaml`。
 
+### 模板扩展字段
+
+`proxy-groups` 支持两个服务端专属扩展字段，生成配置时会被自动处理并从输出中删除：
+
+#### `filter` — 节点过滤
+
+按正则表达式筛选进入该组的节点，只有名称匹配的节点会被放入 `__NODES__` 展开位置。
+
+```yaml
+proxy-groups:
+  - name: 🇸🇬 SG
+    type: url-test
+    filter: "SG|新加坡|Singapore"   # 只选名称含 SG / 新加坡 / Singapore 的节点
+    proxies: ["__NODES__"]
+    url: http://cp.cloudflare.com/generate_204
+    interval: 300
+```
+
+#### `dialer-proxy` — 链式代理（落地中转）
+
+按正则表达式在所有节点中找到**第一个**匹配的节点作为中转，自动为该组内的节点 `proxies` 条目注入 `dialer-proxy` 字段，实现流量 A → 中转 → 目标的链式路由。
+
+> Clash/Stash 会输出 `dialer-proxy`；Surge 会自动翻译为节点级 `underlying-proxy`。
+
+```yaml
+proxy-groups:
+  - name: "🇺🇸 US via SG"
+    type: select
+    filter: "US|美国"              # 该组只包含美国节点
+    dialer-proxy: "SG|新加坡"      # 这些节点的流量先经过第一个匹配的新加坡节点
+    proxies: ["__NODES__"]
+```
+
+生成的 Clash 配置效果：
+
+```yaml
+proxies:
+  - name: 🇸🇬 SG-01          # 中转节点本身，无 dialer-proxy
+    type: trojan
+    ...
+  - name: 🇺🇸 US-01
+    type: vmess
+    dialer-proxy: 🇸🇬 SG-01   # 自动注入
+    ...
+proxy-groups:
+  - name: "🇺🇸 US via SG"
+    type: select               # dialer-proxy 字段已删除
+    proxies: [🇺🇸 US-01, ...]
+```
+
+两个字段可以同时使用，也可以单独使用，对没有这两个字段的组完全向后兼容。
+
+### Surge 模板写法
+
+Surge 的链式代理最终落在 `[Proxy]` 节点行的 `underlying-proxy=` 参数上，但模板里仍然可以继续使用统一的扩展字段 `dialer-proxy=`。生成器会先根据 `[Proxy Group]` 规则选中节点，再把中转信息回写到 `[Proxy]` 展开的节点行。
+
+推荐写法 1：配合 `__NODES__` 和 `filter=`
+
+```ini
+[Proxy]
+__NODES__
+
+[Proxy Group]
+🤖 AI = select, __NODES__, filter=US|美国, dialer-proxy=SG|新加坡
+🎬 Stream = select, 🤖 AI, 🇭🇰 HK, DIRECT
+```
+
+推荐写法 1b：同时使用 `filter=` 和 `exclude-filter=`
+
+`exclude-filter=` 在 `filter=` 圈出候选节点后，再将匹配的节点踢掉，适合排除 IPLC / BGP / 中转等特定类型：
+
+```ini
+[Proxy Group]
+🇸🇬 SG = url-test, __NODES__, url=http://www.gstatic.com/generate_204, interval=1200, filter=新加坡|SG, exclude-filter=IPLC|BGP|中转, dialer-proxy=SG|新加坡
+```
+
+执行顺序：先 `filter=` 保留匹配节点 → 再 `exclude-filter=` 踢掉不想要的 → 最终节点列表展开到 `__NODES__`。生成结果中 `filter=` 和 `exclude-filter=` 均不保留。
+
+推荐写法 2：直接给显式节点列表挂链
+
+```ini
+[Proxy]
+__NODES__
+
+[Proxy Group]
+🤖 AI = select, us.lax.dmit, us.hnl.qqpw, url=http://www.gstatic.com/generate_204, interval=1200, dialer-proxy=SG|新加坡
+```
+
+生成后的 Surge `[Proxy]` 片段会类似这样：
+
+```ini
+[Proxy]
+🇸🇬 SG Relay = trojan, sg.example.com, 443, password=xxx, sni=sg.example.com
+🇺🇸 us.lax.dmit = trojan, us1.example.com, 443, password=yyy, sni=us1.example.com, underlying-proxy=🇸🇬 SG Relay
+🇺🇸 us.hnl.qqpw = trojan, us2.example.com, 443, password=zzz, sni=us2.example.com, underlying-proxy=🇸🇬 SG Relay
+```
+
+注意：
+
+- `dialer-proxy=` 应写在包含真实节点的 `[Proxy Group]` 行上，不能指望外层“组套组”自动向下传播。
+- 例如 `🎬 Stream = select, 🤖 AI, 🇺🇸 US, dialer-proxy=SG|新加坡` 这种写法不会直接修改任何节点，因为这行成员主要是组名，不是实际节点。
+- 生成后的 Surge 配置里不会保留 `dialer-proxy=`，只会留下节点级 `underlying-proxy=`。
+
 ## 🎯 Clash vs Stash 配置差异
 
 本工具支持为 Clash 和 Stash 客户端生成优化的配置文件：
