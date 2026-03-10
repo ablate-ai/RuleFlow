@@ -182,17 +182,17 @@ func (r *SubscriptionRepo) Update(ctx context.Context, sub *Subscription) error 
 	return nil
 }
 
-// Delete 删除订阅
-func (r *SubscriptionRepo) Delete(ctx context.Context, name string) error {
-	query := `DELETE FROM subscriptions WHERE name = $1`
+// DeleteByID 删除订阅
+func (r *SubscriptionRepo) DeleteByID(ctx context.Context, id int) error {
+	query := `DELETE FROM subscriptions WHERE id = $1`
 
-	result, err := r.db.Pool.Exec(ctx, query, name)
+	result, err := r.db.Pool.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("删除订阅失败: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("订阅不存在: %s", name)
+		return fmt.Errorf("订阅不存在: %d", id)
 	}
 
 	return nil

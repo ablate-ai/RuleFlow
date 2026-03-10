@@ -267,17 +267,17 @@ curl "http://localhost:8080/sub/my-subscription?target=clash"
 }
 ```
 
-#### GET /api/subscriptions/{name}
+#### GET /api/subscriptions/{id}
 
 获取单个订阅信息。
 
-#### PUT /api/subscriptions/{name}
+#### PUT /api/subscriptions/{id}
 
 更新订阅配置。
 
 **请求体:** 同 POST 请求。
 
-#### DELETE /api/subscriptions/{name}
+#### DELETE /api/subscriptions/{id}
 
 删除订阅配置。
 

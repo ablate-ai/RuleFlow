@@ -321,9 +321,9 @@
       const [editItem, setEditItem]       = useState(null);        // 当前编辑的订阅对象
       const [form, setForm]               = useState(defaultForm); // 表单数据
       const [saving, setSaving]           = useState(false);       // 保存中
-      const [syncing, setSyncing]         = useState(null);        // 正在同步的订阅名
+      const [syncing, setSyncing]         = useState(null);        // 正在同步的订阅 ID
       const [refreshing, setRefreshing]   = useState(null);        // 正在刷新缓存的订阅名
-      const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅名（显示确认框）
+      const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅对象（显示确认框）
       const [deleting, setDeleting]       = useState(false);       // 删除中
       const [toasts, setToasts]           = useState([]);          // Toast 列表
       const [filterOpen, setFilterOpen]   = useState(false);       // 过滤规则折叠状态
@@ -410,10 +410,10 @@
       };
 
       // 同步节点
-      const handleSync = async (name) => {
-        setSyncing(name);
+      const handleSync = async (sub) => {
+        setSyncing(sub.id);
         try {
-          const result = await api.post(`/api/subscriptions/${name}/sync`, {});
+          const result = await api.post(`/api/subscriptions/${sub.id}/sync`, {});
           addToast(`同步成功，获取到 ${result.data?.node_count || 0} 个节点`);
           await loadSubs();
         } catch (err) {
@@ -442,7 +442,7 @@
         if (!confirmDelete) return;
         setDeleting(true);
         try {
-          await api.delete(`/api/subscriptions/${confirmDelete}`);
+          await api.delete(`/api/subscriptions/${confirmDelete.id}`);
           addToast('订阅源已删除');
           setConfirmDelete(null);
           await loadSubs();
@@ -605,10 +605,10 @@
                       <button
                         className="btic blue"
                         title="同步节点"
-                        disabled={syncing === sub.name}
-                        onClick={() => handleSync(sub.name)}
+                        disabled={syncing === sub.id}
+                        onClick={() => handleSync(sub)}
                       >
-                        {syncing === sub.name
+                        {syncing === sub.id
                           ? <span className="spin" style={{ borderColor: 'var(--blu)', borderTopColor: 'transparent' }}></span>
                           : <IcoSync />
                         }
@@ -640,7 +640,7 @@
                       <button
                         className="btic red"
                         title="删除"
-                        onClick={() => setConfirmDelete(sub.name)}
+                        onClick={() => setConfirmDelete(sub)}
                       >
                         <IcoTrash />
                       </button>
@@ -858,7 +858,7 @@
                 </div>
                 <div className="mb">
                   <p style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.7 }}>
-                    确定要删除订阅源 <strong style={{ color: 'var(--t1)' }}>{confirmDelete}</strong> 吗？
+                    确定要删除订阅源 <strong style={{ color: 'var(--t1)' }}>{confirmDelete.name}</strong> 吗？
                     此操作将同时删除该订阅的所有节点，且<strong style={{ color: 'var(--red)' }}>不可恢复</strong>。
                   </p>
                 </div>

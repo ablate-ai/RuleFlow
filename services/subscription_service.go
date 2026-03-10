@@ -94,6 +94,11 @@ func (s *SubscriptionService) GetSubscription(ctx context.Context, name string) 
 	return s.repo.GetByName(ctx, name)
 }
 
+// GetSubscriptionByID 获取订阅信息
+func (s *SubscriptionService) GetSubscriptionByID(ctx context.Context, id int) (*database.Subscription, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
 // ListSubscriptions 列出所有订阅（附带流量信息）
 func (s *SubscriptionService) ListSubscriptions(ctx context.Context) ([]database.Subscription, error) {
 	subs, err := s.repo.List(ctx)
@@ -140,11 +145,16 @@ func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *datab
 	return s.repo.Update(ctx, sub)
 }
 
-// DeleteSubscription 删除订阅
-func (s *SubscriptionService) DeleteSubscription(ctx context.Context, name string) error {
-	_ = s.cache.DeleteAll(ctx, name)
-	_ = s.cache.DeleteUserInfo(ctx, name)
-	return s.repo.Delete(ctx, name)
+// DeleteSubscriptionByID 删除订阅
+func (s *SubscriptionService) DeleteSubscriptionByID(ctx context.Context, id int) error {
+	sub, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	_ = s.cache.DeleteAll(ctx, sub.Name)
+	_ = s.cache.DeleteUserInfo(ctx, sub.Name)
+	return s.repo.DeleteByID(ctx, id)
 }
 
 // ClearCache 清除缓存
