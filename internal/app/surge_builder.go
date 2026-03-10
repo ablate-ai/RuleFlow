@@ -185,6 +185,7 @@ func parseSurgeProxyGroupLine(line string) (groupName string, filterPattern stri
 	groupName, _ = surgePolicyName(line)
 	for _, pattern := range []*regexp.Regexp{
 		regexp.MustCompile(`(?i),?\s*exclude-filter=([^,\r\n]+)`),
+		regexp.MustCompile(`(?i),?\s*policy-regex-filter=([^,\r\n]+)`),
 		regexp.MustCompile(`(?i),?\s*filter=([^,\r\n]+)`),
 		regexp.MustCompile(`(?i),?\s*dialer-proxy=([^,\r\n]+)`),
 		regexp.MustCompile(`(?i),?\s*underlying-proxy=([^,\r\n]+)`),
@@ -198,6 +199,8 @@ func parseSurgeProxyGroupLine(line string) (groupName string, filterPattern stri
 		switch {
 		case strings.Contains(key, "exclude-filter"):
 			excludeFilterPattern = value
+		case strings.Contains(key, "policy-regex-filter"):
+			filterPattern = value
 		case strings.Contains(key, "filter"):
 			filterPattern = value
 		case strings.Contains(key, "dialer-proxy"), strings.Contains(key, "underlying-proxy"):
@@ -490,7 +493,7 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 	}
 }
 
-// filterNodesByPattern 按正则模式过滤节点名列表，支持包含（filter）和排除（excludeFilter）
+// filterNodesByPattern 按正则模式过滤节点名列表，支持包含（policy-regex-filter）和排除（exclude-filter）
 func filterNodesByPattern(nodeNames []string, filterPattern, excludePattern string) []string {
 	result := nodeNames
 	if filterPattern != "" {

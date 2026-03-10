@@ -81,7 +81,7 @@ loglevel = notify
 __NODES__
 
 [Proxy Group]
-US = select, __NODES__, filter=US|美国, dialer-proxy=SG|新加坡
+US = select, __NODES__, policy-regex-filter=US|美国, dialer-proxy=SG|新加坡
 `
 
 	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
@@ -177,7 +177,7 @@ func TestBuildSurgeFromTemplateContentExcludeFilter(t *testing.T) {
 __NODES__
 
 [Proxy Group]
-🇸🇬 SG = url-test, __NODES__, url=http://www.gstatic.com/generate_204, interval=1200, filter=SG|新加坡, exclude-filter=IPLC|BGP
+🇸🇬 SG = url-test, __NODES__, url=http://www.gstatic.com/generate_204, interval=1200, policy-regex-filter=SG|新加坡, exclude-filter=IPLC|BGP
 `
 
 	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
