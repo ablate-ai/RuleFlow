@@ -5,7 +5,7 @@ import (
 	"unicode"
 )
 
-// countryRules 按顺序匹配，先写长关键词避免短词误匹配（如 "US" 在 "Russia" 中）
+// countryRules 提供国家关键词；最终按名称中最靠左的合法命中决定 emoji。
 var countryRules = []struct {
 	emoji    string
 	keywords []string
@@ -61,13 +61,19 @@ func addCountryEmoji(name string) string {
 		return name
 	}
 	lower := strings.ToLower(name)
+	bestIdx := -1
+	bestEmoji := ""
 	for _, rule := range countryRules {
 		for _, kw := range rule.keywords {
 			// 用词边界方式匹配：关键词两侧不是字母/数字即视为命中
-			if containsWord(lower, kw) {
-				return rule.emoji + " " + name
+			if idx, ok := wordIndex(lower, kw); ok && (bestIdx < 0 || idx < bestIdx) {
+				bestIdx = idx
+				bestEmoji = rule.emoji
 			}
 		}
+	}
+	if bestEmoji != "" {
+		return bestEmoji + " " + name
 	}
 	return name
 }
@@ -87,25 +93,32 @@ func isEmojiRune(r rune) bool {
 	return r > 0x2000 && !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != '-'
 }
 
-// containsWord 检查 text 中是否包含 word：
-// word 两侧不能紧跟字母（防止 "ru" 命中 "russia" 内部），但允许数字和符号
-func containsWord(text, word string) bool {
-	idx := strings.Index(text, word)
-	if idx < 0 {
-		return false
-	}
-	if idx > 0 {
-		prev := rune(text[idx-1])
-		if unicode.IsLetter(prev) {
-			return false
+// wordIndex 返回 text 中最靠左的合法关键词位置。
+// word 两侧不能紧跟字母（防止 "ru" 命中 "russia" 内部），但允许数字和符号。
+func wordIndex(text, word string) (int, bool) {
+	searchFrom := 0
+	for searchFrom <= len(text)-len(word) {
+		rel := strings.Index(text[searchFrom:], word)
+		if rel < 0 {
+			return -1, false
 		}
-	}
-	end := idx + len(word)
-	if end < len(text) {
-		next := rune(text[end])
-		if unicode.IsLetter(next) {
-			return false
+		idx := searchFrom + rel
+		if idx > 0 {
+			prev := rune(text[idx-1])
+			if unicode.IsLetter(prev) {
+				searchFrom = idx + len(word)
+				continue
+			}
 		}
+		end := idx + len(word)
+		if end < len(text) {
+			next := rune(text[end])
+			if unicode.IsLetter(next) {
+				searchFrom = idx + len(word)
+				continue
+			}
+		}
+		return idx, true
 	}
-	return true
+	return -1, false
 }
