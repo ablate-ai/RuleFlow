@@ -8,10 +8,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/c.chen/ruleflow/database"
 	"github.com/c.chen/ruleflow/internal/app"
 	"github.com/c.chen/ruleflow/services"
 )
+
+// urlParamInt 从 chi 路由参数中提取整数 ID
+func urlParamInt(r *http.Request, key string) (int, error) {
+	return strconv.Atoi(chi.URLParam(r, key))
+}
 
 // policyConfigCache 策略配置缓存接口
 type policyConfigCache interface {
@@ -52,11 +59,6 @@ func NewHandlers(
 
 // CreateSubscription 创建订阅
 func (h *Handlers) CreateSubscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	var sub database.Subscription
 	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
@@ -74,19 +76,7 @@ func (h *Handlers) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 
 // GetSubscription 获取订阅信息
 func (h *Handlers) GetSubscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取订阅 ID
-	// 路径格式为 /api/subscriptions/{id}
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -104,11 +94,6 @@ func (h *Handlers) GetSubscription(w http.ResponseWriter, r *http.Request) {
 
 // ListSubscriptions 列出所有订阅
 func (h *Handlers) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	ctx := r.Context()
 	subs, err := h.subscriptionService.ListSubscriptions(ctx)
 	if err != nil {
@@ -121,18 +106,7 @@ func (h *Handlers) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSubscription 更新订阅
 func (h *Handlers) UpdateSubscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取订阅 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -156,18 +130,7 @@ func (h *Handlers) UpdateSubscription(w http.ResponseWriter, r *http.Request) {
 
 // DeleteSubscription 删除订阅
 func (h *Handlers) DeleteSubscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取订阅 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -184,11 +147,6 @@ func (h *Handlers) DeleteSubscription(w http.ResponseWriter, r *http.Request) {
 
 // Health 健康检查
 func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	ctx := r.Context()
 	health := h.subscriptionService.Health(ctx)
 
@@ -204,11 +162,6 @@ func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 
 // CreateTemplate 创建模板
 func (h *Handlers) CreateTemplate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	var tpl database.Template
 	if err := json.NewDecoder(r.Body).Decode(&tpl); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
@@ -226,18 +179,7 @@ func (h *Handlers) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 // GetTemplate 获取模板信息
 func (h *Handlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取模板 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的模板 ID")
 		return
@@ -255,11 +197,6 @@ func (h *Handlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
 
 // ListTemplates 列出所有模板
 func (h *Handlers) ListTemplates(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	ctx := r.Context()
 	tpls, err := h.templateService.ListTemplates(ctx)
 	if err != nil {
@@ -272,18 +209,7 @@ func (h *Handlers) ListTemplates(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTemplate 更新模板
 func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取模板 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的模板 ID")
 		return
@@ -316,18 +242,7 @@ func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 // DeleteTemplate 删除模板
 func (h *Handlers) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取模板 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的模板 ID")
 		return
@@ -358,11 +273,6 @@ type ConfigResponse struct {
 
 // CreateConfigPolicy 创建配置策略
 func (h *Handlers) CreateConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	var policy database.ConfigPolicy
 	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
@@ -380,17 +290,7 @@ func (h *Handlers) CreateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // GetConfigPolicy 获取配置策略
 func (h *Handlers) GetConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -408,11 +308,6 @@ func (h *Handlers) GetConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // ListConfigPolicies 列出所有配置策略
 func (h *Handlers) ListConfigPolicies(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	ctx := r.Context()
 	policies, err := h.configPolicyService.List(ctx)
 	if err != nil {
@@ -425,17 +320,7 @@ func (h *Handlers) ListConfigPolicies(w http.ResponseWriter, r *http.Request) {
 
 // UpdateConfigPolicy 更新配置策略
 func (h *Handlers) UpdateConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -459,17 +344,7 @@ func (h *Handlers) UpdateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // DeleteConfigPolicy 删除配置策略
 func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -486,18 +361,7 @@ func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // ClearPolicyConfigCache 清除指定策略的生成配置缓存
 func (h *Handlers) ClearPolicyConfigCache(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	parts := strings.Split(r.URL.Path, "/")
-	// 路径: /api/config-policies/{id}/cache → parts[3] = id
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -521,11 +385,6 @@ func (h *Handlers) ClearPolicyConfigCache(w http.ResponseWriter, r *http.Request
 
 // ImportNodes 通过 URL 批量导入节点
 func (h *Handlers) ImportNodes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	var req struct {
 		Content string `json:"content"`
 	}
@@ -575,11 +434,6 @@ func (h *Handlers) ImportNodes(w http.ResponseWriter, r *http.Request) {
 
 // CreateNode 创建节点（手动添加）
 func (h *Handlers) CreateNode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	var node database.Node
 	if err := json.NewDecoder(r.Body).Decode(&node); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
@@ -602,20 +456,8 @@ func (h *Handlers) CreateNode(w http.ResponseWriter, r *http.Request) {
 
 // GetNode 获取节点详情
 func (h *Handlers) GetNode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取节点 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-
-	var id int
-	if _, err := fmt.Sscanf(parts[3], "%d", &id); err != nil {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的节点 ID")
 		return
 	}
@@ -632,11 +474,6 @@ func (h *Handlers) GetNode(w http.ResponseWriter, r *http.Request) {
 
 // ListNodes 列出节点
 func (h *Handlers) ListNodes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	ctx := r.Context()
 
 	// 构建筛选条件
@@ -674,20 +511,8 @@ func (h *Handlers) ListNodes(w http.ResponseWriter, r *http.Request) {
 
 // UpdateNode 更新节点
 func (h *Handlers) UpdateNode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取节点 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-
-	var id int
-	if _, err := fmt.Sscanf(parts[3], "%d", &id); err != nil {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的节点 ID")
 		return
 	}
@@ -721,20 +546,8 @@ func (h *Handlers) UpdateNode(w http.ResponseWriter, r *http.Request) {
 
 // DeleteNode 删除节点
 func (h *Handlers) DeleteNode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取节点 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-
-	var id int
-	if _, err := fmt.Sscanf(parts[3], "%d", &id); err != nil {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的节点 ID")
 		return
 	}
@@ -750,11 +563,6 @@ func (h *Handlers) DeleteNode(w http.ResponseWriter, r *http.Request) {
 
 // BatchNodeOperation 批量节点操作
 func (h *Handlers) BatchNodeOperation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch && r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	var req struct {
 		IDs     []int  `json:"ids"`
 		Enabled *bool  `json:"enabled"`
@@ -802,19 +610,7 @@ func (h *Handlers) BatchNodeOperation(w http.ResponseWriter, r *http.Request) {
 
 // SyncSubscription 同步订阅节点
 func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取订阅 ID
-	// 路径格式：/api/subscriptions/{id}/sync
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 5 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -841,18 +637,7 @@ func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
 
 // GetSubscriptionSyncStatus 获取订阅同步状态
 func (h *Handlers) GetSubscriptionSyncStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
-	// 从 URL 路径中提取订阅 ID
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 5 {
-		SendError(w, http.StatusBadRequest, "无效的路径")
-		return
-	}
-	id, err := strconv.Atoi(parts[3])
+	id, err := urlParamInt(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -876,11 +661,6 @@ func (h *Handlers) GetSubscriptionSyncStatus(w http.ResponseWriter, r *http.Requ
 
 // GetNodeStats 获取节点统计信息
 func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-		return
-	}
-
 	ctx := r.Context()
 	stats, err := h.nodeService.GetNodeStats(ctx)
 	if err != nil {
@@ -894,11 +674,6 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 // GenerateConfig 根据配置策略 token 生成 YAML 配置（带 Redis 缓存）
 // 路由: GET /subscribe?token=xxx
 func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
-		return
-	}
-
 	token := r.URL.Query().Get("token")
 	if token == "" {
 		http.Error(w, "缺少 token 参数", http.StatusBadRequest)

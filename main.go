@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/c.chen/ruleflow/api"
 	"github.com/c.chen/ruleflow/cache"
 	"github.com/c.chen/ruleflow/config"
@@ -99,9 +101,10 @@ func main() {
 	log.Printf("💡 健康检查: http://localhost:%s/health\n", port)
 
 	// 优雅关闭
+	r := setupRoutes(cfg, apiHandlers)
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: api.LoggingMiddleware(api.CORSMiddleware(api.RecoveryMiddleware(http.DefaultServeMux))),
+		Handler: api.LoggingMiddleware(api.CORSMiddleware(api.RecoveryMiddleware(r))),
 	}
 
 	go func() {
@@ -131,232 +134,116 @@ func main() {
 	os.Exit(0)
 }
 
-func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) {
+func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	if cfg.AdminPassword != "" {
 		log.Printf("🔒 Web 控制台鉴权已启用\n")
 	} else {
 		log.Printf("⚠️ ADMIN_PASSWORD 未设置，Web 控制台无需鉴权\n")
 	}
 
-	// 登录页（不需要鉴权，直接提供静态文件）
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			// 处理登录表单
-			pass := r.FormValue("password")
-			if cfg.AdminPassword == "" || pass == cfg.AdminPassword {
-				api.SetSessionCookie(w, cfg.AdminPassword)
-				next := r.FormValue("next")
-				if next == "" {
-					next = "/dashboard"
-				}
-				http.Redirect(w, r, next, http.StatusFound)
-			} else {
-				http.Redirect(w, r, "/login?error=1&next="+r.FormValue("next"), http.StatusFound)
-			}
-			return
-		}
+	r := chi.NewRouter()
+	webAuth := api.WebAuthMiddleware(cfg.AdminPassword)
+
+	// 登录页
+	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, app.ResolveProjectPath("web/login.html"))
+	})
+	r.Post("/login", func(w http.ResponseWriter, req *http.Request) {
+		pass := req.FormValue("password")
+		if cfg.AdminPassword == "" || pass == cfg.AdminPassword {
+			api.SetSessionCookie(w, cfg.AdminPassword)
+			next := req.FormValue("next")
+			if next == "" {
+				next = "/dashboard"
+			}
+			http.Redirect(w, req, next, http.StatusFound)
+		} else {
+			http.Redirect(w, req, "/login?error=1&next="+req.FormValue("next"), http.StatusFound)
+		}
 	})
 
 	// 退出登录
-	http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
 		api.ClearSessionCookie(w)
 		http.Redirect(w, r, "/login", http.StatusFound)
 	})
 
 	// 静态文件服务（需要鉴权）
-	webAuth := api.WebAuthMiddleware(cfg.AdminPassword)
 	fs := http.FileServer(http.Dir(app.ResolveProjectPath("web")))
-	http.Handle("/web/", webAuth(http.StripPrefix("/web/", fs)))
+	r.With(webAuth).Handle("/web/*", http.StripPrefix("/web/", fs))
 	rulesFS := http.FileServer(http.Dir(app.ResolveProjectPath("rules")))
-	http.Handle("/rules/", webAuth(http.StripPrefix("/rules/", rulesFS)))
+	r.With(webAuth).Handle("/rules/*", http.StripPrefix("/rules/", rulesFS))
 
-	// 页面路由（无 .html 后缀）
-	servePage := func(file string) http.Handler {
-		return webAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 页面路由（无 .html 后缀，需要鉴权）
+	servePage := func(file string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			http.ServeFile(w, r, app.ResolveProjectPath(file))
-		}))
+		}
 	}
-	http.Handle("/dashboard",     servePage("web/index.html"))
-	http.Handle("/subscriptions", servePage("web/subscriptions.html"))
-	http.Handle("/nodes",         servePage("web/nodes.html"))
-	http.Handle("/templates",     servePage("web/templates.html"))
-	http.Handle("/configs",       servePage("web/configs.html"))
+	r.With(webAuth).Get("/dashboard", servePage("web/index.html"))
+	r.With(webAuth).Get("/subscriptions", servePage("web/subscriptions.html"))
+	r.With(webAuth).Get("/nodes", servePage("web/nodes.html"))
+	r.With(webAuth).Get("/templates", servePage("web/templates.html"))
+	r.With(webAuth).Get("/configs", servePage("web/configs.html"))
 
 	// 根路径重定向到仪表盘
-	http.Handle("/", webAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			http.Redirect(w, r, "/dashboard", http.StatusFound)
-			return
-		}
-		http.NotFound(w, r)
-	})))
+	r.With(webAuth).Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/dashboard", http.StatusFound)
+	})
 
-	// API 路由（统一用子 mux，整体加鉴权）
-	apiMux := http.NewServeMux()
+	// 公开接口（无需鉴权）
+	r.Get("/subscribe", apiHandlers.GenerateConfig)
+	r.Get("/health", apiHandlers.Health)
 
-	{
-		// 订阅管理 API
-		apiMux.HandleFunc("/api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodPost:
-				apiHandlers.CreateSubscription(w, r)
-			case http.MethodGet:
-				apiHandlers.ListSubscriptions(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
+	// API 路由（整体加鉴权）
+	r.With(api.APIAuthMiddleware(cfg.AdminPassword)).Route("/api", func(r chi.Router) {
+		// 订阅管理
+		r.Get("/subscriptions", apiHandlers.ListSubscriptions)
+		r.Post("/subscriptions", apiHandlers.CreateSubscription)
+		r.Route("/subscriptions/{id}", func(r chi.Router) {
+			r.Get("/", apiHandlers.GetSubscription)
+			r.Put("/", apiHandlers.UpdateSubscription)
+			r.Patch("/", apiHandlers.UpdateSubscription)
+			r.Delete("/", apiHandlers.DeleteSubscription)
+			r.Post("/sync", apiHandlers.SyncSubscription)
+			r.Get("/sync-status", apiHandlers.GetSubscriptionSyncStatus)
 		})
 
-		apiMux.HandleFunc("/api/subscriptions/", func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasSuffix(r.URL.Path, "/sync") {
-				if r.Method == http.MethodPost {
-					apiHandlers.SyncSubscription(w, r)
-				} else {
-					api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-				}
-				return
-			}
-			if strings.HasSuffix(r.URL.Path, "/sync-status") {
-				if r.Method == http.MethodGet {
-					apiHandlers.GetSubscriptionSyncStatus(w, r)
-				} else {
-					api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-				}
-				return
-			}
-			switch r.Method {
-			case http.MethodGet:
-				apiHandlers.GetSubscription(w, r)
-			case http.MethodPut, http.MethodPatch:
-				apiHandlers.UpdateSubscription(w, r)
-			case http.MethodDelete:
-				apiHandlers.DeleteSubscription(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
+		// 模板管理
+		r.Get("/templates", apiHandlers.ListTemplates)
+		r.Post("/templates", apiHandlers.CreateTemplate)
+		r.Route("/templates/{id}", func(r chi.Router) {
+			r.Get("/", apiHandlers.GetTemplate)
+			r.Put("/", apiHandlers.UpdateTemplate)
+			r.Patch("/", apiHandlers.UpdateTemplate)
+			r.Delete("/", apiHandlers.DeleteTemplate)
 		})
 
-		// 模板管理 API
-		apiMux.HandleFunc("/api/templates", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodPost:
-				apiHandlers.CreateTemplate(w, r)
-			case http.MethodGet:
-				apiHandlers.ListTemplates(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
+		// 配置策略管理
+		r.Get("/config-policies", apiHandlers.ListConfigPolicies)
+		r.Post("/config-policies", apiHandlers.CreateConfigPolicy)
+		r.Route("/config-policies/{id}", func(r chi.Router) {
+			r.Get("/", apiHandlers.GetConfigPolicy)
+			r.Put("/", apiHandlers.UpdateConfigPolicy)
+			r.Patch("/", apiHandlers.UpdateConfigPolicy)
+			r.Delete("/", apiHandlers.DeleteConfigPolicy)
+			r.Delete("/cache", apiHandlers.ClearPolicyConfigCache)
 		})
 
-		apiMux.HandleFunc("/api/templates/", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodGet:
-				apiHandlers.GetTemplate(w, r)
-			case http.MethodPut, http.MethodPatch:
-				apiHandlers.UpdateTemplate(w, r)
-			case http.MethodDelete:
-				apiHandlers.DeleteTemplate(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
+		// 节点管理
+		r.Get("/nodes", apiHandlers.ListNodes)
+		r.Post("/nodes", apiHandlers.CreateNode)
+		r.Get("/nodes/stats", apiHandlers.GetNodeStats)
+		r.Post("/nodes/import", apiHandlers.ImportNodes)
+		r.Post("/nodes/batch", apiHandlers.BatchNodeOperation)
+		r.Patch("/nodes/batch", apiHandlers.BatchNodeOperation)
+		r.Route("/nodes/{id}", func(r chi.Router) {
+			r.Get("/", apiHandlers.GetNode)
+			r.Put("/", apiHandlers.UpdateNode)
+			r.Patch("/", apiHandlers.UpdateNode)
+			r.Delete("/", apiHandlers.DeleteNode)
 		})
+	})
 
-		// 配置策略管理 API
-		apiMux.HandleFunc("/api/config-policies", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodPost:
-				apiHandlers.CreateConfigPolicy(w, r)
-			case http.MethodGet:
-				apiHandlers.ListConfigPolicies(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		apiMux.HandleFunc("/api/config-policies/", func(w http.ResponseWriter, r *http.Request) {
-			// /api/config-policies/{id}/cache
-			if strings.HasSuffix(r.URL.Path, "/cache") {
-				if r.Method == http.MethodDelete {
-					apiHandlers.ClearPolicyConfigCache(w, r)
-				} else {
-					api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-				}
-				return
-			}
-			switch r.Method {
-			case http.MethodGet:
-				apiHandlers.GetConfigPolicy(w, r)
-			case http.MethodPut, http.MethodPatch:
-				apiHandlers.UpdateConfigPolicy(w, r)
-			case http.MethodDelete:
-				apiHandlers.DeleteConfigPolicy(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		// 节点管理 API
-		apiMux.HandleFunc("/api/nodes", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodPost:
-				apiHandlers.CreateNode(w, r)
-			case http.MethodGet:
-				apiHandlers.ListNodes(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		apiMux.HandleFunc("/api/nodes/stats", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				apiHandlers.GetNodeStats(w, r)
-			} else {
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		apiMux.HandleFunc("/api/nodes/import", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPost {
-				apiHandlers.ImportNodes(w, r)
-			} else {
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		apiMux.HandleFunc("/api/nodes/", func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if strings.Contains(path, "/batch") {
-				if r.Method == http.MethodPatch || r.Method == http.MethodPost {
-					apiHandlers.BatchNodeOperation(w, r)
-				} else {
-					api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-				}
-				return
-			}
-			switch r.Method {
-			case http.MethodGet:
-				apiHandlers.GetNode(w, r)
-			case http.MethodPut, http.MethodPatch:
-				apiHandlers.UpdateNode(w, r)
-			case http.MethodDelete:
-				apiHandlers.DeleteNode(w, r)
-			default:
-				api.SendError(w, http.StatusMethodNotAllowed, "方法不允许")
-			}
-		})
-
-		// 配置生成（供客户端直接订阅）GET /subscribe?token=xxx，不需要鉴权
-		http.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
-			apiHandlers.GenerateConfig(w, r)
-		})
-
-		// 健康检查，不需要鉴权
-		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			apiHandlers.Health(w, r)
-		})
-	}
-
-	// 将 API 子 mux 挂载到默认 mux，整体加鉴权
-	http.Handle("/api/", api.APIAuthMiddleware(cfg.AdminPassword)(apiMux))
+	return r
 }
