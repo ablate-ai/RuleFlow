@@ -149,10 +149,10 @@ func adaptConfigForTarget(cfg map[string]interface{}, target string) {
 	}
 }
 
-func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{}, error) {
+func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{}, map[string]string, error) {
 	groupList, ok := raw.([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("proxy-groups 格式无效")
+		return nil, nil, fmt.Errorf("proxy-groups 格式无效")
 	}
 
 	known := make(map[string]struct{}, len(nodeNames)+len(groupList))
@@ -160,6 +160,8 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		known[n] = struct{}{}
 	}
 
+	// 按顺序收集 group 名，用于 dialer-proxy 匹配（group 名优先于节点名）
+	groupNames := make([]string, 0, len(groupList))
 	for _, item := range groupList {
 		groupMap, ok := item.(map[string]interface{})
 		if !ok {
@@ -168,8 +170,35 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		name, _ := groupMap["name"].(string)
 		if name != "" {
 			known[name] = struct{}{}
+			groupNames = append(groupNames, name)
 		}
 	}
+
+	// findRelay 在 groupNames 和 nodeNames 中找到第一个匹配正则的名称
+	// 优先匹配 group 名，便于 Stash 通过 group 灵活切换中转节点
+	findRelay := func(pattern string) string {
+		if pattern == "" {
+			return ""
+		}
+		re, err := regexp.Compile(pattern)
+		if err != nil || re == nil {
+			return ""
+		}
+		for _, n := range groupNames {
+			if re.MatchString(n) {
+				return n
+			}
+		}
+		for _, n := range nodeNames {
+			if re.MatchString(n) {
+				return n
+			}
+		}
+		return ""
+	}
+
+	// dialerMap: 节点名 -> 中转节点名
+	dialerMap := make(map[string]string)
 
 	for i, item := range groupList {
 		groupMap, ok := item.(map[string]interface{})
@@ -190,6 +219,11 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		if filterPattern != "" {
 			filterRe, _ = regexp.Compile(filterPattern)
 		}
+
+		// 读取并移除 dialer-proxy 字段，找到第一个匹配的中转名（group 优先于节点）
+		dialerPattern, _ := groupMap["dialer-proxy"].(string)
+		delete(groupMap, "dialer-proxy")
+		relayName := findRelay(dialerPattern)
 
 		// filterNodes 根据正则过滤节点列表
 		filterNodes := func(names []string) []string {
@@ -236,6 +270,17 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		}
 
 		filtered = dedupeStrings(filtered)
+
+		// 收集 dialer-proxy 映射：该 group 内的节点 -> 中转节点
+		if relayName != "" {
+			for _, nodeName := range filtered {
+				// 只对真实代理节点（非内置名）注入
+				if !builtInProxyName(nodeName) {
+					dialerMap[nodeName] = relayName
+				}
+			}
+		}
+
 		converted := make([]interface{}, 0, len(filtered))
 		for _, p := range filtered {
 			converted = append(converted, p)
@@ -244,7 +289,7 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		groupList[i] = groupMap
 	}
 
-	return groupList, nil
+	return groupList, dialerMap, nil
 }
 
 func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target string) (string, error) {
@@ -282,9 +327,22 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 	if rawGroupsNode != nil {
 		var rawGroups interface{}
 		if err := rawGroupsNode.Decode(&rawGroups); err == nil {
-			adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
+			adaptedGroups, dialerMap, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
 			if err != nil {
 				return "", err
+			}
+			// 将 dialer-proxy 注入到对应 proxies 条目
+			if len(dialerMap) > 0 {
+				for i := range proxies {
+					if relay, ok := dialerMap[proxies[i].Name]; ok {
+						proxies[i].DialerProxy = relay
+					}
+				}
+				proxiesNode, err = yamlValueToNode(proxies)
+				if err != nil {
+					return "", fmt.Errorf("生成 proxies 失败: %w", err)
+				}
+				yamlSetInMapping(mapping, "proxies", proxiesNode)
 			}
 			groupsNode, err := yamlValueToNode(adaptedGroups)
 			if err != nil {
@@ -348,9 +406,22 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 	if rawGroupsNode != nil {
 		var rawGroups interface{}
 		if err := rawGroupsNode.Decode(&rawGroups); err == nil {
-			adaptedGroups, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
+			adaptedGroups, dialerMap, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
 			if err != nil {
 				return "", err
+			}
+			// 将 dialer-proxy 注入到对应 proxies 条目
+			if len(dialerMap) > 0 {
+				for i := range proxies {
+					if relay, ok := dialerMap[proxies[i].Name]; ok {
+						proxies[i].DialerProxy = relay
+					}
+				}
+				proxiesNode, err = yamlValueToNode(proxies)
+				if err != nil {
+					return "", fmt.Errorf("生成 proxies 失败: %w", err)
+				}
+				yamlSetInMapping(mapping, "proxies", proxiesNode)
 			}
 			groupsNode, err := yamlValueToNode(adaptedGroups)
 			if err != nil {
@@ -384,8 +455,6 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 	}
 	return string(yamlData), nil
 }
-
-// BuildYAMLFromDefaultTemplate 使用内置默认规则生成 YAML（无模板时使用）
 func BuildYAMLFromDefaultTemplate(nodes []*ProxyNode, target string) (string, error) {
 	if target != "clash" && target != "stash" {
 		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash, stash)", target)

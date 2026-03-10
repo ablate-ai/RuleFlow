@@ -92,7 +92,6 @@ func TestSubscriptionService(t *testing.T) {
 		sub := &database.Subscription{
 			Name:        "test-sub",
 			URL:         stringPtr("https://example.com/sub"),
-			Target:      "clash",
 			Enabled:     true,
 			Description: "测试订阅",
 		}

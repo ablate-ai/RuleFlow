@@ -41,6 +41,7 @@ type Proxy struct {
 	Reality        *RealityCfg `yaml:"reality-opts,omitempty"`
 	WSOpts         *WSOpts     `yaml:"ws-opts,omitempty"`
 	HTTPOpts       *HTTPOpts   `yaml:"http-opts,omitempty"`
+	DialerProxy    string      `yaml:"dialer-proxy,omitempty"`
 }
 
 type WSOpts struct {
@@ -66,11 +67,12 @@ type Group struct {
 
 // ProxyNode 通用代理节点
 type ProxyNode struct {
-	Protocol string                 // 协议类型: trojan, vmess, vless, ss, ss2022, hysteria2, tuic
-	Name     string                 // 节点名称
-	Server   string                 // 服务器地址
-	Port     int                    // 端口
-	Options  map[string]interface{} // 协议特定选项
+	Protocol    string                 // 协议类型: trojan, vmess, vless, ss, ss2022, hysteria2, tuic
+	Name        string                 // 节点名称
+	Server      string                 // 服务器地址
+	Port        int                    // 端口
+	Options     map[string]interface{} // 协议特定选项
+	DialerProxy string                 // 链式代理中转名称；Surge 导出时会映射为 underlying-proxy
 }
 
 // 各协议的选项结构
@@ -160,11 +162,12 @@ func buildProxies(nodes []*ProxyNode) ([]Proxy, []string) {
 		proxyNames = append(proxyNames, proxyName)
 
 		proxy := Proxy{
-			Name:   proxyName,
-			Type:   node.Protocol,
-			Server: node.Server,
-			Port:   node.Port,
-			UDP:    true,
+			Name:        proxyName,
+			Type:        node.Protocol,
+			Server:      node.Server,
+			Port:        node.Port,
+			UDP:         true,
+			DialerProxy: node.DialerProxy,
 		}
 
 		// 根据协议类型添加特定字段

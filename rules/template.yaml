@@ -39,6 +39,18 @@ tun:
 proxies: []
 
 proxy-groups:
+# ─── 扩展字段说明（服务端处理后自动删除，不会出现在生成的配置里）─────────────────
+# filter: "<正则>"
+#   按节点名称过滤，只有匹配的节点会替换 __NODES__ 占位符。
+#   示例：filter: "HK|香港"  → 只选香港节点进该组
+#
+# dialer-proxy: "<正则>"
+#   链式代理：在所有节点中找到第一个匹配的节点作为中转，
+#   自动给该组内每个节点注入 dialer-proxy 字段（仅 Clash/Stash 支持）。
+#   示例：dialer-proxy: "SG|新加坡"  → 该组节点的流量先经过第一个 SG 节点
+#
+# 两个字段可以单独或同时使用，对没有这两个字段的组完全向后兼容。
+# ─────────────────────────────────────────────────────────────────────────────
 - type: select
   name: 🚀 Proxy
   proxies: ["⚡ Auto","DIRECT","__NODES__"]
@@ -49,21 +61,25 @@ proxy-groups:
   interval: 1200
 - type: url-test
   name: 🇺🇸 US
+  filter: "US|美国"
   proxies: ["__NODES__"]
   url: http://cp.cloudflare.com/generate_204
   interval: 1200
 - type: url-test
   name: 🇭🇰 HK
+  filter: "HK|香港"
   proxies: ["__NODES__"]
   url: http://cp.cloudflare.com/generate_204
   interval: 1200
 - type: url-test
   name: 🇯🇵 JP
+  filter: "JP|日本"
   proxies: ["__NODES__"]
   url: http://cp.cloudflare.com/generate_204
   interval: 1200
 - type: url-test
   name: 🇸🇬 SG
+  filter: "SG|新加坡|Singapore"
   proxies: ["__NODES__"]
   url: http://cp.cloudflare.com/generate_204
   interval: 1200

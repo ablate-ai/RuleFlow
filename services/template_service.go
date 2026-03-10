@@ -37,19 +37,38 @@ func (s *TemplateService) GetTemplateByName(ctx context.Context, name string) (*
 	return s.templateRepo.GetByName(ctx, name)
 }
 
+// GetTemplateByID 根据 ID 获取模板
+func (s *TemplateService) GetTemplateByID(ctx context.Context, id int) (*database.Template, error) {
+	return s.templateRepo.GetByID(ctx, id)
+}
+
 // ListTemplates 列出所有模板
 func (s *TemplateService) ListTemplates(ctx context.Context) ([]database.Template, error) {
 	return s.templateRepo.List(ctx)
 }
 
 // UpdateTemplate 更新模板
-func (s *TemplateService) UpdateTemplate(ctx context.Context, tpl *database.Template) error {
-	return s.templateRepo.Update(ctx, tpl)
+func (s *TemplateService) UpdateTemplate(ctx context.Context, id int, tpl *database.Template) error {
+	current, err := s.templateRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if current.Name != tpl.Name {
+		exists, err := s.templateRepo.Exists(ctx, tpl.Name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return fmt.Errorf("模板名称已存在: %s", tpl.Name)
+		}
+	}
+	tpl.ID = id
+	return s.templateRepo.Update(ctx, id, tpl)
 }
 
 // DeleteTemplate 删除模板
-func (s *TemplateService) DeleteTemplate(ctx context.Context, name string) error {
-	return s.templateRepo.Delete(ctx, name)
+func (s *TemplateService) DeleteTemplate(ctx context.Context, id int) error {
+	return s.templateRepo.Delete(ctx, id)
 }
 
 // Health 检查服务健康状态

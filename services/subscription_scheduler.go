@@ -69,13 +69,13 @@ func (s *SubscriptionScheduler) run(ctx context.Context) {
 		// 从未同步过，或距上次同步已超过 interval
 		if sub.LastFetchedAt == nil || now.Sub(*sub.LastFetchedAt) >= interval {
 			log.Printf("[scheduler] 触发自动同步: %s（间隔 %v）", sub.Name, interval)
-			go func(name string) {
+			go func(id int, name string) {
 				syncCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 				defer cancel()
-				if _, err := s.syncService.SyncSubscription(syncCtx, name); err != nil {
+				if _, err := s.syncService.SyncSubscription(syncCtx, id); err != nil {
 					log.Printf("[scheduler] 自动同步失败 %s: %v", name, err)
 				}
-			}(sub.Name)
+			}(sub.ID, sub.Name)
 		}
 	}
 }

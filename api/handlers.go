@@ -288,16 +288,20 @@ func (h *Handlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取模板名称
+	// 从 URL 路径中提取模板 ID
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的模板 ID")
+		return
+	}
 
 	ctx := r.Context()
-	tpl, err := h.templateService.GetTemplateByName(ctx, name)
+	tpl, err := h.templateService.GetTemplateByID(ctx, id)
 	if err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
@@ -330,13 +334,17 @@ func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取模板名称
+	// 从 URL 路径中提取模板 ID
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的模板 ID")
+		return
+	}
 
 	var tpl database.Template
 	if err := json.NewDecoder(r.Body).Decode(&tpl); err != nil {
@@ -344,11 +352,13 @@ func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 确保名称匹配
-	tpl.Name = name
+	if strings.TrimSpace(tpl.Name) == "" {
+		SendError(w, http.StatusBadRequest, "模板名称不能为空")
+		return
+	}
 
 	ctx := r.Context()
-	if err := h.templateService.UpdateTemplate(ctx, &tpl); err != nil {
+	if err := h.templateService.UpdateTemplate(ctx, id, &tpl); err != nil {
 		SendError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -368,16 +378,20 @@ func (h *Handlers) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 URL 路径中提取模板名称
+	// 从 URL 路径中提取模板 ID
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		SendError(w, http.StatusBadRequest, "无效的路径")
 		return
 	}
-	name := parts[3]
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的模板 ID")
+		return
+	}
 
 	ctx := r.Context()
-	if err := h.templateService.DeleteTemplate(ctx, name); err != nil {
+	if err := h.templateService.DeleteTemplate(ctx, id); err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -870,7 +884,7 @@ func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := h.subscriptionSyncService.SyncSubscription(ctx, sub.Name)
+	count, err := h.subscriptionSyncService.SyncSubscription(ctx, sub.ID)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -908,7 +922,7 @@ func (h *Handlers) GetSubscriptionSyncStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	status, err := h.subscriptionSyncService.GetSyncStatus(ctx, sub.Name)
+	status, err := h.subscriptionSyncService.GetSyncStatus(ctx, sub.ID)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -955,6 +969,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		if cached, err := h.policyCache.GetPolicyConfig(ctx, token); err == nil && cached != "" {
 			if policy, err := h.configPolicyService.GetByToken(ctx, token); err == nil && policy.Target == "surge" {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				cached = finalizeConfigContent(r, "surge", cached)
 			} else {
 				w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 			}
@@ -998,12 +1013,19 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	// 将数据库节点转换为 ProxyNode
 	proxyNodes := make([]*app.ProxyNode, 0, len(dbNodes))
 	for _, n := range dbNodes {
+		dialerProxy := ""
+		if v, ok := n.Config["dialer-proxy"].(string); ok {
+			dialerProxy = v
+		} else if v, ok := n.Config["underlying-proxy"].(string); ok {
+			dialerProxy = v
+		}
 		proxyNodes = append(proxyNodes, &app.ProxyNode{
-			Protocol: n.Protocol,
-			Name:     n.Name,
-			Server:   n.Server,
-			Port:     n.Port,
-			Options:  n.Config,
+			Protocol:    n.Protocol,
+			Name:        n.Name,
+			Server:      n.Server,
+			Port:        n.Port,
+			Options:     n.Config,
+			DialerProxy: dialerProxy,
 		})
 	}
 
@@ -1052,5 +1074,5 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
 	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
 	w.Header().Set("X-Cache", "MISS")
-	fmt.Fprint(w, configContent)
+	fmt.Fprint(w, finalizeConfigContent(r, target, configContent))
 }

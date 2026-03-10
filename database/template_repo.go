@@ -80,6 +80,37 @@ func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, e
 	return tpl, nil
 }
 
+// GetByID 根据 ID 获取模板
+func (r *TemplateRepo) GetByID(ctx context.Context, id int) (*Template, error) {
+	query := `
+		SELECT id, name, description, content, target, tags,
+		       created_at, updated_at
+		FROM templates
+		WHERE id = $1
+	`
+
+	tpl := &Template{}
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&tpl.ID,
+		&tpl.Name,
+		&tpl.Description,
+		&tpl.Content,
+		&tpl.Target,
+		&tpl.Tags,
+		&tpl.CreatedAt,
+		&tpl.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("模板不存在: %d", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询模板失败: %w", err)
+	}
+
+	return tpl, nil
+}
+
 // List 列出所有模板
 func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 	query := `
@@ -121,40 +152,68 @@ func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 	return tpls, nil
 }
 
-// Update 更新模板
-func (r *TemplateRepo) Update(ctx context.Context, tpl *Template) error {
+// Update 更新模板，支持修改模板名称，并同步更新策略引用
+func (r *TemplateRepo) Update(ctx context.Context, id int, tpl *Template) error {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("开始事务失败: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var oldName string
+	if err := tx.QueryRow(ctx, `SELECT name FROM templates WHERE id = $1`, id).Scan(&oldName); err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("模板不存在: %d", id)
+		}
+		return fmt.Errorf("查询模板失败: %w", err)
+	}
+
 	query := `
 		UPDATE templates
-		SET description = $2, content = $3, target = $4, tags = $5
-		WHERE name = $1
+		SET name = $2, description = $3, content = $4, target = $5, tags = $6
+		WHERE id = $1
 		RETURNING updated_at
 	`
 
-	err := r.db.Pool.QueryRow(ctx, query,
-		tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
+	err = tx.QueryRow(ctx, query,
+		id, tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
 	).Scan(&tpl.UpdatedAt)
 
 	if err == pgx.ErrNoRows {
-		return fmt.Errorf("模板不存在: %s", tpl.Name)
+		return fmt.Errorf("模板不存在: %d", id)
 	}
 	if err != nil {
 		return fmt.Errorf("更新模板失败: %w", err)
+	}
+
+	if oldName != tpl.Name {
+		if _, err := tx.Exec(ctx, `
+			UPDATE config_policies
+			SET template_name = $2
+			WHERE template_name = $1
+		`, oldName, tpl.Name); err != nil {
+			return fmt.Errorf("同步更新策略模板引用失败: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("提交事务失败: %w", err)
 	}
 
 	return nil
 }
 
 // Delete 删除模板
-func (r *TemplateRepo) Delete(ctx context.Context, name string) error {
-	query := `DELETE FROM templates WHERE name = $1`
+func (r *TemplateRepo) Delete(ctx context.Context, id int) error {
+	query := `DELETE FROM templates WHERE id = $1`
 
-	result, err := r.db.Pool.Exec(ctx, query, name)
+	result, err := r.db.Pool.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("删除模板失败: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("模板不存在: %s", name)
+		return fmt.Errorf("模板不存在: %d", id)
 	}
 
 	return nil

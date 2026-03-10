@@ -222,6 +222,30 @@ func (r *SubscriptionRepo) UpdateFetchResult(ctx context.Context, name string, n
 	return nil
 }
 
+// UpdateFetchResultByID 更新订阅获取结果
+func (r *SubscriptionRepo) UpdateFetchResultByID(ctx context.Context, id int, nodeCount int, fetchErr error) error {
+	query := `
+		UPDATE subscriptions
+		SET last_fetched_at = CURRENT_TIMESTAMP,
+		    node_count = $2,
+		    last_fetch_error = $3
+		WHERE id = $1
+	`
+
+	var errorMsg *string
+	if fetchErr != nil {
+		msg := fetchErr.Error()
+		errorMsg = &msg
+	}
+
+	_, err := r.db.Pool.Exec(ctx, query, id, nodeCount, errorMsg)
+	if err != nil {
+		return fmt.Errorf("更新获取结果失败: %w", err)
+	}
+
+	return nil
+}
+
 // Exists 检查订阅是否存在
 func (r *SubscriptionRepo) Exists(ctx context.Context, name string) (bool, error) {
 	query := `SELECT 1 FROM subscriptions WHERE name = $1`

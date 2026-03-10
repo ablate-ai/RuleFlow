@@ -470,7 +470,7 @@
         setSaving(true);
         try {
           if (editItem) {
-            await api.put(`/api/templates/${form.name}`, payload);
+            await api.put(`/api/templates/${editItem.id}`, payload);
             addToast('模板已更新');
           } else {
             await api.post('/api/templates', payload);
@@ -496,7 +496,7 @@
         if (!deleteTarget) return;
         setDeleting(true);
         try {
-          await api.delete(`/api/templates/${deleteTarget.name}`);
+          await api.delete(`/api/templates/${deleteTarget.id}`);
           addToast(`模板 "${deleteTarget.name}" 已删除`);
           setShowDeleteModal(false);
           setDeleteTarget(null);
@@ -613,7 +613,6 @@
                             type="text"
                             placeholder="my-template"
                             value={form.name}
-                            disabled={!!editItem}
                             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                           />
                         </div>

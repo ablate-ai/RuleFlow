@@ -37,21 +37,21 @@ func NewSubscriptionSyncService(
 
 // SyncSubscription 同步指定订阅的节点
 // 使用完全替换策略：删除该订阅的旧节点，插入新节点
-func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscriptionName string) (int, error) {
-	log.Printf("[sync] 开始同步订阅: %s", subscriptionName)
+func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscriptionID int) (int, error) {
+	log.Printf("[sync] 开始同步订阅: id=%d", subscriptionID)
 
 	// 1. 获取订阅配置
-	sub, err := s.subRepo.GetByName(ctx, subscriptionName)
+	sub, err := s.subRepo.GetByID(ctx, subscriptionID)
 	if err != nil {
-		return 0, fmt.Errorf("订阅不存在: %s", subscriptionName)
+		return 0, fmt.Errorf("订阅不存在: %d", subscriptionID)
 	}
 
 	if !sub.Enabled {
-		return 0, fmt.Errorf("订阅已禁用: %s", subscriptionName)
+		return 0, fmt.Errorf("订阅已禁用: %s", sub.Name)
 	}
 
 	if sub.URL == nil || *sub.URL == "" {
-		return 0, fmt.Errorf("订阅没有配置 URL: %s", subscriptionName)
+		return 0, fmt.Errorf("订阅没有配置 URL: %s", sub.Name)
 	}
 
 	// 2. 从 URL 拉取订阅内容
@@ -59,7 +59,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	content, userInfoHeader, err := s.fetchSubscriptionContent(ctx, *sub.URL)
 	if err != nil {
 		log.Printf("[sync] 拉取失败: %v", err)
-		_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, 0, err)
+		_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, 0, err)
 		return 0, fmt.Errorf("拉取订阅内容失败: %w", err)
 	}
 	log.Printf("[sync] 拉取成功，内容长度: %d 字节", len(content))
@@ -69,20 +69,20 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	nodes, err := app.ParseSubscription(content)
 	if err != nil {
 		log.Printf("[sync] 解析失败: %v", err)
-		_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, 0, err)
+		_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, 0, err)
 		return 0, fmt.Errorf("解析订阅内容失败: %w", err)
 	}
 
 	if len(nodes) == 0 {
 		log.Printf("[sync] 未解析到任何节点")
-		_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, 0, fmt.Errorf("订阅中没有有效节点"))
+		_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, 0, fmt.Errorf("订阅中没有有效节点"))
 		return 0, fmt.Errorf("订阅中没有有效节点")
 	}
 	log.Printf("[sync] 解析完成，共 %d 个节点", len(nodes))
 
 	// 4. 开始事务处理
 	// 使用完全替换策略
-	source := fmt.Sprintf("subscription:%s", subscriptionName)
+	source := fmt.Sprintf("subscription:%s", sub.Name)
 
 	// 4.1 删除该订阅的旧节点
 	deleted, err := s.nodeRepo.DeleteBySource(ctx, source)
@@ -102,7 +102,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	// 5. 更新订阅同步状态
 	now := time.Now()
 	nodeCount := len(dbNodes)
-	_ = s.subRepo.UpdateFetchResult(ctx, subscriptionName, nodeCount, nil)
+	_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, nodeCount, nil)
 
 	if err := s.updateNodesLastSyncedAt(ctx, source, now); err != nil {
 		_ = err
@@ -111,7 +111,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	// 6. 解析并缓存流量信息
 	if userInfoHeader != "" && s.subCache != nil {
 		if info := parseUserInfo(userInfoHeader); info != nil {
-			if err := s.subCache.SetUserInfo(ctx, subscriptionName, info); err != nil {
+			if err := s.subCache.SetUserInfo(ctx, sub.Name, info); err != nil {
 				log.Printf("[sync] 缓存流量信息失败: %v", err)
 			} else {
 				log.Printf("[sync] 流量信息已缓存: upload=%d download=%d total=%d", info.Upload, info.Download, info.Total)
@@ -119,7 +119,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 		}
 	}
 
-	log.Printf("[sync] 同步完成: %s，节点数: %d", subscriptionName, nodeCount)
+	log.Printf("[sync] 同步完成: %s，节点数: %d", sub.Name, nodeCount)
 	return nodeCount, nil
 }
 
@@ -227,14 +227,13 @@ func (s *SubscriptionSyncService) updateNodesLastSyncedAt(ctx context.Context, s
 }
 
 // GetSyncStatus 获取订阅同步状态
-func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptionName string) (map[string]interface{}, error) {
-	source := fmt.Sprintf("subscription:%s", subscriptionName)
-
+func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptionID int) (map[string]interface{}, error) {
 	// 获取订阅信息
-	sub, err := s.subRepo.GetByName(ctx, subscriptionName)
+	sub, err := s.subRepo.GetByID(ctx, subscriptionID)
 	if err != nil {
-		return nil, fmt.Errorf("订阅不存在: %s", subscriptionName)
+		return nil, fmt.Errorf("订阅不存在: %d", subscriptionID)
 	}
+	source := fmt.Sprintf("subscription:%s", sub.Name)
 
 	// 获取节点数量
 	nodeCount, err := s.nodeRepo.CountBySource(ctx, source)
@@ -243,7 +242,8 @@ func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptio
 	}
 
 	status := map[string]interface{}{
-		"subscription_name": subscriptionName,
+		"subscription_id":   sub.ID,
+		"subscription_name": sub.Name,
 		"enabled":           sub.Enabled,
 		"node_count":        nodeCount,
 		"last_fetched_at":   sub.LastFetchedAt,
@@ -271,7 +271,7 @@ func (s *SubscriptionSyncService) SyncAllSubscriptions(ctx context.Context) (map
 		}
 
 		// 同步订阅
-		count, err := s.SyncSubscription(ctx, sub.Name)
+		count, err := s.SyncSubscription(ctx, sub.ID)
 		if err != nil {
 			failureCount++
 			results[sub.Name] = 0
