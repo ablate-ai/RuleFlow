@@ -29,6 +29,34 @@ func TestFinalizeConfigContentUsesForwardedHeaders(t *testing.T) {
 	}
 }
 
+func TestFinalizeConfigContentUsesEnvBaseURLFirst(t *testing.T) {
+	t.Setenv(surgeManagedConfigBaseURLEnv, "https://surge.example.com")
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/config?token=abc", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-Host", "sub.example.com")
+
+	got := buildSurgeManagedConfigLine(req)
+	want := "#!MANAGED-CONFIG https://surge.example.com/config?token=abc interval=43200 strict=false"
+	if got != want {
+		t.Fatalf("期望环境变量优先生效，实际为 %q", got)
+	}
+}
+
+func TestFinalizeConfigContentFallsBackWhenEnvBaseURLInvalid(t *testing.T) {
+	t.Setenv(surgeManagedConfigBaseURLEnv, "://bad-url")
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/config?token=abc", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-Host", "sub.example.com")
+
+	got := buildSurgeManagedConfigLine(req)
+	want := "#!MANAGED-CONFIG https://sub.example.com/config?token=abc interval=43200 strict=false"
+	if got != want {
+		t.Fatalf("期望非法环境变量回退到请求地址，实际为 %q", got)
+	}
+}
+
 func TestFinalizeConfigContentDoesNotDuplicateManagedHeader(t *testing.T) {
 	req := httptest.NewRequest("GET", "http://localhost:8080/config?token=abc", nil)
 	content := buildSurgeManagedConfigLine(req) + "\n[General]\nloglevel = notify"

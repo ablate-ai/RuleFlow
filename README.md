@@ -261,6 +261,7 @@ sudo systemctl start redis
 |------|------|--------|
 | `PORT` | HTTP 服务端口 | `8080` |
 | `ADMIN_PASSWORD` | Web 控制台和管理 API 登录密码；为空时不启用鉴权 | 空 |
+| `SURGE_MANAGED_CONFIG_BASE_URL` | Surge `#!MANAGED-CONFIG` 使用的外部基础地址，例 `https://sub.example.com`；未设置时自动按当前请求头推断 | 空 |
 | `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable` |
 | `REDIS_ADDR` | Redis 地址 | `localhost:6379` |
 | `REDIS_PASSWORD` | Redis 密码 | 空 |

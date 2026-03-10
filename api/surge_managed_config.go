@@ -2,10 +2,13 @@ package api
 
 import (
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 )
 
 const surgeManagedConfigSuffix = " interval=43200 strict=false"
+const surgeManagedConfigBaseURLEnv = "SURGE_MANAGED_CONFIG_BASE_URL"
 
 func finalizeConfigContent(r *http.Request, target, content string) string {
 	if target != "surge" {
@@ -30,6 +33,10 @@ func requestURLString(r *http.Request) string {
 	}
 
 	u := *r.URL
+	if applyManagedConfigBaseURL(&u) {
+		return u.String()
+	}
+
 	scheme := forwardedProto(r)
 	host := forwardedHost(r)
 	if scheme != "" {
@@ -44,6 +51,26 @@ func requestURLString(r *http.Request) string {
 	}
 
 	return u.String()
+}
+
+func applyManagedConfigBaseURL(u *url.URL) bool {
+	baseURL := strings.TrimSpace(os.Getenv(surgeManagedConfigBaseURLEnv))
+	if baseURL == "" {
+		return false
+	}
+
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+
+	if parsed.Scheme != "" {
+		u.Scheme = parsed.Scheme
+	}
+	if parsed.Host != "" {
+		u.Host = parsed.Host
+	}
+	return parsed.Scheme != "" && parsed.Host != ""
 }
 
 func forwardedProto(r *http.Request) string {
