@@ -289,10 +289,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9A9 9 0 0 1 17 5l6 5"/><path d="M20.49 15A9 9 0 0 1 7 19l-6-5"/></svg>
             刷新概览
           </button>
-          <button class="btn btn-s" id="btn-clear-cache" onclick="clearAllCache()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
-            清除所有缓存
-          </button>
         </div>
       </section>
 
@@ -649,25 +645,6 @@
 
       el.className = `pill ${cls}`;
       el.innerHTML = `<span class="pill-dot"></span><span>${escapeHtml(label)}</span>`;
-    }
-
-    async function clearAllCache() {
-      const btn = document.getElementById('btn-clear-cache');
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/cache', { method: 'DELETE' });
-        if (!res.ok) {
-          throw new Error('clear cache failed');
-        }
-        btn.textContent = '缓存已清除';
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> 清除所有缓存';
-        }, 1800);
-      } catch {
-        btn.disabled = false;
-        alert('清除缓存失败');
-      }
     }
 
     async function fetchJson(url) {

@@ -22,6 +22,7 @@ CREATE TABLE subscriptions (
     last_fetch_error TEXT,
     node_count INTEGER DEFAULT 0,
     filter_rules JSONB DEFAULT '{}',
+    userinfo JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -36,6 +37,7 @@ CREATE TRIGGER update_subscriptions_updated_at
 COMMENT ON COLUMN subscriptions.auto_refresh IS '是否自动刷新订阅';
 COMMENT ON COLUMN subscriptions.refresh_interval IS '自动刷新间隔（秒）';
 COMMENT ON COLUMN subscriptions.filter_rules IS '节点过滤规则：exclude_keywords（排除关键词列表）、exclude_regex（排除正则）、include_protocols（协议白名单）';
+COMMENT ON COLUMN subscriptions.userinfo IS '订阅流量信息，来自响应头 Subscription-Userinfo';
 
 CREATE TABLE templates (
     id SERIAL PRIMARY KEY,

@@ -322,7 +322,6 @@
       const [form, setForm]               = useState(defaultForm); // 表单数据
       const [saving, setSaving]           = useState(false);       // 保存中
       const [syncing, setSyncing]         = useState(null);        // 正在同步的订阅 ID
-      const [refreshing, setRefreshing]   = useState(null);        // 正在刷新缓存的订阅名
       const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅对象（显示确认框）
       const [deleting, setDeleting]       = useState(false);       // 删除中
       const [toasts, setToasts]           = useState([]);          // Toast 列表
@@ -420,20 +419,6 @@
           addToast('同步失败：' + err.message, 'err');
         } finally {
           setSyncing(null);
-        }
-      };
-
-      // 清除缓存
-      const handleRefreshCache = async (name) => {
-        setRefreshing(name);
-        try {
-          await api.delete(`/api/cache/${name}`);
-          addToast('缓存已清除');
-          await loadSubs();
-        } catch (err) {
-          addToast('清除缓存失败：' + err.message, 'err');
-        } finally {
-          setRefreshing(null);
         }
       };
 
@@ -611,19 +596,6 @@
                         {syncing === sub.id
                           ? <span className="spin" style={{ borderColor: 'var(--blu)', borderTopColor: 'transparent' }}></span>
                           : <IcoSync />
-                        }
-                      </button>
-
-                      {/* 清除缓存 */}
-                      <button
-                        className="btic"
-                        title="清除缓存"
-                        disabled={refreshing === sub.name}
-                        onClick={() => handleRefreshCache(sub.name)}
-                      >
-                        {refreshing === sub.name
-                          ? <span className="spin"></span>
-                          : <IcoRefresh />
                         }
                       </button>
 

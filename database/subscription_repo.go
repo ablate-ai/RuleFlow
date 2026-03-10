@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/c.chen/ruleflow/cache"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -15,6 +14,14 @@ type SubscriptionFilter struct {
 	ExcludeKeywords  []string `json:"exclude_keywords,omitempty"`
 	ExcludeRegex     string   `json:"exclude_regex,omitempty"`
 	IncludeProtocols []string `json:"include_protocols,omitempty"`
+}
+
+// UserInfo 订阅流量信息（来自响应头 Subscription-Userinfo）
+type UserInfo struct {
+	Upload   int64  `json:"upload"`
+	Download int64  `json:"download"`
+	Total    int64  `json:"total"`
+	Expire   *int64 `json:"expire,omitempty"`
 }
 
 // Subscription 订阅模型
@@ -33,7 +40,7 @@ type Subscription struct {
 	FilterRules     *SubscriptionFilter `json:"filter_rules,omitempty"`
 	CreatedAt       time.Time           `json:"created_at"`
 	UpdatedAt       time.Time           `json:"updated_at"`
-	UserInfo        *cache.UserInfo     `json:"userinfo,omitempty"`
+	UserInfo        *UserInfo           `json:"userinfo,omitempty"`
 }
 
 // SubscriptionRepo 订阅仓储
@@ -50,11 +57,12 @@ func NewSubscriptionRepo(db *DB) *SubscriptionRepo {
 func scanSubscription(scan func(...any) error) (*Subscription, error) {
 	sub := &Subscription{}
 	var filterRulesJSON []byte
+	var userInfoJSON []byte
 	err := scan(
 		&sub.ID, &sub.Name, &sub.URL, &sub.Enabled, &sub.AutoRefresh,
 		&sub.RefreshInterval, &sub.Description, &sub.Tags,
 		&sub.LastFetchedAt, &sub.LastFetchError, &sub.NodeCount,
-		&filterRulesJSON,
+		&filterRulesJSON, &userInfoJSON,
 		&sub.CreatedAt, &sub.UpdatedAt,
 	)
 	if err != nil {
@@ -66,12 +74,18 @@ func scanSubscription(scan func(...any) error) (*Subscription, error) {
 			return nil, fmt.Errorf("解析过滤规则失败: %w", err)
 		}
 	}
+	if len(userInfoJSON) > 0 {
+		sub.UserInfo = &UserInfo{}
+		if err := json.Unmarshal(userInfoJSON, sub.UserInfo); err != nil {
+			return nil, fmt.Errorf("解析流量信息失败: %w", err)
+		}
+	}
 	return sub, nil
 }
 
 const selectSubFields = `
 	SELECT id, name, url, enabled, auto_refresh, refresh_interval, description, tags,
-	       last_fetched_at, last_fetch_error, node_count, filter_rules, created_at, updated_at
+	       last_fetched_at, last_fetch_error, node_count, filter_rules, userinfo, created_at, updated_at
 	FROM subscriptions
 `
 
@@ -243,6 +257,24 @@ func (r *SubscriptionRepo) UpdateFetchResultByID(ctx context.Context, id int, no
 		return fmt.Errorf("更新获取结果失败: %w", err)
 	}
 
+	return nil
+}
+
+// UpdateUserInfoByID 更新订阅流量信息
+func (r *SubscriptionRepo) UpdateUserInfoByID(ctx context.Context, id int, info *UserInfo) error {
+	var userInfoJSON []byte
+	var err error
+	if info != nil {
+		userInfoJSON, err = json.Marshal(info)
+		if err != nil {
+			return fmt.Errorf("序列化流量信息失败: %w", err)
+		}
+	}
+
+	query := `UPDATE subscriptions SET userinfo = $2 WHERE id = $1`
+	if _, err := r.db.Pool.Exec(ctx, query, id, userInfoJSON); err != nil {
+		return fmt.Errorf("更新流量信息失败: %w", err)
+	}
 	return nil
 }
 

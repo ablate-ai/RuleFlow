@@ -164,6 +164,7 @@
     const IcoLink = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
     const IcoTag = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>;
     const IcoRefresh = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
+    const IcoList = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>;
 
     /* ===== API 封装 ===== */
     const api = {
@@ -321,6 +322,20 @@
 
       useEffect(() => { loadData(); }, []);
 
+      const getManualNodeNames = useCallback((nodeIDs = []) => {
+        if (!Array.isArray(nodeIDs) || nodeIDs.length === 0) return [];
+        const idSet = new Set(nodeIDs.map(Number));
+        return manualNodes
+          .filter(node => idSet.has(Number(node.id)))
+          .map(node => node.name);
+      }, [manualNodes]);
+
+      const formatPreview = useCallback((items = [], emptyText) => {
+        if (!items.length) return emptyText;
+        if (items.length <= 3) return items.join('、');
+        return `${items.slice(0, 3).join('、')} 等 ${items.length} 个`;
+      }, []);
+
       /* 打开新建 Modal */
       const openCreate = () => {
         setEditItem(null);
@@ -409,18 +424,11 @@
         }
       };
 
-      /* 清除策略关联的订阅缓存 */
+      /* 清除策略生成配置缓存 */
       const handleClearCache = async (policy) => {
         setRefreshing(policy.name);
         try {
-          const tasks = [];
-          // 清除订阅内容缓存
-          const ids = (policy.subscription_ids || []).map(Number);
-          const names = subscriptions.filter(s => ids.includes(s.id)).map(s => s.name);
-          names.forEach(n => tasks.push(api.delete(`/api/cache/${n}`)));
-          // 清除该策略生成的配置缓存
-          tasks.push(api.delete(`/api/config-policies/${policy.id}/cache`));
-          await Promise.all(tasks);
+          await api.delete(`/api/config-policies/${policy.id}/cache`);
           addToast('缓存已清除');
         } catch (err) {
           addToast('清除缓存失败：' + err.message, 'err');
@@ -490,8 +498,16 @@
               </div>
             ) : (
               <div>
-                {policies.map(policy => (
-                  <div key={policy.name} className="item">
+                {policies.map(policy => {
+                  const manualNodeIDs = (policy.node_ids || []).map(Number);
+                  const manualNodeNames = getManualNodeNames(manualNodeIDs);
+                  const manualNodeSummary = manualNodeIDs.length === 0
+                    ? null
+                    : manualNodeNames.length > 0
+                      ? `手动节点：${formatPreview(manualNodeNames, '无手动节点')}`
+                      : `手动节点：已选 ${manualNodeIDs.length} 个`;
+                  return (
+                  <div key={policy.id} className="item">
                     <div className="item-l">
                       {/* 名称与徽章 */}
                       <div className="item-name">
@@ -515,6 +531,13 @@
                             : <span style={{ color: 'var(--t3)' }}>无订阅源</span>
                           }
                         </span>
+                        <span className="item-mi" title={manualNodeNames.join('\n')}>
+                          <IcoList />
+                          {manualNodeSummary
+                            ? manualNodeSummary
+                            : <span style={{ color: 'var(--t3)' }}>无手动节点</span>
+                          }
+                        </span>
                         <span className="item-mi">
                           <IcoTag />
                           模板：{policy.template_name || '默认'}
@@ -528,7 +551,7 @@
                       </button>
                       <button
                         className="btic"
-                        title="清除订阅缓存"
+                        title="清除配置缓存"
                         disabled={refreshing === policy.name}
                         onClick={() => handleClearCache(policy)}
                       >
@@ -545,7 +568,7 @@
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </main>
