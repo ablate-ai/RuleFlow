@@ -131,6 +131,28 @@ type RealityConfig struct {
 	ShortID   string `json:"short-id"`
 }
 
+type TLSOptions struct {
+	Enabled    bool           `json:"enabled"`
+	ServerName string         `json:"server_name,omitempty"`
+	Insecure   bool           `json:"insecure,omitempty"`
+	ALPN       []string       `json:"alpn,omitempty"`
+	UTLS       *UTLSOptions   `json:"utls,omitempty"`
+	Reality    *RealityConfig `json:"reality,omitempty"`
+}
+
+type UTLSOptions struct {
+	Enabled     bool   `json:"enabled"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+}
+
+type TransportOptions struct {
+	Type        string            `json:"type"`
+	Path        string            `json:"path,omitempty"`
+	Host        string            `json:"host,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	ServiceName string            `json:"service_name,omitempty"`
+}
+
 type ShadowsocksOptions struct {
 	Cipher   string
 	Password string
@@ -261,26 +283,8 @@ func addTrojanFields(proxy *Proxy, opts map[string]interface{}) {
 	if password, ok := opts["password"].(string); ok {
 		proxy.Password = password
 	}
-	if sni, ok := opts["sni"].(string); ok && sni != "" {
-		proxy.SNI = sni
-	}
-	if skip, ok := opts["skipCertVerify"].(bool); ok {
-		proxy.SkipCertVerify = skip
-	}
-	if network, ok := opts["network"].(string); ok && network != "" {
-		proxy.Network = network
-	} else if ws, ok := opts["ws"].(bool); ok && ws {
-		proxy.Network = "ws"
-	}
-	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
-		proxy.WSOpts = &WSOpts{
-			Path: wsPath,
-		}
-	} else if wsPath, ok := opts["ws-path"].(string); ok && wsPath != "" {
-		proxy.WSOpts = &WSOpts{
-			Path: wsPath,
-		}
-	}
+	applyTLSFields(proxy, opts)
+	applyTransportFields(proxy, opts)
 }
 
 func addVMessFields(proxy *Proxy, opts map[string]interface{}) {
@@ -293,26 +297,8 @@ func addVMessFields(proxy *Proxy, opts map[string]interface{}) {
 	if security, ok := opts["security"].(string); ok {
 		proxy.Security = security
 	}
-	if network, ok := opts["network"].(string); ok {
-		proxy.Network = network
-	}
-	if tls, ok := opts["tls"].(bool); ok {
-		proxy.TLS = tls
-	}
-	if sni, ok := opts["sni"].(string); ok {
-		proxy.SNI = sni
-	}
-	if alpn, ok := opts["alpn"].([]string); ok {
-		proxy.Alpn = alpn
-	}
-	if fingerprint, ok := opts["fingerprint"].(string); ok {
-		proxy.Fingerprint = fingerprint
-	}
-	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
-		proxy.WSOpts = &WSOpts{
-			Path: wsPath,
-		}
-	}
+	applyTLSFields(proxy, opts)
+	applyTransportFields(proxy, opts)
 }
 
 func addVLESSFields(proxy *Proxy, opts map[string]interface{}) {
@@ -322,26 +308,8 @@ func addVLESSFields(proxy *Proxy, opts map[string]interface{}) {
 	if flow, ok := opts["flow"].(string); ok {
 		proxy.Flow = flow
 	}
-	if network, ok := opts["network"].(string); ok {
-		proxy.Network = network
-	}
-	if tls, ok := opts["tls"].(bool); ok {
-		proxy.TLS = tls
-	}
-	if sni, ok := opts["sni"].(string); ok {
-		proxy.SNI = sni
-	}
-	// 兼容 URL 解析（"fingerprint"）和 Clash YAML 解析（"client-fingerprint"）两种 key
-	if fingerprint, ok := opts["fingerprint"].(string); ok {
-		proxy.Fingerprint = fingerprint
-	} else if fingerprint, ok := opts["client-fingerprint"].(string); ok {
-		proxy.Fingerprint = fingerprint
-	}
-	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
-		proxy.WSOpts = &WSOpts{
-			Path: wsPath,
-		}
-	}
+	applyTLSFields(proxy, opts)
+	applyTransportFields(proxy, opts)
 	// 兼容两种 key："reality"（vless:// URL 解析）和 "reality-opts"（Clash YAML 解析）
 	// 同时兼容两种类型：*RealityConfig 和 map[string]interface{}
 	for _, key := range []string{"reality", "reality-opts"} {
@@ -467,9 +435,204 @@ func addTUICFields(proxy *Proxy, opts map[string]interface{}) {
 	if password, ok := opts["password"].(string); ok {
 		proxy.Password = password
 	}
+	applyTLSFields(proxy, opts)
+}
+
+func applyTLSFields(proxy *Proxy, opts map[string]interface{}) {
+	if tlsObj, ok := extractTLSOptions(opts); ok {
+		proxy.TLS = tlsObj.Enabled
+		if tlsObj.ServerName != "" {
+			proxy.SNI = tlsObj.ServerName
+		}
+		proxy.SkipCertVerify = tlsObj.Insecure
+		if len(tlsObj.ALPN) > 0 {
+			proxy.Alpn = tlsObj.ALPN
+		}
+		if tlsObj.UTLS != nil && tlsObj.UTLS.Fingerprint != "" {
+			proxy.Fingerprint = tlsObj.UTLS.Fingerprint
+		}
+		if tlsObj.Reality != nil && (tlsObj.Reality.PublicKey != "" || tlsObj.Reality.ShortID != "") {
+			proxy.Reality = &RealityCfg{
+				PublicKey: tlsObj.Reality.PublicKey,
+				ShortID:   tlsObj.Reality.ShortID,
+			}
+		}
+		if proxy.SNI == "" {
+			if sni, ok := opts["sni"].(string); ok && sni != "" {
+				proxy.SNI = sni
+			}
+		}
+		if !proxy.SkipCertVerify {
+			if skip, ok := boolOption(opts, "skipCertVerify", "skip-cert-verify"); ok {
+				proxy.SkipCertVerify = skip
+			}
+		}
+		if len(proxy.Alpn) == 0 {
+			if alpn, ok := stringSliceOption(opts, "alpn"); ok {
+				proxy.Alpn = alpn
+			}
+		}
+		if proxy.Fingerprint == "" {
+			if fingerprint, ok := stringOption(opts, "fingerprint", "client-fingerprint"); ok {
+				proxy.Fingerprint = fingerprint
+			}
+		}
+		if proxy.Reality == nil {
+			if reality := extractLegacyRealityOptions(opts); reality != nil {
+				proxy.Reality = reality
+			}
+		}
+		return
+	}
+
 	if sni, ok := opts["sni"].(string); ok && sni != "" {
 		proxy.SNI = sni
 	}
+	if skip, ok := boolOption(opts, "skipCertVerify", "skip-cert-verify"); ok {
+		proxy.SkipCertVerify = skip
+	}
+	if tls, ok := boolOption(opts, "tls"); ok {
+		proxy.TLS = tls
+	}
+	if alpn, ok := stringSliceOption(opts, "alpn"); ok {
+		proxy.Alpn = alpn
+	}
+	if fingerprint, ok := stringOption(opts, "fingerprint", "client-fingerprint"); ok {
+		proxy.Fingerprint = fingerprint
+	}
+	if proxy.Reality == nil {
+		if reality := extractLegacyRealityOptions(opts); reality != nil {
+			proxy.Reality = reality
+		}
+	}
+}
+
+func applyTransportFields(proxy *Proxy, opts map[string]interface{}) {
+	if transport, ok := extractTransportOptions(opts); ok {
+		if transport.Type != "" {
+			proxy.Network = transport.Type
+		}
+		if transport.Type == "ws" && transport.Path != "" {
+			proxy.WSOpts = &WSOpts{Path: transport.Path}
+		}
+		return
+	}
+
+	if network, ok := opts["network"].(string); ok && network != "" {
+		proxy.Network = network
+	} else if ws, ok := opts["ws"].(bool); ok && ws {
+		proxy.Network = "ws"
+	}
+	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
+		proxy.WSOpts = &WSOpts{Path: wsPath}
+	} else if wsPath, ok := opts["ws-path"].(string); ok && wsPath != "" {
+		proxy.WSOpts = &WSOpts{Path: wsPath}
+	}
+}
+
+func extractTLSOptions(opts map[string]interface{}) (*TLSOptions, bool) {
+	raw, exists := opts["tls"]
+	if !exists || raw == nil {
+		return nil, false
+	}
+
+	switch value := raw.(type) {
+	case *TLSOptions:
+		return value, true
+	case map[string]interface{}:
+		tlsObj := &TLSOptions{}
+		if enabled, ok := boolOption(value, "enabled"); ok {
+			tlsObj.Enabled = enabled
+		}
+		if serverName, ok := stringOption(value, "server_name", "server-name", "sni"); ok {
+			tlsObj.ServerName = serverName
+		}
+		if insecure, ok := boolOption(value, "insecure", "skip-cert-verify", "skipCertVerify"); ok {
+			tlsObj.Insecure = insecure
+		}
+		if alpn, ok := stringSliceOption(value, "alpn"); ok {
+			tlsObj.ALPN = alpn
+		}
+		if utlsRaw, ok := value["utls"].(map[string]interface{}); ok {
+			utlsObj := &UTLSOptions{}
+			if enabled, ok := boolOption(utlsRaw, "enabled"); ok {
+				utlsObj.Enabled = enabled
+			}
+			if fingerprint, ok := stringOption(utlsRaw, "fingerprint"); ok {
+				utlsObj.Fingerprint = fingerprint
+			}
+			if utlsObj.Enabled || utlsObj.Fingerprint != "" {
+				tlsObj.UTLS = utlsObj
+			}
+		}
+		if realityRaw, ok := value["reality"].(map[string]interface{}); ok {
+			realityObj := &RealityConfig{}
+			realityObj.PublicKey, _ = stringOption(realityRaw, "public_key", "public-key", "PublicKey")
+			realityObj.ShortID, _ = stringOption(realityRaw, "short_id", "short-id", "ShortID")
+			if realityObj.PublicKey != "" || realityObj.ShortID != "" {
+				tlsObj.Reality = realityObj
+			}
+		}
+		return tlsObj, true
+	case bool:
+		return &TLSOptions{Enabled: value}, true
+	default:
+		return nil, false
+	}
+}
+
+func extractTransportOptions(opts map[string]interface{}) (*TransportOptions, bool) {
+	raw, exists := opts["transport"]
+	if !exists || raw == nil {
+		return nil, false
+	}
+
+	switch value := raw.(type) {
+	case *TransportOptions:
+		return value, true
+	case map[string]interface{}:
+		transport := &TransportOptions{}
+		transport.Type, _ = stringOption(value, "type")
+		transport.Path, _ = stringOption(value, "path")
+		transport.Host, _ = stringOption(value, "host")
+		transport.ServiceName, _ = stringOption(value, "service_name", "serviceName")
+		if headersRaw, ok := value["headers"].(map[string]interface{}); ok {
+			headers := make(map[string]string, len(headersRaw))
+			for k, v := range headersRaw {
+				if s, ok := v.(string); ok && s != "" {
+					headers[k] = s
+				}
+			}
+			if len(headers) > 0 {
+				transport.Headers = headers
+			}
+		}
+		return transport, true
+	default:
+		return nil, false
+	}
+}
+
+func extractLegacyRealityOptions(opts map[string]interface{}) *RealityCfg {
+	for _, key := range []string{"reality", "reality-opts"} {
+		raw, exists := opts[key]
+		if !exists || raw == nil {
+			continue
+		}
+		switch r := raw.(type) {
+		case *RealityConfig:
+			if r.PublicKey != "" || r.ShortID != "" {
+				return &RealityCfg{PublicKey: r.PublicKey, ShortID: r.ShortID}
+			}
+		case map[string]interface{}:
+			pk, _ := stringOption(r, "public-key", "public_key", "PublicKey")
+			sid, _ := stringOption(r, "short-id", "short_id", "ShortID")
+			if pk != "" || sid != "" {
+				return &RealityCfg{PublicKey: pk, ShortID: sid}
+			}
+		}
+	}
+	return nil
 }
 
 func stringOption(opts map[string]interface{}, keys ...string) (string, bool) {

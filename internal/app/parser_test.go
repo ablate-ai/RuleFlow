@@ -65,6 +65,13 @@ func TestParseTrojanNode(t *testing.T) {
 				if got.Port != tt.want.Port {
 					t.Errorf("parseTrojanNode() Port = %v, want %v", got.Port, tt.want.Port)
 				}
+				tlsObj, ok := got.Options["tls"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("parseTrojanNode() 缺少 tls 对象，got=%#v", got.Options["tls"])
+				}
+				if enabled, _ := tlsObj["enabled"].(bool); !enabled {
+					t.Fatalf("parseTrojanNode() tls.enabled = %v, want true", tlsObj["enabled"])
+				}
 			}
 		})
 	}
@@ -149,6 +156,24 @@ func TestParseVLESSNode(t *testing.T) {
 				}
 				if got.Server != tt.want.Server {
 					t.Errorf("parseVLESSNode() Server = %v, want %v", got.Server, tt.want.Server)
+				}
+				if tlsObj, ok := got.Options["tls"].(map[string]interface{}); ok {
+					if tt.name == "VLESS with REALITY" {
+						if _, ok := tlsObj["reality"].(map[string]interface{}); !ok {
+							t.Fatalf("parseVLESSNode() 缺少 reality tls 配置，got=%#v", tlsObj)
+						}
+					}
+				} else if tt.name != "VLESS with WebSocket" {
+					t.Fatalf("parseVLESSNode() 缺少 tls 对象，got=%#v", got.Options["tls"])
+				}
+				if tt.name == "VLESS with WebSocket" {
+					transport, ok := got.Options["transport"].(map[string]interface{})
+					if !ok {
+						t.Fatalf("parseVLESSNode() 缺少 transport 对象，got=%#v", got.Options["transport"])
+					}
+					if transport["type"] != "ws" || transport["path"] != "/ws" {
+						t.Fatalf("parseVLESSNode() transport=%#v, want ws /ws", transport)
+					}
 				}
 			}
 		})
@@ -343,6 +368,13 @@ func TestParseTUICNode(t *testing.T) {
 				}
 				if got.Server != tt.want.Server {
 					t.Errorf("parseTUICNode() Server = %v, want %v", got.Server, tt.want.Server)
+				}
+				tlsObj, ok := got.Options["tls"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("parseTUICNode() 缺少 tls 对象，got=%#v", got.Options["tls"])
+				}
+				if tlsObj["server_name"] != "example.com" {
+					t.Fatalf("parseTUICNode() tls.server_name = %v, want example.com", tlsObj["server_name"])
 				}
 			}
 		})

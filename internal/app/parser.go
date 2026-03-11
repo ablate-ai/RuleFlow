@@ -110,16 +110,33 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 
 	skipCertVerify := query.Get("allowInsecure") == "1" || query.Get("allowInsecure") == "true"
 
+	opts := map[string]interface{}{
+		"password": password,
+		"tls": map[string]interface{}{
+			"enabled":     true,
+			"server_name": sni,
+			"insecure":    skipCertVerify,
+		},
+		// 兼容旧 builder 读取路径。
+		"sni":            sni,
+		"skipCertVerify": skipCertVerify,
+	}
+	if transport := parseTransportOptions(query); transport != nil {
+		opts["transport"] = transport
+		if transportType, _ := transport["type"].(string); transportType != "" {
+			opts["network"] = transportType
+		}
+		if path, _ := transport["path"].(string); path != "" {
+			opts["wsPath"] = path
+		}
+	}
+
 	return &ProxyNode{
 		Protocol: "trojan",
 		Name:     name,
 		Server:   server,
 		Port:     port,
-		Options: map[string]interface{}{
-			"password":       password,
-			"sni":            sni,
-			"skipCertVerify": skipCertVerify,
-		},
+		Options:  opts,
 	}, nil
 }
 
@@ -196,29 +213,59 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 	tls := security == "tls" || security == "reality"
 
 	opts := map[string]interface{}{
-		"uuid":    uuid,
-		"network": network,
-		"tls":     tls,
+		"uuid": uuid,
+	}
+	if network != "" {
+		opts["network"] = network
 	}
 
 	if flow := query.Get("flow"); flow != "" {
 		opts["flow"] = flow
 	}
+	tlsObj := map[string]interface{}{}
+	if tls {
+		tlsObj["enabled"] = true
+	}
 	if sni := query.Get("sni"); sni != "" {
 		opts["sni"] = sni
+		tlsObj["server_name"] = sni
 	}
 	if fingerprint := query.Get("fp"); fingerprint != "" {
 		opts["fingerprint"] = fingerprint
+		tlsObj["utls"] = map[string]interface{}{
+			"enabled":     true,
+			"fingerprint": fingerprint,
+		}
 	}
-	if wsPath := query.Get("path"); wsPath != "" {
-		opts["wsPath"] = wsPath
+	if len(tlsObj) > 0 {
+		opts["tls"] = tlsObj
+	} else {
+		opts["tls"] = false
+	}
+	if transport := parseTransportOptions(query); transport != nil {
+		opts["transport"] = transport
+		if transportType, _ := transport["type"].(string); transportType != "" {
+			opts["network"] = transportType
+		}
+		if path, _ := transport["path"].(string); path != "" {
+			opts["wsPath"] = path
+		}
 	}
 
 	// Reality 配置
 	if security == "reality" {
-		opts["reality"] = &RealityConfig{
+		reality := &RealityConfig{
 			PublicKey: query.Get("pbk"),
 			ShortID:   query.Get("sid"),
+		}
+		opts["reality"] = reality
+		if tlsMap, ok := opts["tls"].(map[string]interface{}); ok {
+			tlsMap["enabled"] = true
+			tlsMap["reality"] = map[string]interface{}{
+				"enabled":    true,
+				"public_key": reality.PublicKey,
+				"short_id":   reality.ShortID,
+			}
 		}
 	}
 
@@ -371,7 +418,7 @@ func parseHysteria2Node(nodeURL string) (*ProxyNode, error) {
 
 	query := u.Query()
 	sni := query.Get("sni")
-	skipCertVerify := query.Get("insecure") == "1" || query.Get("insecure") == "true"
+	skipCertVerify := query.Get("allow_insecure") == "1" || query.Get("allow_insecure") == "true" || query.Get("insecure") == "1" || query.Get("insecure") == "true"
 
 	name := u.Fragment
 	if name == "" {
@@ -436,6 +483,7 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 
 	query := u.Query()
 	sni := query.Get("sni")
+	skipCertVerify := query.Get("allow_insecure") == "1" || query.Get("allow_insecure") == "true" || query.Get("insecure") == "1" || query.Get("insecure") == "true"
 
 	name := u.Fragment
 	if name == "" {
@@ -455,12 +503,60 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 		Options: map[string]interface{}{
 			"uuid":     uuid,
 			"password": password,
-			"sni":      sni,
+			"tls": map[string]interface{}{
+				"enabled":     true,
+				"server_name": sni,
+				"insecure":    skipCertVerify,
+			},
+			"sni":            sni,
+			"skipCertVerify": skipCertVerify,
 		},
 	}, nil
 }
 
 // ========== 辅助函数 ==========
+
+func parseTransportOptions(query url.Values) map[string]interface{} {
+	transportType := strings.TrimSpace(query.Get("type"))
+	if transportType == "" {
+		return nil
+	}
+
+	transport := map[string]interface{}{
+		"type": transportType,
+	}
+	if path := query.Get("path"); path != "" {
+		transport["path"] = path
+	}
+	host := query.Get("host")
+	if host == "" {
+		host = query.Get("authority")
+	}
+	if host != "" {
+		transport["host"] = host
+		transport["headers"] = map[string]string{"Host": host}
+	}
+	if serviceName := query.Get("serviceName"); serviceName != "" {
+		transport["service_name"] = serviceName
+	}
+
+	return transport
+}
+
+func parseVMessTransportOptions(network, path string) map[string]interface{} {
+	network = strings.TrimSpace(network)
+	if network == "" || network == "tcp" {
+		return nil
+	}
+
+	transport := map[string]interface{}{
+		"type": network,
+	}
+	if path != "" {
+		transport["path"] = path
+	}
+	return transport
+}
 
 // decodeVMessBase64 解码 VMess Base64
 func decodeVMessBase64(s string) (string, error) {
@@ -538,19 +634,35 @@ func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
 
 	tls := cfg.TLS == "tls" || cfg.TLS == "true"
 
+	opts := map[string]interface{}{
+		"uuid":    cfg.ID,
+		"alterID": cfg.Aid,
+		"network": network,
+	}
+	if cfg.SNI != "" {
+		opts["sni"] = cfg.SNI
+	}
+	if tls {
+		opts["tls"] = map[string]interface{}{
+			"enabled":     true,
+			"server_name": cfg.SNI,
+		}
+	} else {
+		opts["tls"] = false
+	}
+	if transport := parseVMessTransportOptions(cfg.Net, cfg.Path); transport != nil {
+		opts["transport"] = transport
+	}
+	if cfg.Path != "" {
+		opts["wsPath"] = cfg.Path
+	}
+
 	return &ProxyNode{
 		Protocol: "vmess",
 		Name:     name,
 		Server:   cfg.Add,
 		Port:     cfg.Port,
-		Options: map[string]interface{}{
-			"uuid":    cfg.ID,
-			"alterID": cfg.Aid,
-			"network": network,
-			"tls":     tls,
-			"sni":     cfg.SNI,
-			"wsPath":  cfg.Path,
-		},
+		Options:  opts,
 	}, nil
 }
 

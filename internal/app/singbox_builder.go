@@ -238,6 +238,25 @@ func normalizeSingBoxProtocol(protocol string) string {
 }
 
 func singBoxTransportObject(opts map[string]interface{}) map[string]interface{} {
+	if transport, ok := extractTransportOptions(opts); ok && transport != nil && transport.Type != "" {
+		obj := map[string]interface{}{
+			"type": transport.Type,
+		}
+		if transport.Path != "" {
+			obj["path"] = transport.Path
+		}
+		if transport.Host != "" {
+			obj["host"] = transport.Host
+		}
+		if len(transport.Headers) > 0 {
+			obj["headers"] = transport.Headers
+		}
+		if transport.ServiceName != "" {
+			obj["service_name"] = transport.ServiceName
+		}
+		return obj
+	}
+
 	network, _ := stringOption(opts, "network")
 	wsEnabled, _ := boolOption(opts, "ws")
 	wsPath, _ := stringOption(opts, "wsPath", "ws-path")
@@ -254,6 +273,46 @@ func singBoxTransportObject(opts map[string]interface{}) map[string]interface{} 
 }
 
 func singBoxTLSObject(opts map[string]interface{}, server string, force bool) map[string]interface{} {
+	if tlsOptions, ok := extractTLSOptions(opts); ok && tlsOptions != nil {
+		if !force && !tlsOptions.Enabled && tlsOptions.ServerName == "" && !tlsOptions.Insecure && len(tlsOptions.ALPN) == 0 && tlsOptions.UTLS == nil && tlsOptions.Reality == nil {
+			return nil
+		}
+
+		tlsObj := map[string]interface{}{
+			"enabled": force || tlsOptions.Enabled || tlsOptions.Reality != nil,
+		}
+		if tlsOptions.ServerName != "" {
+			tlsObj["server_name"] = tlsOptions.ServerName
+		} else if force {
+			tlsObj["server_name"] = server
+		}
+		if tlsOptions.Insecure {
+			tlsObj["insecure"] = tlsOptions.Insecure
+		}
+		if len(tlsOptions.ALPN) > 0 {
+			tlsObj["alpn"] = tlsOptions.ALPN
+		}
+		if tlsOptions.UTLS != nil && tlsOptions.UTLS.Fingerprint != "" {
+			tlsObj["utls"] = map[string]interface{}{
+				"enabled":     tlsOptions.UTLS.Enabled || tlsOptions.UTLS.Fingerprint != "",
+				"fingerprint": tlsOptions.UTLS.Fingerprint,
+			}
+		}
+		if tlsOptions.Reality != nil && (tlsOptions.Reality.PublicKey != "" || tlsOptions.Reality.ShortID != "") {
+			realityObj := map[string]interface{}{
+				"enabled": true,
+			}
+			if tlsOptions.Reality.PublicKey != "" {
+				realityObj["public_key"] = tlsOptions.Reality.PublicKey
+			}
+			if tlsOptions.Reality.ShortID != "" {
+				realityObj["short_id"] = tlsOptions.Reality.ShortID
+			}
+			tlsObj["reality"] = realityObj
+		}
+		return tlsObj
+	}
+
 	enabled, hasTLS := boolOption(opts, "tls")
 	sni, hasSNI := stringOption(opts, "sni", "server_name")
 	insecure, hasInsecure := boolOption(opts, "skipCertVerify", "skip-cert-verify")

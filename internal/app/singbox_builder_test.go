@@ -97,6 +97,47 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 	}
 }
 
+func TestBuildSingBoxUsesNestedTLSAndTransport(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "vless",
+			Name:     "Nested Node",
+			Server:   "nested.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"uuid": "11111111-1111-1111-1111-111111111111",
+				"tls": map[string]interface{}{
+					"enabled":     true,
+					"server_name": "tls.example.com",
+					"utls": map[string]interface{}{
+						"enabled":     true,
+						"fingerprint": "chrome",
+					},
+				},
+				"transport": map[string]interface{}{
+					"type": "ws",
+					"path": "/nested",
+				},
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	if !strings.Contains(config, "\"server_name\": \"tls.example.com\"") {
+		t.Fatalf("期望读取嵌套 tls.server_name，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"fingerprint\": \"chrome\"") {
+		t.Fatalf("期望读取嵌套 tls.utls.fingerprint，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"type\": \"ws\"") || !strings.Contains(config, "\"path\": \"/nested\"") {
+		t.Fatalf("期望读取嵌套 transport，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildSingBoxWireGuard(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
