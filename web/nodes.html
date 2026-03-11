@@ -364,12 +364,7 @@
       const [modalOpen, setModalOpen] = useState(false);
 
       /* Toast 通知 */
-      const [toasts, setToasts] = useState([]);
-      const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now();
-        setToasts(t => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
-      }, []);
+      const { toasts, addToast } = useToasts();
 
       /* 加载节点列表 */
       const loadNodes = useCallback(async () => {

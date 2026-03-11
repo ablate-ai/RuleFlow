@@ -133,7 +133,7 @@
       const [accessLogs, setAccessLogs] = useState([]);
 
       /* Toast */
-      const [toasts, setToasts] = useState([]);
+      const { toasts, addToast } = useToasts();
 
       /* 表单状态 */
       const defaultForm = { name: '', target: 'clash-meta', subscription_ids: [], node_ids: [], template_name: '', description: '', enabled: true };
@@ -141,13 +141,6 @@
       const [saving, setSaving] = useState(false);
       const [deleting, setDeleting] = useState(false);
       const [refreshing, setRefreshing] = useState(null); // 正在清除缓存的策略 name
-
-      /* 添加 Toast */
-      const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, msg, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
-      }, []);
 
       /* 加载所有数据 */
       const loadData = async () => {
@@ -265,12 +258,11 @@
       /* 复制配置链接 */
       const handleCopyLink = async (policy) => {
         const url = `${window.location.origin}/subscribe?token=${policy.token}`;
-        try {
-          await navigator.clipboard.writeText(url);
-          addToast('配置链接已复制到剪贴板');
-        } catch {
-          addToast('复制失败，请手动复制', 'err');
-        }
+        await copyText(url, {
+          successMessage: '配置链接已复制到剪贴板',
+          errorMessage: '复制失败，请手动复制',
+          addToast
+        });
       };
 
       /* 清除策略生成配置缓存 */
@@ -662,31 +654,24 @@
           )}
 
           {/* 删除确认 Modal */}
-          {showDeleteModal && deleteTarget && (
-            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setDeleteTarget(null); } }}>
-              <div className="modal modal-sm">
-                <div className="mh">
-                  <span className="mht">确认删除</span>
-                  <button className="btic" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}><IcoX /></button>
-                </div>
-                <div className="mb">
-                  <p style={{ fontSize: 14, color: 'var(--t1)', lineHeight: 1.6 }}>
-                    确定要删除策略 <strong>"{deleteTarget.name}"</strong> 吗？
-                  </p>
-                  <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
-                    此操作不可撤销，关联的配置链接将立即失效。
-                  </p>
-                </div>
-                <div className="mf">
-                  <button className="btn btn-s" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}>取消</button>
-                  <button className="btn btn-d" onClick={handleDelete} disabled={deleting}>
-                    {deleting && <span className="spin"></span>}
-                    {deleting ? '删除中...' : '确认删除'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmDialog
+            isOpen={showDeleteModal && !!deleteTarget}
+            title="确认删除"
+            message={
+              <>
+                <p style={{ fontSize: 14, color: 'var(--t1)', lineHeight: 1.6 }}>
+                  确定要删除策略 <strong>"{deleteTarget?.name}"</strong> 吗？
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
+                  此操作不可撤销，关联的配置链接将立即失效。
+                </p>
+              </>
+            }
+            confirmText="确认删除"
+            loading={deleting}
+            onConfirm={handleDelete}
+            onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+          />
 
           {/* Toast 通知 */}
           <ToastContainer toasts={toasts} />

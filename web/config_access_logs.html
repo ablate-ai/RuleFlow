@@ -102,13 +102,7 @@
       const [filters, setFilters] = useState(defaultFilters);
       const [loading, setLoading] = useState(true);
       const [refreshing, setRefreshing] = useState(false);
-      const [toasts, setToasts] = useState([]);
-
-      const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, msg, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
-      }, []);
+      const { toasts, addToast } = useToasts();
 
       const loadPolicies = useCallback(async () => {
         const res = await api.get('/api/config-policies');

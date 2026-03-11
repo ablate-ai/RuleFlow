@@ -118,13 +118,7 @@
       const [showDeleteModal, setShowDeleteModal] = useState(false);
       const [deleteTarget, setDeleteTarget] = useState(null);
       const [deleting, setDeleting] = useState(false);
-      const [toasts, setToasts] = useState([]);
-
-      const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, msg, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
-      }, []);
+      const { toasts, addToast } = useToasts();
 
       const loadItems = useCallback(async () => {
         try {
@@ -231,12 +225,11 @@
       };
 
       const handleCopy = async (text, label) => {
-        try {
-          await navigator.clipboard.writeText(text);
-          addToast(`${label}已复制`);
-        } catch {
-          addToast(`复制${label}失败`, 'err');
-        }
+        await copyText(text, {
+          successMessage: `${label}已复制`,
+          errorMessage: `复制${label}失败`,
+          addToast
+        });
       };
 
       return (
@@ -421,28 +414,18 @@
             </div>
           )}
 
-          {showDeleteModal && (
-            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setShowDeleteModal(false); }}>
-              <div className="modal modal-sm">
-                <div className="mh">
-                  <span className="mht">删除规则源</span>
-                  <button className="btic" onClick={() => setShowDeleteModal(false)}><IcoX /></button>
-                </div>
-                <div className="mb">
-                  <div style={{ fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.7 }}>
-                    确定要删除规则源 <strong>{deleteTarget?.name}</strong> 吗？此操作不会自动修改依赖它的模板引用。
-                  </div>
-                </div>
-                <div className="mf">
-                  <button className="btn btn-s" onClick={() => setShowDeleteModal(false)}>取消</button>
-                  <button className="btn btn-p" onClick={handleDelete} disabled={deleting}>
-                    {deleting && <span className="spin"></span>}
-                    {deleting ? '删除中...' : '确认删除'}
-                  </button>
-                </div>
+          <ConfirmDialog
+            isOpen={showDeleteModal}
+            title="删除规则源"
+            message={
+              <div style={{ fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.7 }}>
+                确定要删除规则源 <strong>{deleteTarget?.name}</strong> 吗？此操作不会自动修改依赖它的模板引用。
               </div>
-            </div>
-          )}
+            }
+            loading={deleting}
+            onConfirm={handleDelete}
+            onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+          />
         </div>
       );
     };

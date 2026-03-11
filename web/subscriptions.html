@@ -118,16 +118,9 @@
       const [syncing, setSyncing]         = useState(null);        // 正在同步的订阅 ID
       const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅对象（显示确认框）
       const [deleting, setDeleting]       = useState(false);       // 删除中
-      const [toasts, setToasts]           = useState([]);          // Toast 列表
+      const { toasts, addToast }          = useToasts();           // Toast 列表
       const [filterOpen, setFilterOpen]   = useState(false);       // 过滤规则折叠状态
       const [kwInput, setKwInput]         = useState('');          // 关键词输入缓冲
-
-      // 添加 Toast 通知
-      const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now();
-        setToasts(t => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
-      }, []);
 
       // 加载订阅列表
       const loadSubs = useCallback(async () => {
@@ -252,12 +245,11 @@
 
       // 复制到剪贴板
       const copyToClipboard = async (text, label) => {
-        try {
-          await navigator.clipboard.writeText(text);
-          addToast(`${label}已复制到剪贴板`);
-        } catch (err) {
-          addToast(`复制失败：${err.message}`, 'err');
-        }
+        await copyText(text, {
+          successMessage: `${label}已复制到剪贴板`,
+          errorMessage: `复制失败`,
+          addToast
+        });
       };
 
       return (
@@ -635,41 +627,20 @@
           )}
 
           {/* ===== 删除确认 Modal ===== */}
-          {confirmDelete && (
-            <div className="overlay" onClick={e => e.target === e.currentTarget && !deleting && setConfirmDelete(null)}>
-              <div className="modal modal-sm">
-                <div className="mh">
-                  <span className="mht">确认删除</span>
-                  <button className="btic" onClick={() => !deleting && setConfirmDelete(null)} disabled={deleting}>
-                    <IcoX />
-                  </button>
-                </div>
-                <div className="mb">
-                  <p style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.7 }}>
-                    确定要删除订阅源 <strong style={{ color: 'var(--t1)' }}>{confirmDelete.name}</strong> 吗？
-                    此操作将同时删除该订阅的所有节点，且<strong style={{ color: 'var(--red)' }}>不可恢复</strong>。
-                  </p>
-                </div>
-                <div className="mf">
-                  <button
-                    className="btn btn-s"
-                    onClick={() => setConfirmDelete(null)}
-                    disabled={deleting}
-                  >
-                    取消
-                  </button>
-                  <button
-                    className="btn btn-d"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                  >
-                    {deleting && <span className="spin" style={{ borderColor: 'var(--red)', borderTopColor: 'transparent' }}></span>}
-                    {deleting ? '删除中...' : '确认删除'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmDialog
+            isOpen={!!confirmDelete}
+            title="确认删除"
+            message={
+              <p style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.7 }}>
+                确定要删除订阅源 <strong style={{ color: 'var(--t1)' }}>{confirmDelete?.name}</strong> 吗？
+                此操作将同时删除该订阅的所有节点，且<strong style={{ color: 'var(--red)' }}>不可恢复</strong>。
+              </p>
+            }
+            confirmText={deleting ? '删除中...' : '确认删除'}
+            loading={deleting}
+            onConfirm={handleDelete}
+            onClose={() => setConfirmDelete(null)}
+          />
         </div>
       );
     };

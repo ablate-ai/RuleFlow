@@ -343,13 +343,7 @@
       const [lastUpdated, setLastUpdated]   = useState(null);
       const [loaded, setLoaded]             = useState(false);
       const [refreshing, setRefreshing]     = useState(false);
-      const [toasts, setToasts]             = useState([]);
-
-      const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, msg, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
-      }, []);
+      const { toasts, addToast }            = useToasts();
 
       const clearPolicyCache = useCallback(async () => {
         await fetch('/api/cache/policies/clear', {
@@ -549,10 +543,10 @@
                               style={{ fontSize: 11, padding: '4px 8px' }}
                               onClick={() => {
                                 const url = `${window.location.origin}/subscribe?token=${policy.token}`;
-                                navigator.clipboard.writeText(url).then(() => {
-                                  addToast('订阅链接已复制');
-                                }).catch(err => {
-                                  addToast('复制失败：' + err.message, 'err');
+                                copyText(url, {
+                                  successMessage: '订阅链接已复制',
+                                  errorMessage: '复制失败',
+                                  addToast
                                 });
                               }}
                             >
