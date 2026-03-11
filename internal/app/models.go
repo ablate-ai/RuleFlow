@@ -447,53 +447,114 @@ func applyTransportFields(proxy *Proxy, opts map[string]interface{}) {
 
 func extractTLSOptions(opts map[string]interface{}) (*TLSOptions, bool) {
 	raw, exists := opts["tls"]
-	if !exists || raw == nil {
-		return nil, false
+	if exists && raw != nil {
+		switch value := raw.(type) {
+		case *TLSOptions:
+			return value, true
+		case bool:
+			tlsObj := buildTLSOptionsFromFlatFields(opts)
+			tlsObj.Enabled = value || tlsObj.Enabled
+			return tlsObj, true
+		case string:
+			tlsObj := buildTLSOptionsFromFlatFields(opts)
+			tlsObj.Enabled = strings.EqualFold(value, "true") || strings.EqualFold(value, "tls") || strings.EqualFold(value, "reality") || tlsObj.Enabled
+			return tlsObj, true
+		case map[string]interface{}:
+			tlsObj := &TLSOptions{}
+			if enabled, ok := boolOption(value, "enabled"); ok {
+				tlsObj.Enabled = enabled
+			}
+			if serverName, ok := stringOption(value, "server_name", "server-name", "sni"); ok {
+				if serverName == "" {
+					return nil, false
+				}
+				tlsObj.ServerName = serverName
+			}
+			if insecure, ok := boolOption(value, "insecure"); ok {
+				tlsObj.Insecure = insecure
+			}
+			if alpn, ok := stringSliceOption(value, "alpn"); ok {
+				tlsObj.ALPN = alpn
+			}
+			if utlsRaw, ok := value["utls"].(map[string]interface{}); ok {
+				utlsObj := &UTLSOptions{}
+				if enabled, ok := boolOption(utlsRaw, "enabled"); ok {
+					utlsObj.Enabled = enabled
+				}
+				if fingerprint, ok := stringOption(utlsRaw, "fingerprint"); ok {
+					utlsObj.Fingerprint = fingerprint
+				}
+				if utlsObj.Enabled || utlsObj.Fingerprint != "" {
+					tlsObj.UTLS = utlsObj
+				}
+			}
+			if realityRaw, ok := value["reality"].(map[string]interface{}); ok {
+				realityObj := &RealityConfig{}
+				realityObj.PublicKey, _ = stringOption(realityRaw, "public_key")
+				realityObj.ShortID, _ = stringOption(realityRaw, "short_id")
+				if realityObj.PublicKey != "" || realityObj.ShortID != "" {
+					tlsObj.Reality = realityObj
+				}
+			}
+			mergeFlatTLSFields(tlsObj, opts)
+			return tlsObj, true
+		}
 	}
 
-	switch value := raw.(type) {
-	case *TLSOptions:
-		return value, true
-	case map[string]interface{}:
-		tlsObj := &TLSOptions{}
-		if enabled, ok := boolOption(value, "enabled"); ok {
-			tlsObj.Enabled = enabled
+	tlsObj := buildTLSOptionsFromFlatFields(opts)
+	if tlsObj == nil {
+		return nil, false
+	}
+	return tlsObj, true
+}
+
+func buildTLSOptionsFromFlatFields(opts map[string]interface{}) *TLSOptions {
+	tlsObj := &TLSOptions{}
+	if security, ok := stringOption(opts, "security"); ok {
+		if strings.EqualFold(security, "tls") || strings.EqualFold(security, "reality") {
+			tlsObj.Enabled = true
 		}
-		if serverName, ok := stringOption(value, "server_name", "server-name", "sni"); ok {
-			if serverName == "" {
-				return nil, false
-			}
-			tlsObj.ServerName = serverName
-		}
-		if insecure, ok := boolOption(value, "insecure"); ok {
-			tlsObj.Insecure = insecure
-		}
-		if alpn, ok := stringSliceOption(value, "alpn"); ok {
+	}
+	mergeFlatTLSFields(tlsObj, opts)
+	if !tlsObj.Enabled && tlsObj.ServerName == "" && !tlsObj.Insecure && len(tlsObj.ALPN) == 0 && tlsObj.UTLS == nil && tlsObj.Reality == nil {
+		return nil
+	}
+	return tlsObj
+}
+
+func mergeFlatTLSFields(tlsObj *TLSOptions, opts map[string]interface{}) {
+	if tlsObj == nil {
+		return
+	}
+	if serverName, ok := stringOption(opts, "sni", "server_name", "server-name"); ok && serverName != "" && tlsObj.ServerName == "" {
+		tlsObj.ServerName = serverName
+	}
+	if insecure, ok := boolOption(opts, "skip-cert-verify", "insecure"); ok {
+		tlsObj.Insecure = tlsObj.Insecure || insecure
+	}
+	if len(tlsObj.ALPN) == 0 {
+		if alpn, ok := stringSliceOption(opts, "alpn"); ok {
 			tlsObj.ALPN = alpn
 		}
-		if utlsRaw, ok := value["utls"].(map[string]interface{}); ok {
-			utlsObj := &UTLSOptions{}
-			if enabled, ok := boolOption(utlsRaw, "enabled"); ok {
-				utlsObj.Enabled = enabled
-			}
-			if fingerprint, ok := stringOption(utlsRaw, "fingerprint"); ok {
-				utlsObj.Fingerprint = fingerprint
-			}
-			if utlsObj.Enabled || utlsObj.Fingerprint != "" {
-				tlsObj.UTLS = utlsObj
+	}
+	if tlsObj.UTLS == nil {
+		if fingerprint, ok := stringOption(opts, "fp", "fingerprint", "client-fingerprint"); ok && fingerprint != "" {
+			tlsObj.UTLS = &UTLSOptions{
+				Enabled:     true,
+				Fingerprint: fingerprint,
 			}
 		}
-		if realityRaw, ok := value["reality"].(map[string]interface{}); ok {
-			realityObj := &RealityConfig{}
-			realityObj.PublicKey, _ = stringOption(realityRaw, "public_key")
-			realityObj.ShortID, _ = stringOption(realityRaw, "short_id")
-			if realityObj.PublicKey != "" || realityObj.ShortID != "" {
-				tlsObj.Reality = realityObj
+	}
+	if tlsObj.Reality == nil {
+		publicKey, _ := stringOption(opts, "pbk", "public-key")
+		shortID, _ := stringOption(opts, "sid", "short-id")
+		if publicKey != "" || shortID != "" {
+			tlsObj.Enabled = true
+			tlsObj.Reality = &RealityConfig{
+				PublicKey: publicKey,
+				ShortID:   shortID,
 			}
 		}
-		return tlsObj, true
-	default:
-		return nil, false
 	}
 }
 
