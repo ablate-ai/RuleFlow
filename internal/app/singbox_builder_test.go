@@ -96,3 +96,41 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 		t.Fatalf("期望生成 WebSocket transport，实际配置为:\n%s", config)
 	}
 }
+
+func TestBuildSingBoxWireGuard(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "WG Node",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.0.0.2/32",
+				"private-key": "private-key",
+				"dns":         []interface{}{"1.1.1.1", "8.8.8.8"},
+				"mtu":         1420,
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"0.0.0.0/0", "::/0"},
+				"reserved":    []interface{}{1, 2, 3},
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	if !strings.Contains(config, "\"type\": \"wireguard\"") {
+		t.Fatalf("期望生成 wireguard 出站，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"private_key\": \"private-key\"") {
+		t.Fatalf("期望生成 private_key，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"peer_public_key\": \"peer-public-key\"") {
+		t.Fatalf("期望生成 peer_public_key，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"local_address\": [") {
+		t.Fatalf("期望生成 local_address，实际配置为:\n%s", config)
+	}
+}

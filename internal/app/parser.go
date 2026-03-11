@@ -713,7 +713,7 @@ func parseClashYAML(content string) ([]*ProxyNode, error) {
 
 func normalizeProxyProtocol(protocol string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(protocol)) {
-	case "trojan", "vmess", "vless", "ss", "anytls", "hysteria2", "tuic":
+	case "trojan", "vmess", "vless", "ss", "wireguard", "anytls", "hysteria2", "tuic":
 		return strings.ToLower(strings.TrimSpace(protocol)), true
 	case "hy2":
 		return "hysteria2", true

@@ -21,31 +21,38 @@ type ClashConfig struct {
 }
 
 type Proxy struct {
-	Name           string      `yaml:"name"`
-	Type           string      `yaml:"type"`
-	Server         string      `yaml:"server"`
-	Port           int         `yaml:"port"`
-	Version        int         `yaml:"version,omitempty"`
-	Password       string      `yaml:"password,omitempty"`
-	UDP            bool        `yaml:"udp,omitempty"`
-	SNI            string      `yaml:"sni,omitempty"`
-	SkipCertVerify bool        `yaml:"skip-cert-verify,omitempty"`
-	Network        string      `yaml:"network,omitempty"`
-	Security       string      `yaml:"security,omitempty"`
-	UUID           string      `yaml:"uuid,omitempty"`
-	AlterID        int         `yaml:"alterId,omitempty"`
-	Cipher         string      `yaml:"cipher,omitempty"`
-	Flow           string      `yaml:"flow,omitempty"`
-	TLS            bool        `yaml:"tls,omitempty"`
-	Alpn           []string    `yaml:"alpn,omitempty"`
-	Fingerprint    string      `yaml:"client-fingerprint,omitempty"`
-	Reality        *RealityCfg `yaml:"reality-opts,omitempty"`
-	WSOpts         *WSOpts     `yaml:"ws-opts,omitempty"`
-	HTTPOpts       *HTTPOpts   `yaml:"http-opts,omitempty"`
-	DialerProxy    string      `yaml:"dialer-proxy,omitempty"`
-	IdleSessionCheckInterval int `yaml:"idle-session-check-interval,omitempty"`
-	IdleSessionTimeout       int `yaml:"idle-session-timeout,omitempty"`
-	MinIdleSession           int `yaml:"min-idle-session,omitempty"`
+	Name                     string          `yaml:"name"`
+	Type                     string          `yaml:"type"`
+	Server                   string          `yaml:"server,omitempty"`
+	Port                     int             `yaml:"port,omitempty"`
+	Version                  int             `yaml:"version,omitempty"`
+	Password                 string          `yaml:"password,omitempty"`
+	UDP                      bool            `yaml:"udp,omitempty"`
+	SNI                      string          `yaml:"sni,omitempty"`
+	SkipCertVerify           bool            `yaml:"skip-cert-verify,omitempty"`
+	Network                  string          `yaml:"network,omitempty"`
+	Security                 string          `yaml:"security,omitempty"`
+	UUID                     string          `yaml:"uuid,omitempty"`
+	AlterID                  int             `yaml:"alterId,omitempty"`
+	Cipher                   string          `yaml:"cipher,omitempty"`
+	Flow                     string          `yaml:"flow,omitempty"`
+	TLS                      bool            `yaml:"tls,omitempty"`
+	Alpn                     []string        `yaml:"alpn,omitempty"`
+	Fingerprint              string          `yaml:"client-fingerprint,omitempty"`
+	Reality                  *RealityCfg     `yaml:"reality-opts,omitempty"`
+	WSOpts                   *WSOpts         `yaml:"ws-opts,omitempty"`
+	HTTPOpts                 *HTTPOpts       `yaml:"http-opts,omitempty"`
+	DialerProxy              string          `yaml:"dialer-proxy,omitempty"`
+	IP                       string          `yaml:"ip,omitempty"`
+	IPv6                     string          `yaml:"ipv6,omitempty"`
+	PrivateKey               string          `yaml:"private-key,omitempty"`
+	DNS                      []string        `yaml:"dns,omitempty"`
+	MTU                      int             `yaml:"mtu,omitempty"`
+	RemoteDNSResolve         bool            `yaml:"remote-dns-resolve,omitempty"`
+	Peers                    []WireGuardPeer `yaml:"peers,omitempty"`
+	IdleSessionCheckInterval int             `yaml:"idle-session-check-interval,omitempty"`
+	IdleSessionTimeout       int             `yaml:"idle-session-timeout,omitempty"`
+	MinIdleSession           int             `yaml:"min-idle-session,omitempty"`
 }
 
 type WSOpts struct {
@@ -63,6 +70,16 @@ type RealityCfg struct {
 	ShortID   string `yaml:"short-id,omitempty"`
 }
 
+type WireGuardPeer struct {
+	Server              string   `yaml:"server,omitempty"`
+	Port                int      `yaml:"port,omitempty"`
+	PublicKey           string   `yaml:"public-key,omitempty"`
+	PreSharedKey        string   `yaml:"pre-shared-key,omitempty"`
+	AllowedIPs          []string `yaml:"allowed-ips,omitempty"`
+	Reserved            []int    `yaml:"reserved,omitempty"`
+	PersistentKeepalive int      `yaml:"persistent-keepalive,omitempty"`
+}
+
 type Group struct {
 	Name    string   `yaml:"name"`
 	Type    string   `yaml:"type"`
@@ -71,7 +88,7 @@ type Group struct {
 
 // ProxyNode 通用代理节点
 type ProxyNode struct {
-	Protocol    string                 // 协议类型: trojan, vmess, vless, ss, anytls, hysteria2, tuic
+	Protocol    string                 // 协议类型: trojan, vmess, vless, ss, wireguard, anytls, hysteria2, tuic
 	Name        string                 // 节点名称
 	Server      string                 // 服务器地址
 	Port        int                    // 端口
@@ -186,6 +203,8 @@ func buildProxies(nodes []*ProxyNode) ([]Proxy, []string) {
 			addShadowsocksFields(&proxy, node.Options)
 		case "hysteria2", "hy2":
 			addHysteria2Fields(&proxy, node.Options)
+		case "wireguard":
+			addWireGuardFields(&proxy, node)
 		case "anytls":
 			addAnyTLSFields(&proxy, node.Options)
 		case "tuic":
@@ -375,6 +394,41 @@ func addHysteria2Fields(proxy *Proxy, opts map[string]interface{}) {
 	}
 	if skip, ok := opts["skipCertVerify"].(bool); ok {
 		proxy.SkipCertVerify = skip
+	}
+}
+
+func addWireGuardFields(proxy *Proxy, node *ProxyNode) {
+	cfg := extractWireGuardConfig(node)
+	for _, addr := range cfg.LocalAddresses {
+		if strings.Contains(addr, ":") {
+			if proxy.IPv6 == "" {
+				proxy.IPv6 = addr
+			}
+			continue
+		}
+		if proxy.IP == "" {
+			proxy.IP = addr
+		}
+	}
+	proxy.PrivateKey = cfg.PrivateKey
+	proxy.DNS = append([]string(nil), cfg.DNS...)
+	proxy.MTU = cfg.MTU
+	proxy.RemoteDNSResolve = cfg.RemoteDNSResolve
+	if len(cfg.Peers) > 0 {
+		proxy.Server = ""
+		proxy.Port = 0
+		proxy.Peers = make([]WireGuardPeer, 0, len(cfg.Peers))
+		for _, peer := range cfg.Peers {
+			proxy.Peers = append(proxy.Peers, WireGuardPeer{
+				Server:              peer.Server,
+				Port:                peer.Port,
+				PublicKey:           peer.PublicKey,
+				PreSharedKey:        peer.PreSharedKey,
+				AllowedIPs:          append([]string(nil), peer.AllowedIPs...),
+				Reserved:            append([]int(nil), peer.Reserved...),
+				PersistentKeepalive: peer.PersistentKeepalive,
+			})
+		}
 	}
 }
 

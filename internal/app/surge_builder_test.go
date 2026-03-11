@@ -204,6 +204,51 @@ __NODES__
 	}
 }
 
+func TestBuildSurgeFromTemplateContentWireGuard(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "WG Private",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.255.255.2",
+				"private-key": "private-key",
+				"dns":         []interface{}{"192.168.100.1"},
+				"mtu":         1420,
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"192.168.100.0/24", "10.255.0.0/24"},
+				"reserved":    []interface{}{1, 2, 3},
+			},
+		},
+	}
+
+	templateContent := `[General]
+loglevel = notify
+
+[Proxy]
+__NODES__
+
+[Proxy Group]
+Proxy = select, __NODES__
+`
+
+	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("生成 Surge 配置失败: %v", err)
+	}
+
+	if !strings.Contains(config, "WG Private = wireguard, section-name = WG Private") {
+		t.Fatalf("期望生成 wireguard 代理行，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "[WireGuard WG Private]") {
+		t.Fatalf("期望生成 WireGuard section，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "peer=(endpoint=vpn.example.com:51820, public-key=\"peer-public-key\", allowed-ips=\"192.168.100.0/24,10.255.0.0/24\", client-id=\"1/2/3\")") {
+		t.Fatalf("期望生成 peer 配置，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildSurgeFromTemplateContentPolicyRegexFilterWithSpaces(t *testing.T) {
 	nodes := []*ProxyNode{
 		{Name: "HK A", Server: "hk-a.example.com", Port: 443, Protocol: "trojan", Options: map[string]interface{}{"password": "a", "sni": "hk-a.example.com"}},
@@ -276,14 +321,14 @@ func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
 		Server:   "sg.example.com",
 		Port:     443,
 		Options: map[string]interface{}{
-			"password":                     "secret",
-			"sni":                          "sg.example.com",
-			"client-fingerprint":           "chrome",
-			"skip-cert-verify":             true,
-			"alpn":                         []interface{}{"h2", "http/1.1"},
-			"idle-session-check-interval":  15,
-			"idle-session-timeout":         30,
-			"min-idle-session":             2,
+			"password":                    "secret",
+			"sni":                         "sg.example.com",
+			"client-fingerprint":          "chrome",
+			"skip-cert-verify":            true,
+			"alpn":                        []interface{}{"h2", "http/1.1"},
+			"idle-session-check-interval": 15,
+			"idle-session-timeout":        30,
+			"min-idle-session":            2,
 		},
 	}
 

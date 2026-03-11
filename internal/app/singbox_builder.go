@@ -81,18 +81,21 @@ func buildSingBoxOutbounds(nodes []*ProxyNode) ([]map[string]interface{}, []stri
 }
 
 func singBoxOutbound(node *ProxyNode, tag string) map[string]interface{} {
+	outboundType := normalizeSingBoxProtocol(node.Protocol)
 	outbound := map[string]interface{}{
-		"type":        normalizeSingBoxProtocol(node.Protocol),
-		"tag":         tag,
-		"server":      node.Server,
-		"server_port": node.Port,
+		"type": outboundType,
+		"tag":  tag,
+	}
+	if outboundType != "wireguard" {
+		outbound["server"] = node.Server
+		outbound["server_port"] = node.Port
 	}
 
 	if node.DialerProxy != "" {
 		outbound["detour"] = addCountryEmoji(node.DialerProxy)
 	}
 
-	switch outbound["type"] {
+	switch outboundType {
 	case "trojan":
 		if password, ok := stringOption(node.Options, "password"); ok {
 			outbound["password"] = password
@@ -164,6 +167,58 @@ func singBoxOutbound(node *ProxyNode, tag string) map[string]interface{} {
 			outbound["password"] = password
 		}
 		outbound["tls"] = singBoxTLSObject(node.Options, node.Server, true)
+	case "wireguard":
+		cfg := extractWireGuardConfig(node)
+		if len(cfg.LocalAddresses) > 0 {
+			outbound["local_address"] = append([]string(nil), cfg.LocalAddresses...)
+		}
+		if cfg.PrivateKey != "" {
+			outbound["private_key"] = cfg.PrivateKey
+		}
+		if len(cfg.Peers) > 1 {
+			peers := make([]map[string]interface{}, 0, len(cfg.Peers))
+			for _, peer := range cfg.Peers {
+				item := map[string]interface{}{
+					"server":      peer.Server,
+					"server_port": peer.Port,
+					"public_key":  peer.PublicKey,
+				}
+				if len(peer.AllowedIPs) > 0 {
+					item["allowed_ips"] = append([]string(nil), peer.AllowedIPs...)
+				}
+				if peer.PreSharedKey != "" {
+					item["pre_shared_key"] = peer.PreSharedKey
+				}
+				if len(peer.Reserved) > 0 {
+					item["reserved"] = append([]int(nil), peer.Reserved...)
+				}
+				if peer.PersistentKeepalive > 0 {
+					item["persistent_keepalive_interval"] = peer.PersistentKeepalive
+				}
+				peers = append(peers, item)
+			}
+			outbound["peers"] = peers
+		} else if len(cfg.Peers) == 1 {
+			peer := cfg.Peers[0]
+			outbound["server"] = peer.Server
+			outbound["server_port"] = peer.Port
+			outbound["peer_public_key"] = peer.PublicKey
+			if len(peer.AllowedIPs) > 0 {
+				outbound["peer_allowed_ips"] = append([]string(nil), peer.AllowedIPs...)
+			}
+			if peer.PreSharedKey != "" {
+				outbound["pre_shared_key"] = peer.PreSharedKey
+			}
+			if len(peer.Reserved) > 0 {
+				outbound["reserved"] = append([]int(nil), peer.Reserved...)
+			}
+		}
+		if len(cfg.DNS) > 0 {
+			outbound["dns"] = append([]string(nil), cfg.DNS...)
+		}
+		if cfg.MTU > 0 {
+			outbound["mtu"] = cfg.MTU
+		}
 	}
 
 	return outbound
@@ -175,6 +230,8 @@ func normalizeSingBoxProtocol(protocol string) string {
 		return "shadowsocks"
 	case "hy2", "hysteria2":
 		return "hysteria2"
+	case "wireguard":
+		return "wireguard"
 	default:
 		return strings.ToLower(protocol)
 	}

@@ -37,9 +37,13 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 
 	// 渲染最终节点行
 	nodeLines := make([]string, 0, len(clonedNodes))
+	wireGuardSections := make([]string, 0)
 	for i, node := range clonedNodes {
 		name := ensureNodeName(node, i)
 		nodeLines = append(nodeLines, surgeProxyLine(node, name))
+		if section := surgeWireGuardSection(node, name); section != "" {
+			wireGuardSections = append(wireGuardSections, section)
+		}
 	}
 
 	lines := strings.Split(templateContent, "\n")
@@ -49,6 +53,7 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 	section := ""
 	// 用于 [Proxy] section：记录是否已找到 __NODES__ 占位行
 	proxyNodesInserted := false
+	wireGuardSectionsInserted := false
 	// 缓存 [Proxy] section 末尾插入位置
 	pendingProxyLines := []string(nil)
 
@@ -61,7 +66,12 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 			// 离开 [Proxy] section 时，若未找到 __NODES__ 则在末尾追加节点
 			if section == "[Proxy]" && !proxyNodesInserted {
 				out = append(out, pendingProxyLines...)
+				out = append(out, wireGuardSections...)
 				proxyNodesInserted = true
+				wireGuardSectionsInserted = true
+			} else if section == "[Proxy]" && len(wireGuardSections) > 0 && !wireGuardSectionsInserted {
+				out = append(out, wireGuardSections...)
+				wireGuardSectionsInserted = true
 			}
 			pendingProxyLines = nil
 
@@ -77,7 +87,9 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 			if strings.TrimSpace(line) == "__NODES__" {
 				// 替换占位符为所有节点行
 				out = append(out, nodeLines...)
+				out = append(out, wireGuardSections...)
 				proxyNodesInserted = true
+				wireGuardSectionsInserted = true
 			} else {
 				// 暂存非占位行，以便在 section 结束时判断是否需要追加
 				if !proxyNodesInserted {
@@ -107,6 +119,8 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 	// 文件末尾若仍在 [Proxy] section 且未插入节点
 	if section == "[Proxy]" && !proxyNodesInserted {
 		out = append(out, nodeLines...)
+		out = append(out, wireGuardSections...)
+		wireGuardSectionsInserted = true
 	}
 
 	return strings.Join(out, "\n"), nil
@@ -486,10 +500,69 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		return appendUnderlyingProxy(fmt.Sprintf("%s = tuic-v5, %s, %d, uuid=%s, password=%s, sni=%s",
 			name, node.Server, node.Port, uuid, password, sni))
 
+	case "wireguard":
+		return appendUnderlyingProxy(fmt.Sprintf("%s = wireguard, section-name = %s", name, name))
+
 	default:
 		// 未知协议，生成注释行
 		return fmt.Sprintf("# 不支持的协议: %s (%s)", node.Protocol, name)
 	}
+}
+
+func surgeWireGuardSection(node *ProxyNode, name string) string {
+	if node.Protocol != "wireguard" {
+		return ""
+	}
+
+	cfg := extractWireGuardConfig(node)
+	if cfg.PrivateKey == "" || len(cfg.Peers) == 0 {
+		return ""
+	}
+
+	lines := []string{
+		"",
+		fmt.Sprintf("[WireGuard %s]", name),
+		fmt.Sprintf("private-key=%s", cfg.PrivateKey),
+	}
+	if len(cfg.LocalAddresses) > 0 {
+		lines = append(lines, fmt.Sprintf("self-ip=%s", cfg.LocalAddresses[0]))
+	}
+	for _, addr := range cfg.LocalAddresses {
+		if strings.Contains(addr, ":") {
+			lines = append(lines, fmt.Sprintf("self-ip-v6=%s", addr))
+			break
+		}
+	}
+	if cfg.MTU > 0 {
+		lines = append(lines, fmt.Sprintf("mtu=%d", cfg.MTU))
+	}
+	if len(cfg.DNS) > 0 {
+		lines = append(lines, fmt.Sprintf("dns-server=%s", strings.Join(cfg.DNS, ", ")))
+	}
+	for _, peer := range cfg.Peers {
+		parts := []string{
+			fmt.Sprintf("endpoint=%s:%d", peer.Server, peer.Port),
+			fmt.Sprintf("public-key=\"%s\"", peer.PublicKey),
+		}
+		if peer.PreSharedKey != "" {
+			parts = append(parts, fmt.Sprintf("pre-shared-key=\"%s\"", peer.PreSharedKey))
+		}
+		if len(peer.AllowedIPs) > 0 {
+			parts = append(parts, fmt.Sprintf("allowed-ips=\"%s\"", strings.Join(peer.AllowedIPs, ",")))
+		}
+		if len(peer.Reserved) > 0 {
+			clientID := make([]string, 0, len(peer.Reserved))
+			for _, value := range peer.Reserved {
+				clientID = append(clientID, fmt.Sprintf("%d", value))
+			}
+			parts = append(parts, fmt.Sprintf("client-id=\"%s\"", strings.Join(clientID, "/")))
+		}
+		if peer.PersistentKeepalive > 0 {
+			parts = append(parts, fmt.Sprintf("keepalive=%d", peer.PersistentKeepalive))
+		}
+		lines = append(lines, fmt.Sprintf("peer=(%s)", strings.Join(parts, ", ")))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // filterNodesByPattern 按正则模式过滤节点名列表，支持包含（policy-regex-filter）和排除（exclude-filter）
