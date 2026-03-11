@@ -250,6 +250,16 @@
         return daysLeft > 0 ? `${dateStr}（剩 ${daysLeft} 天）` : `${dateStr}（已过期）`;
       };
 
+      // 复制到剪贴板
+      const copyToClipboard = async (text, label) => {
+        try {
+          await navigator.clipboard.writeText(text);
+          addToast(`${label}已复制到剪贴板`);
+        } catch (err) {
+          addToast(`复制失败：${err.message}`, 'err');
+        }
+      };
+
       return (
         <div className="app">
           <Sidebar active="subs" />
@@ -333,8 +343,19 @@
                           </svg>
                           最后同步：{fmtTime(sub.last_fetched_at)}
                         </span>
-                        {/* 订阅 URL 截断显示 */}
-                        <span className="item-mi" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {/* 订阅 URL 截断显示与复制 */}
+                        <span
+                          className="item-mi"
+                          style={{
+                            maxWidth: 320,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            cursor: 'pointer'
+                          }}
+                          title={sub.url}
+                          onClick={() => copyToClipboard(sub.url, '订阅地址')}
+                        >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>

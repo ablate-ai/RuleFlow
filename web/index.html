@@ -55,7 +55,7 @@
     .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
     .btn-s:hover:not(:disabled) { background: #f9fafb; }
 
-    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
     .stat {
       background: var(--card);
       border: 1px solid var(--bdr);
@@ -82,20 +82,6 @@
     .card-hs { font-size: 12.5px; color: var(--t3); }
     .card-b { padding: 18px; }
 
-    .issue-list { display: grid; gap: 12px; }
-    .issue-item {
-      border: 1px solid var(--bdr);
-      border-radius: 12px;
-      padding: 14px 15px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      background: #fcfcfd;
-    }
-    .issue-main { min-width: 0; }
-    .issue-title { font-size: 14px; font-weight: 650; color: var(--t1); }
-    .issue-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; }
     .tag {
       display: inline-flex;
       align-items: center;
@@ -121,8 +107,37 @@
       background: #fff;
     }
     .sub-name { font-size: 13.5px; font-weight: 650; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sub-meta { font-size: 12px; color: var(--t3); margin-top: 4px; }
+    .sub-meta { font-size: 12px; color: var(--t3); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sub-cell { font-size: 12.5px; color: var(--t2); }
+    .sub-expand {
+      grid-column: 1 / -1;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--bdr);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .sub-expand-item {
+      font-size: 12px;
+      color: var(--t3);
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .sub-expand-label { font-weight: 600; color: var(--t2); white-space: nowrap; }
+    .sub-expand-value { word-break: break-all; overflow: hidden; text-overflow: ellipsis; }
+    .sub-toggle {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--t3);
+      margin-left: 8px;
+      user-select: none;
+    }
+    .sub-toggle:hover { color: var(--t1); }
 
     .mini-grid { display: grid; gap: 12px; }
     .mini-stat {
@@ -218,54 +233,6 @@
       return `${Math.floor(diff / DAY_MS)} 天前`;
     }
 
-    function buildIssueItems(subscriptions, templates, policies, health) {
-      const issues = [];
-      const now = Date.now();
-
-      const failedSubs = subscriptions.filter(s => Boolean(s.last_fetch_error));
-      if (failedSubs.length > 0) {
-        issues.push({
-          level: 'bad',
-          title: `${failedSubs.length} 个订阅最近拉取失败`,
-          desc: `优先检查 ${failedSubs.slice(0, 2).map(s => s.name).join('、')}${failedSubs.length > 2 ? ' 等订阅' : ''} 的 URL、鉴权或远端可达性。`,
-        });
-      }
-
-      const staleSubs = subscriptions.filter(s => s.enabled && (!s.last_fetched_at || now - new Date(s.last_fetched_at).getTime() > DAY_MS));
-      if (staleSubs.length > 0) {
-        issues.push({
-          level: failedSubs.length > 0 ? 'warn' : 'bad',
-          title: `${staleSubs.length} 个启用订阅超过 24 小时未更新`,
-          desc: '这些订阅可能已经过期，节点与流量信息不一定可信。',
-        });
-      }
-
-      if (policies.filter(p => p.enabled).length === 0) {
-        issues.push({
-          level: 'warn',
-          title: '当前没有启用的配置策略',
-          desc: '即使订阅和节点正常，也无法稳定产出可供客户端使用的配置。',
-        });
-      }
-
-      if (templates.length === 0) {
-        issues.push({
-          level: 'warn',
-          title: '当前没有任何规则模板',
-          desc: '建议至少准备一套模板，否则配置策略无法完整工作。',
-        });
-      }
-
-      if (health && health.status && health.status !== 'healthy') {
-        issues.push({
-          level: 'bad',
-          title: '系统健康状态不是 healthy',
-          desc: `当前状态为 ${health.status}，请检查数据库或 Redis 连接。`,
-        });
-      }
-
-      return issues.slice(0, 5);
-    }
 
     function getSubStatus(sub) {
       if (sub.last_fetch_error) return { label: '失败', cls: 'tag-bad' };
@@ -294,25 +261,24 @@
       </div>
     );
 
-    const IssueItem = ({ issue }) => (
-      <div className="issue-item">
-        <div className="issue-main">
-          <div className="issue-title">{issue.title}</div>
-          <div className="issue-desc">{issue.desc}</div>
-        </div>
-        <span className={`tag tag-${issue.level === 'bad' ? 'bad' : issue.level === 'warn' ? 'warn' : 'ok'}`}>
-          {issue.level === 'bad' ? '高优先级' : issue.level === 'warn' ? '注意' : '正常'}
-        </span>
-      </div>
-    );
 
     const SubRow = ({ sub }) => {
       const status = getSubStatus(sub);
       const detail = sub.last_fetch_error ? sub.last_fetch_error : `最近同步：${formatTime(sub.last_fetched_at)}`;
+      const [expanded, setExpanded] = useState(false);
+
       return (
         <div className="sub-row">
           <div>
-            <div className="sub-name">{sub.name}</div>
+            <div className="sub-name">
+              {sub.name}
+              <span className="sub-toggle" onClick={() => setExpanded(!expanded)}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+                {expanded ? '收起' : '展开'}
+              </span>
+            </div>
             <div className="sub-meta">{detail}</div>
           </div>
           <div className="sub-cell">{sub.node_count ?? 0} 节点</div>
@@ -321,6 +287,37 @@
             <span className={`tag ${status.cls}`}>{status.label}</span>{' '}
             <span className="muted">{formatAgo(sub.last_fetched_at)}</span>
           </div>
+
+          {expanded && (
+            <div className="sub-expand">
+              <div className="sub-expand-item">
+                <span className="sub-expand-label">订阅地址:</span>
+                <span className="sub-expand-value">{sub.url}</span>
+              </div>
+              {sub.refresh_interval && (
+                <div className="sub-expand-item">
+                  <span className="sub-expand-label">刷新间隔:</span>
+                  <span className="sub-expand-value">{sub.refresh_interval}秒</span>
+                </div>
+              )}
+              {sub.description && (
+                <div className="sub-expand-item">
+                  <span className="sub-expand-label">描述:</span>
+                  <span className="sub-expand-value">{sub.description}</span>
+                </div>
+              )}
+              {sub.filter_rules && (
+                <div className="sub-expand-item">
+                  <span className="sub-expand-label">过滤规则:</span>
+                  <span className="sub-expand-value">
+                    {sub.filter_rules.exclude_keywords?.length > 0 && `排除关键词: ${sub.filter_rules.exclude_keywords.join(', ')}; `}
+                    {sub.filter_rules.exclude_regex && `排除正则: ${sub.filter_rules.exclude_regex}; `}
+                    {sub.filter_rules.include_protocols?.length > 0 && `协议白名单: ${sub.filter_rules.include_protocols.join(', ')}`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       );
     };
@@ -405,16 +402,11 @@
       const enabledSubs    = subscriptions.filter(s => s.enabled).length;
       const failedSubs     = subscriptions.filter(s => Boolean(s.last_fetch_error));
       const staleSubs      = subscriptions.filter(s => s.enabled && (!s.last_fetched_at || Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS));
-      const impactedCount  = new Set([...failedSubs.map(s => s.name), ...staleSubs.map(s => s.name)]).size;
       const totalNodes     = Number(nodeStats.total || 0);
       const enabledNodes   = Number(nodeStats.enabled || 0);
       const disabledNodes  = Math.max(totalNodes - enabledNodes, 0);
       const enabledPolicies = policies.filter(p => p.enabled).length;
       const sourceCount    = Object.keys(nodeStats.by_source || {}).length;
-      const issues         = loaded ? buildIssueItems(subscriptions, templates, policies, health) : [];
-      const displayIssues  = loaded && issues.length === 0
-        ? [{ level: 'ok', title: '目前没有明显异常', desc: '服务、订阅、模板和策略都处于可继续工作的状态。' }]
-        : issues;
       const protocolItems  = Object.entries(nodeStats.by_protocol || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
       const protocolMax    = Math.max(...protocolItems.map(([, c]) => c), 1);
       const templateTypes  = [...new Set(templates.map(t => t.target).filter(Boolean))].join(' / ');
@@ -429,7 +421,7 @@
         };
         const d = score(a) - score(b);
         return d !== 0 ? d : new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
-      }).slice(0, 6);
+      });
 
       const heroStatus = (() => {
         if (!loaded) return { cls: 'pill pill-ok', label: '正在检查服务状态' };
@@ -438,12 +430,6 @@
         return { cls: 'pill pill-bad', label: '服务状态获取失败' };
       })();
 
-      const issueNoteText = (() => {
-        if (!loaded) return '加载中';
-        if (issues.length === 0) return '当前没有明显异常';
-        if (impactedCount > 0) return `涉及 ${impactedCount} 个异常订阅及系统配置状态`;
-        return '当前存在系统配置或健康状态问题';
-      })();
 
       return (
         <div className="app">
@@ -489,15 +475,6 @@
               />
               <StatCard
                 loaded={loaded}
-                kicker="待处理"
-                value={String(issues.length)}
-                label="当前需要处理的问题项"
-                note={issueNoteText}
-                iconBg="var(--redbg)"
-                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
-              />
-              <StatCard
-                loaded={loaded}
                 kicker="节点可用性"
                 value={`${enabledNodes}/${totalNodes}`}
                 label="启用节点 / 总节点"
@@ -516,25 +493,9 @@
               />
             </section>
 
-            {/* 待处理事项 + 资源概览 */}
-            <section className="grid">
-              <div className="card">
-                <div className="card-h">
-                  <div>
-                    <div className="card-ht">待处理事项</div>
-                    <div className="card-hs">优先展示真正影响可用性的异常</div>
-                  </div>
-                </div>
-                <div className="card-b">
-                  <div className="issue-list">
-                    {!loaded
-                      ? <div className="empty">加载中...</div>
-                      : displayIssues.map((issue, i) => <IssueItem key={i} issue={issue} />)
-                    }
-                  </div>
-                </div>
-              </div>
-
+            {/* 资源概览 + 配置策略总览 */}
+            <section className="grid" style={{ marginBottom: 22 }}>
+              {/* 资源概览 */}
               <div className="card">
                 <div className="card-h">
                   <div>
@@ -554,6 +515,11 @@
                       <div className="mini-value">{loaded ? sourceCount : '--'}</div>
                       <div className="mini-note">区分订阅导入与手动节点</div>
                     </div>
+                    <div className="mini-stat">
+                      <div className="mini-label">配置策略</div>
+                      <div className="mini-value">{loaded ? policies.length : '--'}</div>
+                      <div className="mini-note">{loaded ? (policies.length ? `${policies.filter(p => p.enabled).length} 个启用` : '尚未创建配置策略') : '加载中'}</div>
+                    </div>
                   </div>
                   <div className="breakdown">
                     <div className="muted" style={{ fontSize: 12 }}>节点协议分布</div>
@@ -568,9 +534,82 @@
                   </div>
                 </div>
               </div>
+
+              {/* 配置策略总览 */}
+              <div className="card">
+                <div className="card-h">
+                  <div>
+                    <div className="card-ht">配置策略总览</div>
+                    <div className="card-hs">查看生成的订阅配置详情</div>
+                  </div>
+                  <a href="/configs" className="btn btn-s">进入配置管理</a>
+                </div>
+                <div className="card-b">
+                  {!loaded ? (
+                    <div className="empty">加载中...</div>
+                  ) : policies.length === 0 ? (
+                    <div className="empty">
+                      <div className="empty-t" style={{ fontSize: 14 }}>暂无配置策略</div>
+                      <div className="empty-d" style={{ fontSize: 12, marginTop: 4 }}>创建配置策略，生成专属的订阅链接</div>
+                      <button className="btn btn-p" style={{ marginTop: 12, fontSize: 12, padding: '6px 12px' }} onClick={() => window.location.href = '/configs'}>
+                        <IcoPlus />新建策略
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="sub-list">
+                      {policies.slice(0, 3).map(policy => {
+                        const targetMap = { 'clash-meta': 'Clash Meta', stash: 'Stash', surge: 'Surge', 'sing-box': 'sing-box' };
+                        const status = policy.enabled ? { label: '启用', cls: 'tag-ok' } : { label: '禁用', cls: 'tag-warn' };
+                        const subCount = (policy.subscription_ids || []).length;
+                        const nodeCount = (policy.node_ids || []).length;
+                        return (
+                          <div key={policy.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {policy.name}
+                                <span className={`tag ${status.cls}`} style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px' }}>{status.label}</span>
+                                <span className="tag bdg-gray" style={{ marginLeft: 4, fontSize: 10, padding: '1px 6px' }}>{targetMap[policy.target] || policy.target}</span>
+                              </div>
+                              <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {subCount} 订阅 + {nodeCount} 节点
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-s btn-sm"
+                              style={{ fontSize: 11, padding: '4px 8px' }}
+                              onClick={() => {
+                                const url = `${window.location.origin}/subscribe?token=${policy.token}`;
+                                navigator.clipboard.writeText(url).then(() => {
+                                  const tempToast = document.createElement('div');
+                                  tempToast.className = 'toast t-ok';
+                                  tempToast.textContent = '订阅链接已复制';
+                                  tempToast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 16px;border-radius:8px;background:#16a34a;color:#fff;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;';
+                                  document.body.appendChild(tempToast);
+                                  setTimeout(() => tempToast.style.opacity = '1', 100);
+                                  setTimeout(() => {
+                                    tempToast.style.opacity = '0';
+                                    setTimeout(() => document.body.removeChild(tempToast), 300);
+                                  }, 2000);
+                                });
+                              }}
+                            >
+                              <IcoCopy />复制
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {policies.length > 3 && (
+                        <div style={{ paddingTop: 8, textAlign: 'center' }}>
+                          <span style={{ fontSize: 12, color: 'var(--t3)' }}>还有 {policies.length - 3} 个策略…</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </section>
 
-            {/* 订阅状态 + 快捷操作 */}
+            {/* 订阅状态 */}
             <section className="grid" style={{ marginBottom: 22 }}>
               <div className="card">
                 <div className="card-h">
@@ -588,35 +627,6 @@
                       ? <div className="empty">还没有订阅源，先去创建一个可同步的订阅。</div>
                       : sortedSubs.map(sub => <SubRow key={sub.id} sub={sub} />)
                     }
-                  </div>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="card-h">
-                  <div>
-                    <div className="card-ht">快捷操作</div>
-                    <div className="card-hs">常用动作保留，但不再抢主视线</div>
-                  </div>
-                </div>
-                <div className="card-b">
-                  <div className="quick-grid">
-                    <a href="/subscriptions" className="quick-card">
-                      <div className="quick-title">订阅源</div>
-                      <div className="quick-desc">新增订阅、手动同步、排查拉取失败</div>
-                    </a>
-                    <a href="/nodes" className="quick-card">
-                      <div className="quick-title">节点管理</div>
-                      <div className="quick-desc">筛选禁用节点，查看协议和来源分布</div>
-                    </a>
-                    <a href="/configs" className="quick-card">
-                      <div className="quick-title">配置策略</div>
-                      <div className="quick-desc">确认启用策略是否足够，补齐 token 配置</div>
-                    </a>
-                    <a href="/templates" className="quick-card">
-                      <div className="quick-title">规则模板</div>
-                      <div className="quick-desc">维护 Clash、Stash、Surge 模板内容</div>
-                    </a>
                   </div>
                 </div>
               </div>
