@@ -21,7 +21,7 @@ func BuildSingBoxFromDefaultTemplate(nodes []*ProxyNode) (string, error) {
 }
 
 func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string) (string, error) {
-	nodeOutbounds, nodeNames := buildSingBoxOutbounds(nodes)
+	nodeOutbounds, nodeEndpoints, nodeNames := buildSingBoxOutbounds(nodes)
 	allNodes := fallbackSingBoxOutboundList(nodeNames, []string{"DIRECT"})
 	autoNodes := fallbackSingBoxOutboundList(filterNodeNames(nodeNames, func(name string) bool {
 		return !strings.Contains(strings.ToLower(name), "v2")
@@ -43,6 +43,8 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 	extraOutbounds = append(extraOutbounds, nodeOutbounds...)
 
 	replacer := strings.NewReplacer(
+		"\"__ENDPOINTS__\"", marshalSingBoxRawObjectArray(nodeEndpoints),
+		"__ENDPOINTS__", marshalSingBoxRawObjectArray(nodeEndpoints),
 		"\"__PROXY_NODES__\"", joinSingBoxStringLiterals(allNodes),
 		"\"__AUTO_NODES__\"", joinSingBoxStringLiterals(autoNodes),
 		"\"__SG_NODES__\"", joinSingBoxStringLiterals(sgNodes),
@@ -54,9 +56,20 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 
 	content := replacer.Replace(templateContent)
 
-	var parsed interface{}
+	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
 		return "", fmt.Errorf("生成 sing-box 配置失败: %w", err)
+	}
+	if err := expandSingBoxOutboundGroups(parsed, nodeNames, map[string][]string{
+		"__NODES__":       allNodes,
+		"__PROXY_NODES__": allNodes,
+		"__AUTO_NODES__":  autoNodes,
+		"__SG_NODES__":    sgNodes,
+		"__HK_NODES__":    hkNodes,
+		"__US_NODES__":    usNodes,
+		"__JP_NODES__":    jpNodes,
+	}); err != nil {
+		return "", err
 	}
 
 	formatted, err := json.MarshalIndent(parsed, "", "  ")
@@ -66,18 +79,22 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 	return string(formatted), nil
 }
 
-func buildSingBoxOutbounds(nodes []*ProxyNode) ([]map[string]interface{}, []string) {
+func buildSingBoxOutbounds(nodes []*ProxyNode) ([]map[string]interface{}, []map[string]interface{}, []string) {
 	outbounds := make([]map[string]interface{}, 0, len(nodes))
+	endpoints := make([]map[string]interface{}, 0)
 	names := make([]string, 0, len(nodes))
 
 	for i, node := range nodes {
 		name := ensureNodeName(node, i)
-		outbound := singBoxOutbound(node, name)
-		outbounds = append(outbounds, outbound)
+		if strings.EqualFold(node.Protocol, "wireguard") {
+			endpoints = append(endpoints, singBoxWireGuardEndpoint(node, name))
+		} else {
+			outbounds = append(outbounds, singBoxOutbound(node, name))
+		}
 		names = append(names, name)
 	}
 
-	return outbounds, names
+	return outbounds, endpoints, names
 }
 
 func singBoxOutbound(node *ProxyNode, tag string) map[string]interface{} {
@@ -213,15 +230,54 @@ func singBoxOutbound(node *ProxyNode, tag string) map[string]interface{} {
 				outbound["reserved"] = append([]int(nil), peer.Reserved...)
 			}
 		}
-		if len(cfg.DNS) > 0 {
-			outbound["dns"] = append([]string(nil), cfg.DNS...)
-		}
 		if cfg.MTU > 0 {
 			outbound["mtu"] = cfg.MTU
 		}
 	}
 
 	return outbound
+}
+
+func singBoxWireGuardEndpoint(node *ProxyNode, tag string) map[string]interface{} {
+	cfg := extractWireGuardConfig(node)
+	endpoint := map[string]interface{}{
+		"type": "wireguard",
+		"tag":  tag,
+	}
+	if len(cfg.LocalAddresses) > 0 {
+		endpoint["address"] = append([]string(nil), cfg.LocalAddresses...)
+	}
+	if cfg.PrivateKey != "" {
+		endpoint["private_key"] = cfg.PrivateKey
+	}
+	if cfg.MTU > 0 {
+		endpoint["mtu"] = cfg.MTU
+	}
+	if len(cfg.Peers) > 0 {
+		peers := make([]map[string]interface{}, 0, len(cfg.Peers))
+		for _, peer := range cfg.Peers {
+			item := map[string]interface{}{
+				"address":    peer.Server,
+				"port":       peer.Port,
+				"public_key": peer.PublicKey,
+			}
+			if len(peer.AllowedIPs) > 0 {
+				item["allowed_ips"] = append([]string(nil), peer.AllowedIPs...)
+			}
+			if peer.PreSharedKey != "" {
+				item["pre_shared_key"] = peer.PreSharedKey
+			}
+			if len(peer.Reserved) > 0 {
+				item["reserved"] = append([]int(nil), peer.Reserved...)
+			}
+			if peer.PersistentKeepalive > 0 {
+				item["persistent_keepalive_interval"] = peer.PersistentKeepalive
+			}
+			peers = append(peers, item)
+		}
+		endpoint["peers"] = peers
+	}
+	return endpoint
 }
 
 func normalizeSingBoxProtocol(protocol string) string {
@@ -320,12 +376,113 @@ func joinSingBoxRawObjects(values []map[string]interface{}) string {
 	return strings.Join(parts, ",\n    ")
 }
 
+func marshalSingBoxRawObjectArray(values []map[string]interface{}) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	return "[\n    " + joinSingBoxRawObjects(values) + "\n  ]"
+}
+
 func fallbackSingBoxOutboundList(values []string, fallback []string) []string {
 	values = dedupeStrings(values)
 	if len(values) == 0 {
 		return append([]string(nil), fallback...)
 	}
 	return values
+}
+
+func expandSingBoxOutboundGroups(root map[string]interface{}, nodeNames []string, placeholders map[string][]string) error {
+	rawOutbounds, ok := root["outbounds"].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	known := make(map[string]struct{}, len(nodeNames)+len(rawOutbounds)+len(placeholders))
+	for _, name := range nodeNames {
+		known[name] = struct{}{}
+	}
+	for _, item := range rawOutbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if tag, ok := outbound["tag"].(string); ok && tag != "" {
+			known[tag] = struct{}{}
+		}
+	}
+
+	for i, item := range rawOutbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		rawMembers, ok := outbound["outbounds"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		filterPattern, _ := outbound["filter"].(string)
+		delete(outbound, "filter")
+		var filterRe *regexp.Regexp
+		if filterPattern != "" {
+			filterRe, _ = regexp.Compile(filterPattern)
+		}
+
+		filterNames := func(names []string) []string {
+			if filterRe == nil {
+				return append([]string(nil), names...)
+			}
+			filtered := make([]string, 0, len(names))
+			for _, name := range names {
+				if filterRe.MatchString(name) {
+					filtered = append(filtered, name)
+				}
+			}
+			return filtered
+		}
+
+		expanded := make([]string, 0, len(rawMembers))
+		for _, member := range rawMembers {
+			name, ok := member.(string)
+			if !ok || strings.TrimSpace(name) == "" {
+				continue
+			}
+
+			if names, exists := placeholders[name]; exists {
+				expanded = append(expanded, filterNames(names)...)
+				continue
+			}
+			if _, exists := known[name]; exists || builtInProxyName(name) {
+				expanded = append(expanded, name)
+			}
+		}
+
+		if len(expanded) == 0 {
+			switch strings.ToLower(strings.TrimSpace(fmt.Sprint(outbound["type"]))) {
+			case "selector", "urltest", "url-test", "fallback", "load_balance", "load-balance":
+				candidates := filterNames(placeholders["__NODES__"])
+				if len(candidates) > 0 {
+					expanded = append(expanded, candidates...)
+				} else {
+					expanded = append(expanded, "DIRECT")
+				}
+			default:
+				expanded = append(expanded, "DIRECT")
+			}
+		}
+
+		expanded = dedupeStrings(expanded)
+		converted := make([]interface{}, 0, len(expanded))
+		for _, name := range expanded {
+			converted = append(converted, name)
+		}
+		outbound["outbounds"] = converted
+		rawOutbounds[i] = outbound
+	}
+
+	root["outbounds"] = rawOutbounds
+	return nil
 }
 
 func filterNodeNames(values []string, match func(string) bool) []string {

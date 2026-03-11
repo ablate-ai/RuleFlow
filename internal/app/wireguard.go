@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 )
 
@@ -32,11 +33,11 @@ func extractWireGuardConfig(node *ProxyNode) wireGuardConfig {
 	}
 
 	cfg := wireGuardConfig{
-		LocalAddresses: dedupeStrings(appendStringSlice(
+		LocalAddresses: normalizeWireGuardPrefixes(dedupeStrings(appendStringSlice(
 			flexibleStringSliceOption(opts, "local-address"),
 			stringValueOption(opts, "ip", "self-ip"),
 			stringValueOption(opts, "ipv6", "self-ip-v6"),
-		)),
+		))),
 		PrivateKey:       stringValueOption(opts, "private-key", "privateKey"),
 		DNS:              flexibleStringSliceOption(opts, "dns", "dns-server"),
 		MTU:              intValueOption(opts, "mtu"),
@@ -88,6 +89,7 @@ func extractWireGuardPeerFromMap(raw map[string]interface{}, fallbackServer stri
 	if len(peer.Reserved) == 0 {
 		peer.Reserved = flexibleIntSliceOption(raw, "client-id", "clientId")
 	}
+	peer.AllowedIPs = normalizeWireGuardPrefixes(peer.AllowedIPs)
 	return peer
 }
 
@@ -194,6 +196,30 @@ func appendStringSlice(base []string, extra ...string) []string {
 		if item != "" {
 			out = append(out, item)
 		}
+	}
+	return out
+}
+
+func normalizeWireGuardPrefixes(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if strings.Contains(value, "/") {
+			out = append(out, value)
+			continue
+		}
+		if addr, err := netip.ParseAddr(value); err == nil {
+			bits := 32
+			if addr.Is6() {
+				bits = 128
+			}
+			out = append(out, fmt.Sprintf("%s/%d", addr.String(), bits))
+			continue
+		}
+		out = append(out, value)
 	}
 	return out
 }

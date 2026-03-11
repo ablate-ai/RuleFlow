@@ -36,7 +36,7 @@ func TestBuildSingBoxFromTemplateContent(t *testing.T) {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
 
-	if strings.Contains(config, "__OUTBOUNDS__") || strings.Contains(config, "__AUTO_NODES__") {
+	if strings.Contains(config, "__OUTBOUNDS__") || strings.Contains(config, "__AUTO_NODES__") || strings.Contains(config, "\"filter\":") {
 		t.Fatalf("生成后的配置不应保留节点占位符，实际配置为:\n%s", config)
 	}
 
@@ -68,6 +68,66 @@ func TestBuildSingBoxFromTemplateContent(t *testing.T) {
 
 	if !foundUS || !foundHK {
 		t.Fatalf("生成的 sing-box 配置缺少节点出站，US=%v HK=%v", foundUS, foundHK)
+	}
+}
+
+func TestBuildSingBoxSupportsFilterExpansion(t *testing.T) {
+	templateContent := `{
+  "outbounds": [
+    {
+      "type": "urltest",
+      "tag": "🇸🇬 SG",
+      "outbounds": ["__NODES__"],
+      "filter": "新加坡|SG"
+    },
+    {
+      "type": "urltest",
+      "tag": "🛰 Auto",
+      "outbounds": ["__NODES__"],
+      "filter": "^((?!v2).)*$"
+    },
+    "__OUTBOUNDS__",
+    {
+      "type": "direct",
+      "tag": "DIRECT"
+    }
+  ]
+}`
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "SG Node 1",
+			Server:   "sg1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "sg1.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "v2 SG Node",
+			Server:   "sg2.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password456",
+				"sni":      "sg2.example.com",
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("按 filter 展开 sing-box 组失败: %v", err)
+	}
+	if strings.Contains(config, "\"filter\":") || strings.Contains(config, "__NODES__") {
+		t.Fatalf("sing-box 输出中不应保留 filter 或 __NODES__ 占位符，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"tag\": \"🇸🇬 SG\"") || !strings.Contains(config, "\"SG Node 1\"") {
+		t.Fatalf("期望 SG 组按 filter 命中新加坡节点，实际配置为:\n%s", config)
+	}
+	if strings.Contains(config, "\"🛰 Auto\",\n      \"v2 SG Node\"") {
+		t.Fatalf("Auto 组应通过 filter 排除 v2 节点，实际配置为:\n%s", config)
 	}
 }
 
@@ -168,15 +228,147 @@ func TestBuildSingBoxWireGuard(t *testing.T) {
 	}
 
 	if !strings.Contains(config, "\"type\": \"wireguard\"") {
-		t.Fatalf("期望生成 wireguard 出站，实际配置为:\n%s", config)
+		t.Fatalf("期望生成 wireguard 端点，实际配置为:\n%s", config)
 	}
 	if !strings.Contains(config, "\"private_key\": \"private-key\"") {
 		t.Fatalf("期望生成 private_key，实际配置为:\n%s", config)
 	}
-	if !strings.Contains(config, "\"peer_public_key\": \"peer-public-key\"") {
-		t.Fatalf("期望生成 peer_public_key，实际配置为:\n%s", config)
+	if !strings.Contains(config, "\"public_key\": \"peer-public-key\"") {
+		t.Fatalf("期望生成 peers.public_key，实际配置为:\n%s", config)
 	}
-	if !strings.Contains(config, "\"local_address\": [") {
-		t.Fatalf("期望生成 local_address，实际配置为:\n%s", config)
+	if !strings.Contains(config, "\"address\": [") {
+		t.Fatalf("期望生成 endpoint address，实际配置为:\n%s", config)
+	}
+	if strings.Contains(config, "\"local_address\": [") || strings.Contains(config, "\"peer_public_key\":") {
+		t.Fatalf("sing-box wireguard 不应再使用旧 outbound 字段，实际配置为:\n%s", config)
+	}
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+	endpoints, ok := cfg["endpoints"].([]interface{})
+	if !ok || len(endpoints) == 0 {
+		t.Fatalf("生成的 sing-box 配置缺少 endpoints")
+	}
+}
+
+func TestBuildSingBoxSupportsLegacyQuotedEndpointsPlaceholder(t *testing.T) {
+	templateContent := `{
+  "endpoints": [
+    "__ENDPOINTS__"
+  ],
+  "outbounds": [
+    "__OUTBOUNDS__",
+    {
+      "type": "direct",
+      "tag": "DIRECT"
+    }
+  ]
+}`
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "WG Node",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.0.0.2/32",
+				"private-key": "private-key",
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"0.0.0.0/0"},
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("旧模板占位符兼容失败: %v", err)
+	}
+	if strings.Contains(config, "__ENDPOINTS__") {
+		t.Fatalf("旧模板中的 __ENDPOINTS__ 不应保留，实际配置为:\n%s", config)
+	}
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+	endpoints, ok := cfg["endpoints"].([]interface{})
+	if !ok || len(endpoints) != 1 {
+		t.Fatalf("期望旧模板生成 1 个 endpoint，实际为: %#v", cfg["endpoints"])
+	}
+}
+
+func TestBuildSingBoxWireGuardNormalizesAddressPrefix(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "WG Bare IP",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.0.10.3",
+				"private-key": "private-key",
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"8.8.8.8"},
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+	if !strings.Contains(config, "\"10.0.10.3/32\"") {
+		t.Fatalf("期望自动补全 wireguard address 前缀，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "\"8.8.8.8/32\"") {
+		t.Fatalf("期望自动补全 wireguard allowed_ips 前缀，实际配置为:\n%s", config)
+	}
+}
+
+func TestBuildSingBoxSupportsBooleanTLSOption(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "vless",
+			Name:     "Bool TLS Node",
+			Server:   "tls.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"uuid": "11111111-1111-1111-1111-111111111111",
+				"tls":  true,
+				"sni":  "tls.example.com",
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+	if !strings.Contains(config, "\"enabled\": true") || !strings.Contains(config, "\"server_name\": \"tls.example.com\"") {
+		t.Fatalf("期望从布尔 tls 生成 sing-box tls 对象，实际配置为:\n%s", config)
+	}
+}
+
+func TestBuildSingBoxSupportsFlatSecurityTLSOption(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "vless",
+			Name:     "Security TLS Node",
+			Server:   "security.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"uuid":     "11111111-1111-1111-1111-111111111111",
+				"security": "tls",
+				"sni":      "security.example.com",
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+	if !strings.Contains(config, "\"enabled\": true") || !strings.Contains(config, "\"server_name\": \"security.example.com\"") {
+		t.Fatalf("期望从 security=tls 生成 sing-box tls 对象，实际配置为:\n%s", config)
 	}
 }
