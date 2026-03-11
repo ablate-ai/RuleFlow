@@ -9,6 +9,64 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestBuildYAMLSupportsNegativeLookaheadFilter(t *testing.T) {
+	templateContent := `proxy-groups:
+  - name: Auto
+    type: url-test
+    filter: "^((?!v2).)*$"
+    proxies: ["__NODES__"]
+proxies: []
+rules: []
+`
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "SG Node 1",
+			Server:   "sg1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "sg1.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "v2 SG Node",
+			Server:   "sg2.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password456",
+				"sni":      "sg2.example.com",
+			},
+		},
+	}
+
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-meta")
+	if err != nil {
+		t.Fatalf("YAML filter 负向前瞻生成失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := yaml.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 YAML 不是合法配置: %v", err)
+	}
+	groups, ok := cfg["proxy-groups"].([]interface{})
+	if !ok || len(groups) == 0 {
+		t.Fatalf("生成的 YAML 缺少 proxy-groups")
+	}
+	group, ok := groups[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("proxy-group 结构无效: %#v", groups[0])
+	}
+	proxies, ok := group["proxies"].([]interface{})
+	if !ok {
+		t.Fatalf("group proxies 结构无效: %#v", group["proxies"])
+	}
+	if len(proxies) != 1 || proxies[0] != "🇸🇬 SG Node 1" {
+		t.Fatalf("期望负向前瞻排除 v2 节点，实际配置为:\n%s", config)
+	}
+}
+
 // 辅助函数：返回两个整数中的最小值
 func min(a, b int) int {
 	if a < b {
@@ -299,15 +357,15 @@ func TestStashTUICUsesVersion5(t *testing.T) {
 // 测试 VLESS REALITY 节点的 YAML 输出字段名
 func TestVLESSRealityYAMLOutput(t *testing.T) {
 	proxy := &Proxy{
-		Name:    "东京",
-		Type:    "vless",
-		Server:  "154.31.116.16",
-		Port:    45478,
-		UUID:    "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
-		Flow:    "xtls-rprx-vision",
-		Network: "tcp",
-		TLS:     true,
-		SNI:     "music.apple.com",
+		Name:        "东京",
+		Type:        "vless",
+		Server:      "154.31.116.16",
+		Port:        45478,
+		UUID:        "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+		Flow:        "xtls-rprx-vision",
+		Network:     "tcp",
+		TLS:         true,
+		SNI:         "music.apple.com",
 		Fingerprint: "random",
 		Reality: &RealityCfg{
 			PublicKey: "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
@@ -445,7 +503,6 @@ func TestAddVLESSFieldsWithNestedGRPCTransport(t *testing.T) {
 		t.Fatalf("期望 grpc-opts.grpc-service-name=grpc-svc，实际为 %#v", proxy.GRPCOpts)
 	}
 }
-
 
 // 模拟完整手动导入路径：vless:// URL → DB JSON 往返 → 生成 YAML
 func TestVLESSManualImportFullPath(t *testing.T) {

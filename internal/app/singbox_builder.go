@@ -424,18 +424,18 @@ func expandSingBoxOutboundGroups(root map[string]interface{}, nodeNames []string
 
 		filterPattern, _ := outbound["filter"].(string)
 		delete(outbound, "filter")
-		var filterRe *regexp.Regexp
+		var filterMatcher func(string) bool
 		if filterPattern != "" {
-			filterRe, _ = regexp.Compile(filterPattern)
+			filterMatcher, _ = compileNodeNameMatcher(filterPattern)
 		}
 
 		filterNames := func(names []string) []string {
-			if filterRe == nil {
+			if filterMatcher == nil {
 				return append([]string(nil), names...)
 			}
 			filtered := make([]string, 0, len(names))
 			for _, name := range names {
-				if filterRe.MatchString(name) {
+				if filterMatcher(name) {
 					filtered = append(filtered, name)
 				}
 			}

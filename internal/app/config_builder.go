@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -182,17 +181,17 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		if pattern == "" {
 			return ""
 		}
-		re, err := regexp.Compile(pattern)
-		if err != nil || re == nil {
+		matcher, err := compileNodeNameMatcher(pattern)
+		if err != nil {
 			return ""
 		}
 		for _, n := range groupNames {
-			if re.MatchString(n) {
+			if matcher(n) {
 				return n
 			}
 		}
 		for _, n := range nodeNames {
-			if re.MatchString(n) {
+			if matcher(n) {
 				return n
 			}
 		}
@@ -217,9 +216,9 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 		// 读取并移除 filter 字段，用于服务端按正则过滤节点
 		filterPattern, _ := groupMap["filter"].(string)
 		delete(groupMap, "filter")
-		var filterRe *regexp.Regexp
+		var filterMatcher func(string) bool
 		if filterPattern != "" {
-			filterRe, _ = regexp.Compile(filterPattern)
+			filterMatcher, _ = compileNodeNameMatcher(filterPattern)
 		}
 
 		// 读取并移除 dialer-proxy 字段，找到第一个匹配的中转名（group 优先于节点）
@@ -229,12 +228,12 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 
 		// filterNodes 根据正则过滤节点列表
 		filterNodes := func(names []string) []string {
-			if filterRe == nil {
+			if filterMatcher == nil {
 				return names
 			}
 			result := make([]string, 0, len(names))
 			for _, n := range names {
-				if filterRe.MatchString(n) {
+				if filterMatcher(n) {
 					result = append(result, n)
 				}
 			}

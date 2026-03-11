@@ -134,8 +134,9 @@
       "type": "urltest",
       "tag": "🛰 Auto",
       "outbounds": [
-        "__AUTO_NODES__"
+        "__NODES__"
       ],
+      "filter": "^((?!v2).)*$",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50,

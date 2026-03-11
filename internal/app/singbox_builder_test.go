@@ -133,32 +133,37 @@ func TestBuildSingBoxSupportsFilterExpansion(t *testing.T) {
 		t.Fatalf("生成的 sing-box 配置缺少 outbounds")
 	}
 
+	foundSG := false
+	foundAuto := false
 	for _, item := range outbounds {
 		outbound, ok := item.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if outbound["tag"] != "🇸🇬 SG" {
+		if outbound["tag"] == "🇸🇬 SG" {
+			foundSG = true
+			members, ok := outbound["outbounds"].([]interface{})
+			if !ok {
+				t.Fatalf("SG 组缺少 outbounds，实际配置为:\n%s", config)
+			}
+			if len(members) != 2 {
+				t.Fatalf("期望 SG 组按 filter 命中两个新加坡节点，实际配置为:\n%s", config)
+			}
 			continue
 		}
-		members, ok := outbound["outbounds"].([]interface{})
-		if !ok {
-			t.Fatalf("SG 组缺少 outbounds，实际配置为:\n%s", config)
+		if outbound["tag"] == "🛰 Auto" {
+			foundAuto = true
+			members, ok := outbound["outbounds"].([]interface{})
+			if !ok {
+				t.Fatalf("Auto 组缺少 outbounds，实际配置为:\n%s", config)
+			}
+			if len(members) != 1 || members[0] != "🇸🇬 SG Node 1" {
+				t.Fatalf("期望 Auto 组通过负向前瞻排除 v2 节点，实际配置为:\n%s", config)
+			}
 		}
-		if len(members) != 2 {
-			t.Fatalf("期望 SG 组按 filter 命中两个新加坡节点，实际配置为:\n%s", config)
-		}
-		continue
 	}
-	if outbound["tag"] != "🛰 Auto" {
-		continue
-	}
-	members, ok := outbound["outbounds"].([]interface{})
-	if !ok {
-		t.Fatalf("Auto 组缺少 outbounds，实际配置为:\n%s", config)
-	}
-	if len(members) != 1 || members[0] != "🇸🇬 SG Node 1" {
-		t.Fatalf("期望 Auto 组通过负向前瞻排除 v2 节点，实际配置为:\n%s", config)
+	if !foundSG || !foundAuto {
+		t.Fatalf("未找到期望的 SG/Auto 组，实际配置为:\n%s", config)
 	}
 }
 
