@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c.chen/ruleflow/internal/app"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -81,8 +82,8 @@ func scanRuleSource(scan func(...any) error) (*RuleSource, error) {
 
 func (r *RuleSourceRepo) Create(ctx context.Context, source *RuleSource) error {
 	query := `
-		INSERT INTO rule_sources (name, description, url, source_format, enabled, auto_refresh, refresh_interval, tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO rule_sources (name, description, url, source_format, enabled, auto_refresh, refresh_interval, tags, raw_content)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
 	`
 	err := r.db.Pool.QueryRow(ctx, query,
@@ -94,10 +95,24 @@ func (r *RuleSourceRepo) Create(ctx context.Context, source *RuleSource) error {
 		source.AutoRefresh,
 		source.RefreshInterval,
 		source.Tags,
+		source.RawContent,
 	).Scan(&source.ID, &source.CreatedAt, &source.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("创建规则源失败: %w", err)
 	}
+
+	// 如果是手动规则源（无 URL）且有内容，直接解析并更新
+	if source.URL == "" && source.RawContent != "" {
+		var rules []app.RuleSetRule
+		rules, err = app.ParseRuleSet(source.RawContent, source.SourceFormat)
+		if err == nil {
+			parsed, marshalErr := json.Marshal(rules)
+			if marshalErr == nil {
+				_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, len(rules), nil)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -151,7 +166,7 @@ func (r *RuleSourceRepo) Update(ctx context.Context, source *RuleSource) error {
 	query := `
 		UPDATE rule_sources
 		SET name = $2, description = $3, url = $4, source_format = $5, enabled = $6,
-		    auto_refresh = $7, refresh_interval = $8, tags = $9
+		    auto_refresh = $7, refresh_interval = $8, tags = $9, raw_content = $10
 		WHERE id = $1
 		RETURNING updated_at
 	`
@@ -165,6 +180,7 @@ func (r *RuleSourceRepo) Update(ctx context.Context, source *RuleSource) error {
 		source.AutoRefresh,
 		source.RefreshInterval,
 		source.Tags,
+		source.RawContent,
 	).Scan(&source.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return fmt.Errorf("规则源不存在: %d", source.ID)
@@ -172,6 +188,19 @@ func (r *RuleSourceRepo) Update(ctx context.Context, source *RuleSource) error {
 	if err != nil {
 		return fmt.Errorf("更新规则源失败: %w", err)
 	}
+
+	// 如果是手动规则源且有内容，直接解析并更新
+	if source.URL == "" && source.RawContent != "" {
+		var rules []app.RuleSetRule
+		rules, err = app.ParseRuleSet(source.RawContent, source.SourceFormat)
+		if err == nil {
+			parsed, marshalErr := json.Marshal(rules)
+			if marshalErr == nil {
+				_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, len(rules), nil)
+			}
+		}
+	}
+
 	return nil
 }
 

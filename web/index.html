@@ -347,6 +347,13 @@
       const [loaded, setLoaded]             = useState(false);
       const [refreshing, setRefreshing]     = useState(false);
 
+      const clearPolicyCache = useCallback(async () => {
+        await fetch('/api/cache/policies/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => null);
+      }, []);
+
       const loadDashboard = useCallback(async () => {
         setRefreshing(true);
         try {
@@ -368,6 +375,29 @@
           setRefreshing(false);
         }
       }, []);
+
+      const handleRefreshOverview = useCallback(async () => {
+        setRefreshing(true);
+        try {
+          await clearPolicyCache();
+          const [h, subRes, nodeStatsRes, tplRes, policyRes] = await Promise.all([
+            fetch('/health').then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch('/api/subscriptions').then(r => r.json()).catch(() => ({ data: [] })),
+            fetch('/api/nodes/stats').then(r => r.json()).catch(() => ({ data: {} })),
+            fetch('/api/templates').then(r => r.json()).catch(() => ({ data: [] })),
+            fetch('/api/config-policies').then(r => r.json()).catch(() => ({ data: [] })),
+          ]);
+          setHealth(h);
+          setSubscriptions(subRes.data || []);
+          setNodeStats(nodeStatsRes.data || {});
+          setTemplates(tplRes.data || []);
+          setPolicies(policyRes.data || []);
+          setLastUpdated(new Date());
+        } finally {
+          setLoaded(true);
+          setRefreshing(false);
+        }
+      }, [clearPolicyCache]);
 
       useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
@@ -436,7 +466,7 @@
                 </div>
               </div>
               <div className="hero-actions">
-                <button className="btn btn-p" disabled={refreshing} onClick={loadDashboard}>
+                <button className="btn btn-p" disabled={refreshing} onClick={handleRefreshOverview}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
                     <path d="M3.51 9A9 9 0 0 1 17 5l6 5"/><path d="M20.49 15A9 9 0 0 1 7 19l-6-5"/>

@@ -211,6 +211,8 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 
 	// API 路由（整体加鉴权）
 	r.With(api.APIAuthMiddleware(cfg.AdminPassword)).Route("/api", func(r chi.Router) {
+		r.Post("/cache/policies/clear", apiHandlers.ClearAllPolicyCache)
+
 		// 订阅管理
 		r.Get("/subscriptions", apiHandlers.ListSubscriptions)
 		r.Post("/subscriptions", apiHandlers.CreateSubscription)

@@ -29,6 +29,33 @@ func (s *RuleSourceSyncService) SyncRuleSource(ctx context.Context, id int) (int
 	}
 
 	log.Printf("[rule-sync] 开始同步规则源: id=%d name=%s", source.ID, source.Name)
+
+	// 如果 URL 为空，说明是手动维护的规则源
+	if source.URL == "" {
+		if source.RawContent == "" {
+			return 0, fmt.Errorf("手动规则源未配置规则内容")
+		}
+
+		log.Printf("[rule-sync] 解析手动规则源内容: id=%d name=%s", source.ID, source.Name)
+		rules, err := app.ParseRuleSet(source.RawContent, source.SourceFormat)
+		if err != nil {
+			_ = s.repo.UpdateSyncResult(ctx, id, source.RawContent, json.RawMessage("[]"), 0, err)
+			return 0, fmt.Errorf("解析规则源失败: %w", err)
+		}
+
+		parsed, err := json.Marshal(rules)
+		if err != nil {
+			return 0, fmt.Errorf("序列化规则失败: %w", err)
+		}
+
+		if err := s.repo.UpdateSyncResult(ctx, id, source.RawContent, parsed, len(rules), nil); err != nil {
+			return 0, err
+		}
+
+		return len(rules), nil
+	}
+
+	// 远程规则源同步逻辑
 	content, _, err := app.FetchSubscriptionContent(ctx, source.URL)
 	if err != nil {
 		_ = s.repo.UpdateSyncResult(ctx, id, "", json.RawMessage("[]"), 0, err)

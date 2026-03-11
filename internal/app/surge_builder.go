@@ -501,7 +501,14 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 			name, node.Server, node.Port, uuid, password, sni))
 
 	case "wireguard":
-		return appendUnderlyingProxy(fmt.Sprintf("%s = wireguard, section-name = %s", name, name))
+		parts := []string{
+			fmt.Sprintf("%s = wireguard", name),
+			fmt.Sprintf("section-name = %s", name),
+		}
+		if testURL := strOpt("test-url"); testURL != "" {
+			parts = append(parts, fmt.Sprintf("test-url=%s", testURL))
+		}
+		return appendUnderlyingProxy(strings.Join(parts, ", "))
 
 	default:
 		// 未知协议，生成注释行

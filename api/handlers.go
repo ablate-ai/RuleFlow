@@ -165,6 +165,15 @@ func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, status, health)
 }
 
+// ClearAllPolicyCache 清除所有策略配置缓存
+func (h *Handlers) ClearAllPolicyCache(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if h.policyCache != nil {
+		_ = h.policyCache.DeleteAllByPattern(ctx, "ruleflow:policy:config:*")
+	}
+	SendSuccess(w, map[string]string{"message": "所有策略配置缓存已清除"})
+}
+
 // ==================== 模板 API ====================
 
 // CreateTemplate 创建模板

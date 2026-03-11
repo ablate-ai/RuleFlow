@@ -97,6 +97,7 @@
       refresh_interval: 43200,
       description: '',
       tags: [],
+      raw_content: '',
     };
 
     const formatLabel = (value) => {
@@ -155,6 +156,7 @@
           refresh_interval: item.refresh_interval || 43200,
           description: item.description || '',
           tags: item.tags || [],
+          raw_content: item.raw_content || '',
         });
         setShowModal(true);
       };
@@ -167,7 +169,14 @@
 
       const handleSave = async () => {
         if (!form.name.trim()) { addToast('规则源名称不能为空', 'err'); return; }
-        if (!form.url.trim()) { addToast('规则源 URL 不能为空', 'err'); return; }
+        if (form.url.trim() && !form.raw_content.trim() && !form.url.trim().startsWith('http')) {
+          addToast('URL 格式无效，请以 http:// 或 https:// 开头', 'err');
+          return;
+        }
+        if (!form.url.trim() && !form.raw_content.trim()) {
+          addToast('请提供远程 URL 或手动输入规则内容', 'err');
+          return;
+        }
         setSaving(true);
         try {
           if (editItem) {
@@ -280,10 +289,16 @@
                       </div>
                       {item.description && <div className="item-desc">{item.description}</div>}
                       <div className="item-meta">
-                        <span className="item-mi mono"><IcoLink />{item.url}</span>
+                        {item.url ? (
+                          <span className="item-mi mono"><IcoLink />{item.url}</span>
+                        ) : (
+                          <span className="item-mi"><span style={{ opacity: 0.8 }}>手动维护规则</span></span>
+                        )}
                         <span className="item-mi"><IcoList />规则数：{item.rule_count || 0}</span>
                         <span className="item-mi"><IcoClock />上次同步：{formatDate(item.last_synced_at)}</span>
-                        <span className="item-mi"><IcoRefresh />{item.auto_refresh ? `自动刷新 / ${item.refresh_interval}s` : '手动同步'}</span>
+                        {item.url && (
+                          <span className="item-mi"><IcoRefresh />{item.auto_refresh ? `自动刷新 / ${item.refresh_interval}s` : '手动同步'}</span>
+                        )}
                       </div>
                       {item.last_sync_error && (
                         <div className="item-desc" style={{ color: 'var(--red)', marginTop: 8 }}>
@@ -337,9 +352,41 @@
                   </div>
 
                   <div className="fg">
-                    <label className="fl">URL</label>
-                    <input className="fc mono" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://example.com/rules.list" />
+                    <label className="fl">规则源类型</label>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                        <input type="radio" name="ruleSourceType"
+                          checked={!!form.url}
+                          onChange={() => setForm(f => ({ ...f, url: 'https://', raw_content: '' }))}
+                        />
+                        <span>远程 URL</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                        <input type="radio" name="ruleSourceType"
+                          checked={!form.url}
+                          onChange={() => setForm(f => ({ ...f, url: '', raw_content: '' }))}
+                        />
+                        <span>手动输入</span>
+                      </label>
+                    </div>
                   </div>
+
+                  {!!form.url && (
+                    <div className="fg">
+                      <label className="fl">URL</label>
+                      <input className="fc mono" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://example.com/rules.list" />
+                    </div>
+                  )}
+
+                  {!form.url && (
+                    <div className="fg">
+                      <label className="fl">规则内容</label>
+                      <textarea className="fc mono" value={form.raw_content} onChange={e => setForm(f => ({ ...f, raw_content: e.target.value }))}
+                        placeholder="请输入规则内容，每行一条（支持注释行以 # 或 // 开头）"
+                        style={{ minHeight: '200px', fontFamily: 'monospace', fontSize: '13px' }}
+                      />
+                    </div>
+                  )}
 
                   <div className="frow">
                     <div className="fg">

@@ -215,6 +215,7 @@ func TestBuildSurgeFromTemplateContentWireGuard(t *testing.T) {
 				"ip":          "10.255.255.2",
 				"private-key": "private-key",
 				"dns":         []interface{}{"192.168.100.1"},
+				"test-url":    "http://192.168.100.1",
 				"mtu":         1420,
 				"public-key":  "peer-public-key",
 				"allowed-ips": []interface{}{"192.168.100.0/24", "10.255.0.0/24"},
@@ -238,11 +239,14 @@ Proxy = select, __NODES__
 		t.Fatalf("生成 Surge 配置失败: %v", err)
 	}
 
-	if !strings.Contains(config, "WG Private = wireguard, section-name = WG Private") {
+	if !strings.Contains(config, "WG Private = wireguard, section-name = WG Private, test-url=http://192.168.100.1") {
 		t.Fatalf("期望生成 wireguard 代理行，实际配置为:\n%s", config)
 	}
 	if !strings.Contains(config, "[WireGuard WG Private]") {
 		t.Fatalf("期望生成 WireGuard section，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "dns-server=192.168.100.1") {
+		t.Fatalf("期望 dns-server 不带引号，实际配置为:\n%s", config)
 	}
 	if !strings.Contains(config, "peer=(endpoint=vpn.example.com:51820, public-key=\"peer-public-key\", allowed-ips=\"192.168.100.0/24,10.255.0.0/24\", client-id=\"1/2/3\")") {
 		t.Fatalf("期望生成 peer 配置，实际配置为:\n%s", config)

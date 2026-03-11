@@ -70,9 +70,6 @@ func (s *RuleSourceService) Validate(source *database.RuleSource) error {
 	if strings.TrimSpace(source.Name) == "" {
 		return fmt.Errorf("规则源名称不能为空")
 	}
-	if strings.TrimSpace(source.URL) == "" {
-		return fmt.Errorf("规则源 URL 不能为空")
-	}
 	switch source.SourceFormat {
 	case "surge", "clash-classical", "clash-domain", "clash-ipcidr", "domain-list", "ip-list":
 	default:
@@ -80,6 +77,10 @@ func (s *RuleSourceService) Validate(source *database.RuleSource) error {
 	}
 	if source.RefreshInterval <= 0 {
 		source.RefreshInterval = 43200
+	}
+	// 对于手动维护的规则源（无 URL），自动禁用自动刷新
+	if source.URL == "" {
+		source.AutoRefresh = false
 	}
 	return nil
 }
