@@ -443,6 +443,8 @@ func (h *Handlers) CreateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 新策略创建后不需要清除缓存，因为还没有被请求过
+
 	SendSuccess(w, policy)
 }
 
@@ -492,9 +494,21 @@ func (h *Handlers) UpdateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 	policy.ID = id
 
 	ctx := r.Context()
+	// 先获取旧策略以获得 token
+	oldPolicy, err := h.configPolicyService.GetByID(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
 	if err := h.configPolicyService.Update(ctx, &policy); err != nil {
 		SendError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 更新策略后清除该策略的缓存
+	if h.policyCache != nil && oldPolicy.Token != "" {
+		_ = h.policyCache.DeletePolicyConfig(ctx, oldPolicy.Token)
 	}
 
 	SendSuccess(w, policy)

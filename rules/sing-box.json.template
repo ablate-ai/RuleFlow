@@ -600,8 +600,7 @@
       },
       {
         "rule_set": [
-          "stream_non_ip"
-          ,
+          "stream_non_ip",
           "stream_ip"
         ],
         "outbound": "🎬 Stream"
