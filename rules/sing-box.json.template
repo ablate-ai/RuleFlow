@@ -86,6 +86,7 @@
     "strategy": "prefer_ipv4",
     "independent_cache": true
   },
+  "endpoints": __ENDPOINTS__,
   "inbounds": [
     {
       "type": "mixed",
@@ -124,7 +125,7 @@
         "🇯🇵 JP",
         "🇸🇬 SG",
         "DIRECT",
-        "__PROXY_NODES__"
+        "__NODES__"
       ],
       "default": "🛰 Auto",
       "interrupt_exist_connections": true
@@ -144,8 +145,9 @@
       "type": "urltest",
       "tag": "🇸🇬 SG",
       "outbounds": [
-        "__SG_NODES__"
+        "__NODES__"
       ],
+      "filter": "新加坡|SG|Singapore|狮城|🇸🇬",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -154,8 +156,9 @@
       "type": "urltest",
       "tag": "🇭🇰 HK",
       "outbounds": [
-        "__HK_NODES__"
+        "__NODES__"
       ],
+      "filter": "香港|HK|Hong Kong|🇭🇰",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -164,8 +167,9 @@
       "type": "urltest",
       "tag": "🇺🇸 US",
       "outbounds": [
-        "__US_NODES__"
+        "__NODES__"
       ],
+      "filter": "美国|US|USA|United States|🇺🇸",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -174,8 +178,9 @@
       "type": "urltest",
       "tag": "🇯🇵 JP",
       "outbounds": [
-        "__JP_NODES__"
+        "__NODES__"
       ],
+      "filter": "日本|JP|Japan|🇯🇵",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -256,14 +261,6 @@
         "type": "remote",
         "tag": "reject_extra_domainset",
         "url": "https://ruleset.skk.moe/sing-box/domainset/reject_extra.json",
-        "format": "source",
-        "download_detour": "🌐 Proxy",
-        "update_interval": "12h"
-      },
-      {
-        "type": "remote",
-        "tag": "reject_ip",
-        "url": "https://ruleset.skk.moe/sing-box/ip/reject.json",
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
@@ -487,16 +484,6 @@
       },
       {
         "domain_suffix": [
-          "local"
-        ],
-        "outbound": "DIRECT"
-      },
-      {
-        "ip_is_private": true,
-        "outbound": "DIRECT"
-      },
-      {
-        "domain_suffix": [
           "cdn.wwm.app",
           "internal.example",
           "nio.com",
@@ -593,8 +580,7 @@
         "rule_set": [
           "reject_domainset",
           "reject_extra_domainset",
-          "reject_non_ip",
-          "reject_ip"
+          "reject_non_ip"
         ],
         "action": "reject"
       },
