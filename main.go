@@ -54,8 +54,10 @@ func main() {
 	// 创建订阅服务（数据库可用即可；Redis 仅用于策略配置缓存）
 	var templateService *services.TemplateService
 	var configPolicyService *services.ConfigPolicyService
+	var ruleSourceService *services.RuleSourceService
 	var nodeService *services.NodeService
 	var subscriptionSyncService *services.SubscriptionSyncService
+	var ruleSourceSyncService *services.RuleSourceSyncService
 	var subscriptionCache *cache.SubscriptionCache
 	if redisClient != nil {
 		subscriptionCache = cache.NewSubscriptionCache(redisClient, time.Duration(cfg.CacheTTLSeconds)*time.Second)
@@ -72,6 +74,11 @@ func main() {
 	nodeRepo := database.NewNodeRepo(db)
 	configPolicyService = services.NewConfigPolicyService(configPolicyRepo, subscriptionRepo, nodeRepo)
 
+	// 创建规则源服务
+	ruleSourceRepo := database.NewRuleSourceRepo(db)
+	ruleSourceService = services.NewRuleSourceService(ruleSourceRepo)
+	ruleSourceSyncService = services.NewRuleSourceSyncService(ruleSourceRepo)
+
 	// 创建节点服务
 	nodeService = services.NewNodeService(nodeRepo)
 
@@ -85,9 +92,13 @@ func main() {
 		scheduler := services.NewSubscriptionScheduler(database.NewSubscriptionRepo(db), subscriptionSyncService)
 		scheduler.Start(schedulerCtx)
 	}
+	if ruleSourceSyncService != nil {
+		ruleSourceScheduler := services.NewRuleSourceScheduler(ruleSourceSyncService)
+		ruleSourceScheduler.Start(schedulerCtx)
+	}
 
 	// 创建 API 处理器
-	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, nodeService, subscriptionSyncService, subscriptionCache)
+	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache)
 
 	// 设置路由
 	setupRoutes(cfg, apiHandlers)
@@ -98,6 +109,7 @@ func main() {
 	log.Printf("💡 管理界面: http://localhost:%s/dashboard\n", port)
 	log.Printf("💡 管理接口: http://localhost:%s/api/subscriptions\n", port)
 	log.Printf("💡 模板接口: http://localhost:%s/api/templates\n", port)
+	log.Printf("💡 规则源接口: http://localhost:%s/api/rule-sources\n", port)
 	log.Printf("💡 健康检查: http://localhost:%s/health\n", port)
 
 	// 优雅关闭
@@ -183,6 +195,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.With(webAuth).Get("/dashboard", servePage("web/index.html"))
 	r.With(webAuth).Get("/subscriptions", servePage("web/subscriptions.html"))
 	r.With(webAuth).Get("/nodes", servePage("web/nodes.html"))
+	r.With(webAuth).Get("/rule-sources", servePage("web/rule_sources.html"))
 	r.With(webAuth).Get("/templates", servePage("web/templates.html"))
 	r.With(webAuth).Get("/configs", servePage("web/configs.html"))
 
@@ -194,6 +207,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	// 公开接口（无需鉴权）
 	r.Get("/subscribe", apiHandlers.GenerateConfig)
 	r.Get("/health", apiHandlers.Health)
+	r.Get("/rulesets/{name}", apiHandlers.ExportRuleSource)
 
 	// API 路由（整体加鉴权）
 	r.With(api.APIAuthMiddleware(cfg.AdminPassword)).Route("/api", func(r chi.Router) {
@@ -217,6 +231,17 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 			r.Put("/", apiHandlers.UpdateTemplate)
 			r.Patch("/", apiHandlers.UpdateTemplate)
 			r.Delete("/", apiHandlers.DeleteTemplate)
+		})
+
+		// 规则源管理
+		r.Get("/rule-sources", apiHandlers.ListRuleSources)
+		r.Post("/rule-sources", apiHandlers.CreateRuleSource)
+		r.Route("/rule-sources/{id}", func(r chi.Router) {
+			r.Get("/", apiHandlers.GetRuleSource)
+			r.Put("/", apiHandlers.UpdateRuleSource)
+			r.Patch("/", apiHandlers.UpdateRuleSource)
+			r.Delete("/", apiHandlers.DeleteRuleSource)
+			r.Post("/sync", apiHandlers.SyncRuleSource)
 		})
 
 		// 配置策略管理

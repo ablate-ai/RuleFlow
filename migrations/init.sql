@@ -59,6 +59,35 @@ CREATE TRIGGER update_templates_updated_at
     BEFORE UPDATE ON templates
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TABLE rule_sources (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    url TEXT NOT NULL,
+    source_format VARCHAR(32) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    auto_refresh BOOLEAN NOT NULL DEFAULT false,
+    refresh_interval INTEGER NOT NULL DEFAULT 43200,
+    tags TEXT[] DEFAULT '{}',
+    raw_content TEXT,
+    parsed_rules JSONB NOT NULL DEFAULT '[]',
+    rule_count INTEGER NOT NULL DEFAULT 0,
+    last_synced_at TIMESTAMP,
+    last_sync_error TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT rule_sources_source_format_check
+        CHECK (source_format IN ('surge', 'clash-classical', 'clash-domain', 'clash-ipcidr', 'domain-list', 'ip-list'))
+);
+
+CREATE INDEX idx_rule_sources_name ON rule_sources(name);
+CREATE INDEX idx_rule_sources_enabled ON rule_sources(enabled) WHERE enabled = true;
+CREATE INDEX idx_rule_sources_auto_refresh ON rule_sources(auto_refresh) WHERE auto_refresh = true;
+
+CREATE TRIGGER update_rule_sources_updated_at
+    BEFORE UPDATE ON rule_sources
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TABLE config_policies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,

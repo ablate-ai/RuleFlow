@@ -155,6 +155,7 @@ window.Sidebar = ({ active }) => {
     { id: 'home',      label: '控制台',   href: '/dashboard',      icon: <IcoHome /> },
     { id: 'subs',      label: '订阅源',   href: '/subscriptions',  icon: <IcoRSS /> },
     { id: 'nodes',     label: '节点管理', href: '/nodes',          icon: <IcoServer /> },
+    { id: 'rulesets',  label: '规则源',   href: '/rule-sources',   icon: <IcoFile /> },
     { id: 'templates', label: '规则模板', href: '/templates',      icon: <IcoFile /> },
     { id: 'configs',   label: '订阅配置', href: '/configs',        icon: <IcoSettings /> },
   ];

@@ -33,8 +33,10 @@ type Handlers struct {
 	subscriptionService     *services.SubscriptionService
 	templateService         *services.TemplateService
 	configPolicyService     *services.ConfigPolicyService
+	ruleSourceService       *services.RuleSourceService
 	nodeService             *services.NodeService
 	subscriptionSyncService *services.SubscriptionSyncService
+	ruleSourceSyncService   *services.RuleSourceSyncService
 	policyCache             policyConfigCache
 }
 
@@ -43,16 +45,20 @@ func NewHandlers(
 	subscriptionService *services.SubscriptionService,
 	templateService *services.TemplateService,
 	configPolicyService *services.ConfigPolicyService,
+	ruleSourceService *services.RuleSourceService,
 	nodeService *services.NodeService,
 	subscriptionSyncService *services.SubscriptionSyncService,
+	ruleSourceSyncService *services.RuleSourceSyncService,
 	policyCache policyConfigCache,
 ) *Handlers {
 	return &Handlers{
 		subscriptionService:     subscriptionService,
 		templateService:         templateService,
 		configPolicyService:     configPolicyService,
+		ruleSourceService:       ruleSourceService,
 		nodeService:             nodeService,
 		subscriptionSyncService: subscriptionSyncService,
+		ruleSourceSyncService:   ruleSourceSyncService,
 		policyCache:             policyCache,
 	}
 }
@@ -260,6 +266,135 @@ func (h *Handlers) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendSuccess(w, map[string]string{"message": "模板已删除"})
+}
+
+// ==================== 规则源 API ====================
+
+func (h *Handlers) CreateRuleSource(w http.ResponseWriter, r *http.Request) {
+	var source database.RuleSource
+	if err := json.NewDecoder(r.Body).Decode(&source); err != nil {
+		SendError(w, http.StatusBadRequest, "无效的请求体")
+		return
+	}
+
+	ctx := r.Context()
+	if err := h.ruleSourceService.Create(ctx, &source); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	SendSuccess(w, source)
+}
+
+func (h *Handlers) GetRuleSource(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
+		return
+	}
+
+	ctx := r.Context()
+	source, err := h.ruleSourceService.GetByID(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	SendSuccess(w, source)
+}
+
+func (h *Handlers) ListRuleSources(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	sources, err := h.ruleSourceService.List(ctx)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	SendSuccess(w, sources)
+}
+
+func (h *Handlers) UpdateRuleSource(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
+		return
+	}
+
+	var source database.RuleSource
+	if err := json.NewDecoder(r.Body).Decode(&source); err != nil {
+		SendError(w, http.StatusBadRequest, "无效的请求体")
+		return
+	}
+	source.ID = id
+
+	ctx := r.Context()
+	if err := h.ruleSourceService.Update(ctx, &source); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	SendSuccess(w, source)
+}
+
+func (h *Handlers) DeleteRuleSource(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
+		return
+	}
+	ctx := r.Context()
+	if err := h.ruleSourceService.Delete(ctx, id); err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	SendSuccess(w, map[string]string{"message": "规则源已删除"})
+}
+
+func (h *Handlers) SyncRuleSource(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
+		return
+	}
+	ctx := r.Context()
+	count, err := h.ruleSourceSyncService.SyncRuleSource(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	SendSuccess(w, map[string]interface{}{
+		"message":    "规则源同步完成",
+		"rule_count": count,
+	})
+}
+
+func (h *Handlers) ExportRuleSource(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	if strings.TrimSpace(name) == "" {
+		http.Error(w, "缺少规则源名称", http.StatusBadRequest)
+		return
+	}
+	target := strings.TrimSpace(r.URL.Query().Get("target"))
+	if target == "" {
+		target = "sing-box"
+	}
+
+	ctx := r.Context()
+	content, err := h.ruleSourceSyncService.ExportRuleSource(ctx, name, target)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	switch target {
+	case "sing-box":
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	case "clash-classical", "clash-domain", "clash-ipcidr", "surge":
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	default:
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	}
+	fmt.Fprint(w, content)
 }
 
 // ConfigResponse 配置响应

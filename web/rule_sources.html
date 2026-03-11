@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuleFlow - 规则源管理</title>
+  <link rel="stylesheet" href="/web/shared/base.css">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
+    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
+    .phr { display: flex; gap: 8px; align-items: center; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
+    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
+    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
+    .btn-s:hover:not(:disabled) { background: #f9fafb; }
+    .btic { padding: 6px; border-radius: var(--rs); background: transparent; border: none; color: var(--t2); cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
+    .btic:hover { background: #f3f4f6; color: var(--t1); }
+    .btic.red:hover { background: var(--redbg); color: var(--red); }
+    .btic.blue:hover { background: var(--blubg); color: var(--blu); }
+    .btic.green:hover { background: var(--grnbg); color: var(--grn); }
+    .btic svg { width: 15px; height: 15px; }
+    .fg { margin-bottom: 14px; }
+    .fl { display: block; font-size: 12.5px; font-weight: 500; color: var(--t1); margin-bottom: 5px; }
+    .flo { font-weight: 400; color: var(--t2); font-size: 11px; margin-left: 4px; }
+    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
+    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
+    .fc::placeholder { color: var(--t3); }
+    textarea.fc { resize: vertical; min-height: 72px; line-height: 1.5; }
+    select.fc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px; cursor: pointer; }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
+    .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
+    .modal-md { max-width: 620px; } .modal-sm { max-width: 420px; }
+    .mh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
+    .mht { font-size: 16px; font-weight: 600; color: var(--t1); }
+    .mb { padding: 22px; }
+    .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--bdr); background: #f9fafb; border-radius: 0 0 var(--rxl) var(--rxl); }
+    .item { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; box-shadow: var(--sh1); transition: box-shadow .15s; }
+    .item:hover { box-shadow: var(--sh2); }
+    .item-l { flex: 1; min-width: 0; }
+    .item-name { font-size: 14.5px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .item-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; line-height: 1.5; }
+    .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
+    .item-mi { display: flex; align-items: center; gap: 3px; }
+    .item-mi svg { width: 11px; height: 11px; }
+    .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
+    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
+    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
+    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
+    .bdg-gray { background: #f3f4f6; color: #4b5563; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
+    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
+    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
+    .empty-d { font-size: 13px; color: var(--t2); max-width: 320px; line-height: 1.6; }
+    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
+    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes rot { to { transform: rotate(360deg); } }
+    @media (max-width: 900px) { .frow { grid-template-columns: 1fr; } .item { flex-direction: column; } .item-r { width: 100%; justify-content: flex-end; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="/web/shared/components.js" data-presets="react"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const FORMAT_OPTIONS = [
+      ['surge', 'Surge Classical'],
+      ['clash-classical', 'Clash Classical'],
+      ['clash-domain', 'Clash Domain'],
+      ['clash-ipcidr', 'Clash IPCIDR'],
+      ['domain-list', 'Domain List'],
+      ['ip-list', 'IP List'],
+    ];
+
+    const defaultForm = {
+      name: '',
+      url: '',
+      source_format: 'clash-classical',
+      enabled: true,
+      auto_refresh: false,
+      refresh_interval: 43200,
+      description: '',
+      tags: [],
+    };
+
+    const formatLabel = (value) => {
+      const item = FORMAT_OPTIONS.find(([k]) => k === value);
+      return item ? item[1] : value;
+    };
+
+    const exportURL = (name, target) => `${window.location.origin}/rulesets/${encodeURIComponent(name)}?target=${encodeURIComponent(target)}`;
+
+    const App = () => {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [showModal, setShowModal] = useState(false);
+      const [editItem, setEditItem] = useState(null);
+      const [form, setForm] = useState(defaultForm);
+      const [saving, setSaving] = useState(false);
+      const [syncing, setSyncing] = useState(null);
+      const [showDeleteModal, setShowDeleteModal] = useState(false);
+      const [deleteTarget, setDeleteTarget] = useState(null);
+      const [deleting, setDeleting] = useState(false);
+      const [toasts, setToasts] = useState([]);
+
+      const addToast = useCallback((msg, type = 'ok') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      }, []);
+
+      const loadItems = useCallback(async () => {
+        try {
+          const data = await api.get('/api/rule-sources');
+          setItems(data.data || []);
+        } catch (err) {
+          addToast('加载规则源失败：' + err.message, 'err');
+        } finally {
+          setLoading(false);
+        }
+      }, [addToast]);
+
+      useEffect(() => { loadItems(); }, [loadItems]);
+
+      const openCreate = () => {
+        setEditItem(null);
+        setForm(defaultForm);
+        setShowModal(true);
+      };
+
+      const openEdit = (item) => {
+        setEditItem(item);
+        setForm({
+          name: item.name,
+          url: item.url,
+          source_format: item.source_format,
+          enabled: item.enabled,
+          auto_refresh: item.auto_refresh,
+          refresh_interval: item.refresh_interval || 43200,
+          description: item.description || '',
+          tags: item.tags || [],
+        });
+        setShowModal(true);
+      };
+
+      const closeModal = () => {
+        setShowModal(false);
+        setEditItem(null);
+        setForm(defaultForm);
+      };
+
+      const handleSave = async () => {
+        if (!form.name.trim()) { addToast('规则源名称不能为空', 'err'); return; }
+        if (!form.url.trim()) { addToast('规则源 URL 不能为空', 'err'); return; }
+        setSaving(true);
+        try {
+          if (editItem) {
+            await api.put(`/api/rule-sources/${editItem.id}`, form);
+            addToast('规则源已更新');
+          } else {
+            await api.post('/api/rule-sources', form);
+            addToast('规则源已创建');
+          }
+          closeModal();
+          loadItems();
+        } catch (err) {
+          addToast('保存失败：' + err.message, 'err');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      const handleSync = async (item) => {
+        setSyncing(item.id);
+        try {
+          const res = await api.post(`/api/rule-sources/${item.id}/sync`, {});
+          addToast(`同步完成，共 ${res.data?.rule_count || 0} 条规则`);
+          loadItems();
+        } catch (err) {
+          addToast('同步失败：' + err.message, 'err');
+        } finally {
+          setSyncing(null);
+        }
+      };
+
+      const openDelete = (item) => {
+        setDeleteTarget(item);
+        setShowDeleteModal(true);
+      };
+
+      const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+          await api.delete(`/api/rule-sources/${deleteTarget.id}`);
+          addToast(`规则源 "${deleteTarget.name}" 已删除`);
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+          loadItems();
+        } catch (err) {
+          addToast('删除失败：' + err.message, 'err');
+        } finally {
+          setDeleting(false);
+        }
+      };
+
+      const handleCopy = async (text, label) => {
+        try {
+          await navigator.clipboard.writeText(text);
+          addToast(`${label}已复制`);
+        } catch {
+          addToast(`复制${label}失败`, 'err');
+        }
+      };
+
+      return (
+        <div className="app">
+          <Sidebar active="rulesets" />
+          <main className="main">
+            <ToastContainer toasts={toasts} />
+
+            <div className="ph">
+              <div>
+                <div className="pt">规则源</div>
+                <div className="ps">同步远程分流规则并导出为 Surge、Clash、sing-box 可用格式</div>
+              </div>
+              <div className="phr">
+                <button className="btn btn-s" onClick={loadItems}>刷新</button>
+                <button className="btn btn-p" onClick={openCreate}>
+                  <IcoPlus />新建规则源
+                </button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="card" style={{ padding: '56px 20px', textAlign: 'center' }}>
+                <span className="spin" style={{ width: 24, height: 24 }}></span>
+                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--t2)' }}>加载中...</div>
+              </div>
+            ) : items.length === 0 ? (
+              <div className="card">
+                <div className="empty">
+                  <div className="empty-ic"><IcoFile /></div>
+                  <div className="empty-t">暂无规则源</div>
+                  <div className="empty-d">创建一个规则源后，就可以将第三方规则同步并转换成你自己的多客户端导出格式。</div>
+                  <button className="btn btn-p" style={{ marginTop: 16 }} onClick={openCreate}>
+                    <IcoPlus />新建规则源
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {items.map(item => (
+                  <div key={item.id} className="item">
+                    <div className="item-l">
+                      <div className="item-name">
+                        {item.name}
+                        <span className={`bdg ${item.enabled ? 'bdg-g' : 'bdg-r'}`}>
+                          <span className="bdg-dot"></span>{item.enabled ? '启用' : '禁用'}
+                        </span>
+                        <span className="bdg bdg-b">
+                          <span className="bdg-dot"></span>{formatLabel(item.source_format)}
+                        </span>
+                      </div>
+                      {item.description && <div className="item-desc">{item.description}</div>}
+                      <div className="item-meta">
+                        <span className="item-mi mono"><IcoLink />{item.url}</span>
+                        <span className="item-mi"><IcoList />规则数：{item.rule_count || 0}</span>
+                        <span className="item-mi"><IcoClock />上次同步：{formatDate(item.last_synced_at)}</span>
+                        <span className="item-mi"><IcoRefresh />{item.auto_refresh ? `自动刷新 / ${item.refresh_interval}s` : '手动同步'}</span>
+                      </div>
+                      {item.last_sync_error && (
+                        <div className="item-desc" style={{ color: 'var(--red)', marginTop: 8 }}>
+                          最近错误：{item.last_sync_error}
+                        </div>
+                      )}
+                      <div className="item-meta" style={{ marginTop: 10 }}>
+                        <span className="item-mi">
+                          <button className="btn btn-s" onClick={() => handleCopy(exportURL(item.name, 'sing-box'), 'sing-box 导出地址')}>复制 sing-box 地址</button>
+                        </span>
+                        <span className="item-mi">
+                          <button className="btn btn-s" onClick={() => handleCopy(exportURL(item.name, 'surge'), 'Surge 导出地址')}>复制 Surge 地址</button>
+                        </span>
+                        <span className="item-mi">
+                          <button className="btn btn-s" onClick={() => handleCopy(exportURL(item.name, 'clash-classical'), 'Clash 导出地址')}>复制 Clash 地址</button>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="item-r">
+                      <button className="btic green" title="手动同步" disabled={syncing === item.id} onClick={() => handleSync(item)}>
+                        {syncing === item.id ? <span className="spin"></span> : <IcoSync />}
+                      </button>
+                      <button className="btic blue" title="编辑规则源" onClick={() => openEdit(item)}><IcoEdit /></button>
+                      <button className="btic red" title="删除规则源" onClick={() => openDelete(item)}><IcoTrash /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
+
+          {showModal && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+              <div className="modal modal-md">
+                <div className="mh">
+                  <span className="mht">{editItem ? '编辑规则源' : '新建规则源'}</span>
+                  <button className="btic" onClick={closeModal}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  <div className="frow">
+                    <div className="fg">
+                      <label className="fl">名称</label>
+                      <input className="fc" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="ai_ai" />
+                    </div>
+                    <div className="fg">
+                      <label className="fl">源格式</label>
+                      <select className="fc" value={form.source_format} onChange={e => setForm(f => ({ ...f, source_format: e.target.value }))}>
+                        {FORMAT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="fg">
+                    <label className="fl">URL</label>
+                    <input className="fc mono" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://example.com/rules.list" />
+                  </div>
+
+                  <div className="frow">
+                    <div className="fg">
+                      <label className="fl">启用</label>
+                      <Toggle checked={form.enabled} onChange={v => setForm(f => ({ ...f, enabled: v }))} />
+                    </div>
+                    <div className="fg">
+                      <label className="fl">自动刷新</label>
+                      <Toggle checked={form.auto_refresh} onChange={v => setForm(f => ({ ...f, auto_refresh: v }))} />
+                    </div>
+                  </div>
+
+                  <div className="fg">
+                    <label className="fl">刷新间隔 <span className="flo">秒</span></label>
+                    <input className="fc" type="number" min="60" value={form.refresh_interval} onChange={e => setForm(f => ({ ...f, refresh_interval: Number(e.target.value || 0) }))} />
+                  </div>
+
+                  <div className="fg" style={{ marginBottom: 0 }}>
+                    <label className="fl">描述 <span className="flo">可选</span></label>
+                    <textarea className="fc" rows="4" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="简要描述这个规则源的用途..." />
+                  </div>
+                </div>
+                <div className="mf">
+                  <button className="btn btn-s" onClick={closeModal}>取消</button>
+                  <button className="btn btn-p" onClick={handleSave} disabled={saving}>
+                    {saving && <span className="spin"></span>}
+                    {saving ? '保存中...' : (editItem ? '保存更改' : '创建规则源')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showDeleteModal && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setShowDeleteModal(false); }}>
+              <div className="modal modal-sm">
+                <div className="mh">
+                  <span className="mht">删除规则源</span>
+                  <button className="btic" onClick={() => setShowDeleteModal(false)}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  <div style={{ fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.7 }}>
+                    确定要删除规则源 <strong>{deleteTarget?.name}</strong> 吗？此操作不会自动修改依赖它的模板引用。
+                  </div>
+                </div>
+                <div className="mf">
+                  <button className="btn btn-s" onClick={() => setShowDeleteModal(false)}>取消</button>
+                  <button className="btn btn-p" onClick={handleDelete} disabled={deleting}>
+                    {deleting && <span className="spin"></span>}
+                    {deleting ? '删除中...' : '确认删除'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

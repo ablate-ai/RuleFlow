@@ -54,21 +54,29 @@
           "microsoft_cdn_non_ip",
           "microsoft_non_ip",
           "neteasemusic_non_ip",
+          "neteasemusic_ip",
           "download_domainset",
           "download_non_ip",
           "lan_non_ip",
+          "lan_ip",
           "domestic_non_ip",
-          "direct_non_ip"
+          "direct_non_ip",
+          "domestic_ip",
+          "china_ip"
         ],
         "server": "dns_direct"
       },
       {
         "rule_set": [
           "stream_non_ip",
+          "stream_ip",
           "ai_non_ip",
           "telegram_non_ip",
+          "telegram_ip",
+          "telegram_asn_ip",
           "cdn_domainset",
-          "cdn_non_ip"
+          "cdn_non_ip",
+          "global_non_ip"
         ],
         "server": "dns_proxy"
       }
@@ -357,6 +365,14 @@
       },
       {
         "type": "remote",
+        "tag": "global_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/global.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
         "tag": "direct_non_ip",
         "url": "https://ruleset.skk.moe/sing-box/non_ip/direct.json",
         "format": "source",
@@ -375,6 +391,62 @@
         "type": "remote",
         "tag": "lan_non_ip",
         "url": "https://ruleset.skk.moe/sing-box/non_ip/lan.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "stream_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/stream.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "telegram_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/telegram.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "telegram_asn_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/telegram_asn.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "neteasemusic_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/neteasemusic.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "lan_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/lan.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "domestic_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/domestic.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "china_ip",
+        "url": "https://ruleset.skk.moe/sing-box/ip/china_ip.json",
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
@@ -514,6 +586,8 @@
       {
         "rule_set": [
           "stream_non_ip"
+          ,
+          "stream_ip"
         ],
         "outbound": "🎬 Stream"
       },
@@ -525,7 +599,9 @@
       },
       {
         "rule_set": [
-          "telegram_non_ip"
+          "telegram_non_ip",
+          "telegram_ip",
+          "telegram_asn_ip"
         ],
         "outbound": "🇸🇬 SG"
       },
@@ -537,13 +613,23 @@
           "microsoft_cdn_non_ip",
           "microsoft_non_ip",
           "neteasemusic_non_ip",
+          "neteasemusic_ip",
           "download_domainset",
           "download_non_ip",
           "lan_non_ip",
+          "lan_ip",
           "domestic_non_ip",
-          "direct_non_ip"
+          "direct_non_ip",
+          "domestic_ip",
+          "china_ip"
         ],
         "outbound": "DIRECT"
+      },
+      {
+        "rule_set": [
+          "global_non_ip"
+        ],
+        "outbound": "🌐 Proxy"
       }
     ]
   },
