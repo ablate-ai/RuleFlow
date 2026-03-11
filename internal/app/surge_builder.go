@@ -66,6 +66,7 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 			// 离开 [Proxy] section 时，若未找到 __NODES__ 则在末尾追加节点
 			if section == "[Proxy]" && !proxyNodesInserted {
 				out = append(out, pendingProxyLines...)
+				out = append(out, nodeLines...)
 				out = append(out, wireGuardSections...)
 				proxyNodesInserted = true
 				wireGuardSectionsInserted = true
@@ -87,9 +88,7 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 			if strings.TrimSpace(line) == "__NODES__" {
 				// 替换占位符为所有节点行
 				out = append(out, nodeLines...)
-				out = append(out, wireGuardSections...)
 				proxyNodesInserted = true
-				wireGuardSectionsInserted = true
 			} else {
 				// 暂存非占位行，以便在 section 结束时判断是否需要追加
 				if !proxyNodesInserted {
@@ -118,6 +117,7 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 
 	// 文件末尾若仍在 [Proxy] section 且未插入节点
 	if section == "[Proxy]" && !proxyNodesInserted {
+		out = append(out, pendingProxyLines...)
 		out = append(out, nodeLines...)
 		out = append(out, wireGuardSections...)
 		wireGuardSectionsInserted = true
@@ -569,7 +569,7 @@ func surgeWireGuardSection(node *ProxyNode, name string) string {
 		}
 		lines = append(lines, fmt.Sprintf("peer=(%s)", strings.Join(parts, ", ")))
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n") + "\n"
 }
 
 // filterNodesByPattern 按正则模式过滤节点名列表，支持包含（policy-regex-filter）和排除（exclude-filter）

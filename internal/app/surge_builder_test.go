@@ -245,8 +245,15 @@ Proxy = select, __NODES__
 	if !strings.Contains(config, "[WireGuard WG Private]") {
 		t.Fatalf("期望生成 WireGuard section，实际配置为:\n%s", config)
 	}
+	if strings.Index(config, "WG Private = wireguard, section-name = WG Private, test-url=http://192.168.100.1") >
+		strings.Index(config, "[WireGuard WG Private]") {
+		t.Fatalf("期望 wireguard 代理行出现在 WireGuard section 之前，实际配置为:\n%s", config)
+	}
 	if !strings.Contains(config, "dns-server=192.168.100.1") {
 		t.Fatalf("期望 dns-server 不带引号，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "peer=(endpoint=vpn.example.com:51820, public-key=\"peer-public-key\", allowed-ips=\"192.168.100.0/24,10.255.0.0/24\", client-id=\"1/2/3\")\n\n[Proxy Group]") {
+		t.Fatalf("期望 WireGuard section 与下一个 section 之间保留空行，实际配置为:\n%s", config)
 	}
 	if !strings.Contains(config, "peer=(endpoint=vpn.example.com:51820, public-key=\"peer-public-key\", allowed-ips=\"192.168.100.0/24,10.255.0.0/24\", client-id=\"1/2/3\")") {
 		t.Fatalf("期望生成 peer 配置，实际配置为:\n%s", config)
