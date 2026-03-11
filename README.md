@@ -227,7 +227,7 @@ Surge 模板使用 `policy-regex-filter=` 按正则筛选节点。
 | `REDIS_PASSWORD` | Redis 密码 | 空 |
 | `REDIS_DB` | Redis 数据库编号 | `0` |
 | `CACHE_TTL_SECONDS` | 配置缓存有效期（秒） | `3600` |
-| `SURGE_MANAGED_CONFIG_BASE_URL` | Surge `#!MANAGED-CONFIG` 的外部地址，例如 `https://sub.example.com`；为空时自动从请求头推断 | 空 |
+| `PUBLIC_BASE_URL` | 对外访问基地址，例如 `https://sub.example.com`；用于 Surge `#!MANAGED-CONFIG` 和模板中的 `/rulesets/...` 相对地址补全 | 空 |
 
 ---
 

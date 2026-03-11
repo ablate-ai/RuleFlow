@@ -8,7 +8,7 @@ import (
 )
 
 const surgeManagedConfigSuffix = " interval=43200 strict=false"
-const surgeManagedConfigBaseURLEnv = "SURGE_MANAGED_CONFIG_BASE_URL"
+const publicBaseURLEnv = "PUBLIC_BASE_URL"
 
 func finalizeConfigContent(r *http.Request, target, content string) string {
 	if target != "surge" {
@@ -33,7 +33,7 @@ func requestURLString(r *http.Request) string {
 	}
 
 	u := *r.URL
-	if applyManagedConfigBaseURL(&u) {
+	if applyPublicBaseURL(&u) {
 		return u.String()
 	}
 
@@ -53,8 +53,39 @@ func requestURLString(r *http.Request) string {
 	return u.String()
 }
 
-func applyManagedConfigBaseURL(u *url.URL) bool {
-	baseURL := strings.TrimSpace(os.Getenv(surgeManagedConfigBaseURLEnv))
+func requestBaseURLString(r *http.Request) string {
+	if r == nil || r.URL == nil {
+		return ""
+	}
+
+	u := *r.URL
+	u.Path = ""
+	u.RawPath = ""
+	u.RawQuery = ""
+	u.Fragment = ""
+
+	if applyPublicBaseURL(&u) {
+		return strings.TrimRight(u.String(), "/")
+	}
+
+	scheme := forwardedProto(r)
+	host := forwardedHost(r)
+	if scheme != "" {
+		u.Scheme = scheme
+	}
+	if host != "" {
+		u.Host = host
+	}
+
+	return strings.TrimRight(u.String(), "/")
+}
+
+func applyPublicBaseURL(u *url.URL) bool {
+	return applyBaseURLFromEnv(u, publicBaseURLEnv)
+}
+
+func applyBaseURLFromEnv(u *url.URL, envName string) bool {
+	baseURL := strings.TrimSpace(os.Getenv(envName))
 	if baseURL == "" {
 		return false
 	}

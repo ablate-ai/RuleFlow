@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -897,21 +898,27 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	var configContent string
 	if target == "surge" {
 		if templateContent != "" {
+			templateContent = replaceTemplateRuntimePlaceholders(r, templateContent)
 			configContent, err = app.BuildSurgeFromTemplateContent(proxyNodes, templateContent)
 		} else {
 			configContent, err = app.BuildSurgeFromDefaultTemplate(proxyNodes)
+			configContent = replaceTemplateRuntimePlaceholders(r, configContent)
 		}
 	} else if target == "sing-box" {
 		if templateContent != "" {
+			templateContent = replaceTemplateRuntimePlaceholders(r, templateContent)
 			configContent, err = app.BuildSingBoxFromTemplateContent(proxyNodes, templateContent)
 		} else {
 			configContent, err = app.BuildSingBoxFromDefaultTemplate(proxyNodes)
+			configContent = replaceTemplateRuntimePlaceholders(r, configContent)
 		}
 	} else {
 		if templateContent != "" {
+			templateContent = replaceTemplateRuntimePlaceholders(r, templateContent)
 			configContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
 		} else {
 			configContent, err = app.BuildYAMLFromDefaultTemplate(proxyNodes, target)
+			configContent = replaceTemplateRuntimePlaceholders(r, configContent)
 		}
 	}
 	if err != nil {
@@ -946,4 +953,18 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
 	w.Header().Set("X-Cache", "MISS")
 	fmt.Fprint(w, finalizeConfigContent(r, target, configContent))
+}
+
+func replaceTemplateRuntimePlaceholders(r *http.Request, content string) string {
+	if content == "" {
+		return content
+	}
+	baseURL := requestBaseURLString(r)
+	if baseURL == "" {
+		return content
+	}
+	ruleSetPathPattern := regexp.MustCompile(`/rulesets/[^\s",]+`)
+	return ruleSetPathPattern.ReplaceAllStringFunc(content, func(path string) string {
+		return baseURL + path
+	})
 }

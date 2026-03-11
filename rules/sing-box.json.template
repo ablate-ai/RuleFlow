@@ -71,6 +71,7 @@
           "stream_non_ip",
           "stream_ip",
           "ai_non_ip",
+          "ai_ai",
           "telegram_non_ip",
           "telegram_ip",
           "telegram_asn_ip",
@@ -287,6 +288,14 @@
         "type": "remote",
         "tag": "ai_non_ip",
         "url": "https://ruleset.skk.moe/sing-box/non_ip/ai.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "ai_ai",
+        "url": "/rulesets/ai_ai?target=sing-box",
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
@@ -593,7 +602,8 @@
       },
       {
         "rule_set": [
-          "ai_non_ip"
+          "ai_non_ip",
+          "ai_ai"
         ],
         "outbound": "🤖 AI"
       },

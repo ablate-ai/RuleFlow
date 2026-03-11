@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -30,21 +31,21 @@ func TestFinalizeConfigContentUsesForwardedHeaders(t *testing.T) {
 }
 
 func TestFinalizeConfigContentUsesEnvBaseURLFirst(t *testing.T) {
-	t.Setenv(surgeManagedConfigBaseURLEnv, "https://surge.example.com")
+	t.Setenv(publicBaseURLEnv, "https://public.example.com")
 
 	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/config?token=abc", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("X-Forwarded-Host", "sub.example.com")
 
 	got := buildSurgeManagedConfigLine(req)
-	want := "#!MANAGED-CONFIG https://surge.example.com/config?token=abc interval=43200 strict=false"
+	want := "#!MANAGED-CONFIG https://public.example.com/config?token=abc interval=43200 strict=false"
 	if got != want {
 		t.Fatalf("期望环境变量优先生效，实际为 %q", got)
 	}
 }
 
 func TestFinalizeConfigContentFallsBackWhenEnvBaseURLInvalid(t *testing.T) {
-	t.Setenv(surgeManagedConfigBaseURLEnv, "://bad-url")
+	t.Setenv(publicBaseURLEnv, "://bad-url")
 
 	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/config?token=abc", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
@@ -87,5 +88,44 @@ func TestFinalizeConfigContentLeavesNonSurgeUntouched(t *testing.T) {
 
 	if got != content {
 		t.Fatalf("非 Surge 配置不应被修改，实际内容为:\n%s", got)
+	}
+}
+
+func TestReplaceTemplateRuntimePlaceholdersExpandsRuleSetPath(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/subscribe?token=abc", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-Host", "sub.example.com")
+
+	content := `url: /rulesets/ai_ai?target=clash-classical`
+	got := replaceTemplateRuntimePlaceholders(req, content)
+
+	want := `url: https://sub.example.com/rulesets/ai_ai?target=clash-classical`
+	if got != want {
+		t.Fatalf("期望为 %q，实际为 %q", want, got)
+	}
+}
+
+func TestReplaceTemplateRuntimePlaceholdersUsesPublicBaseURLFirst(t *testing.T) {
+	t.Setenv(publicBaseURLEnv, "https://public.example.com")
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/subscribe?token=abc", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-Host", "sub.example.com")
+
+	content := `url: /rulesets/ai_ai?target=sing-box`
+	got := replaceTemplateRuntimePlaceholders(req, content)
+
+	want := `url: https://public.example.com/rulesets/ai_ai?target=sing-box`
+	if got != want {
+		t.Fatalf("期望优先使用 PUBLIC_BASE_URL，实际为 %q", got)
+	}
+}
+
+func TestReplaceTemplateRuntimePlaceholdersLeavesAbsoluteURLUntouched(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://127.0.0.1:8080/subscribe?token=abc", nil)
+	content := `url: https://ruleset.skk.moe/sing-box/non_ip/ai.json`
+	got := replaceTemplateRuntimePlaceholders(req, content)
+	if !strings.Contains(got, "https://ruleset.skk.moe/sing-box/non_ip/ai.json") {
+		t.Fatalf("绝对 URL 不应被改写，实际为 %q", got)
 	}
 }

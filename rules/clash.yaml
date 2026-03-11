@@ -334,7 +334,7 @@ rule-providers:
     behavior: classical
     format: text
     interval: 43200
-    url: https://raw.githubusercontent.com/viewer12/OverseasAI.list/main/rule/Clash/OverseasAI/OverseasAI.list
+    url: /rulesets/ai_ai?target=clash-classical
     path: ./sukkaw_ruleset/ai_ai.txt
 rules:
   - AND,((DST-PORT,443),(NETWORK,UDP)),REJECT
