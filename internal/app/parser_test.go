@@ -331,6 +331,35 @@ func TestParseTUICNode(t *testing.T) {
 	}
 }
 
+func TestParseAnyTLSNode(t *testing.T) {
+	got, err := parseAnyTLSNode("anytls://secret@example.com:8443/?sni=edge.example.com&insecure=1&alpn=h2,http/1.1&fp=chrome#AnyTLSNode")
+	if err != nil {
+		t.Fatalf("parseAnyTLSNode() error = %v", err)
+	}
+	if got.Protocol != "anytls" {
+		t.Fatalf("parseAnyTLSNode() Protocol = %v, want anytls", got.Protocol)
+	}
+	if got.Server != "example.com" || got.Port != 8443 {
+		t.Fatalf("parseAnyTLSNode() server/port = %s:%d, want example.com:8443", got.Server, got.Port)
+	}
+	if got.Name != "AnyTLSNode" {
+		t.Fatalf("parseAnyTLSNode() name = %s, want AnyTLSNode", got.Name)
+	}
+	if got.Options["password"] != "secret" {
+		t.Fatalf("parseAnyTLSNode() password = %#v, want secret", got.Options["password"])
+	}
+	tlsObj, ok := got.Options["tls"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("parseAnyTLSNode() 缺少 tls 对象，got=%#v", got.Options["tls"])
+	}
+	if tlsObj["server_name"] != "edge.example.com" {
+		t.Fatalf("parseAnyTLSNode() tls.server_name = %v, want edge.example.com", tlsObj["server_name"])
+	}
+	if tlsObj["insecure"] != true {
+		t.Fatalf("parseAnyTLSNode() tls.insecure = %v, want true", tlsObj["insecure"])
+	}
+}
+
 func TestParseNodeURL(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -379,6 +408,16 @@ func TestParseNodeURL(t *testing.T) {
 			},
 		},
 		{
+			name:    "AnyTLS",
+			url:     "anytls://secret@example.com:443/?sni=edge.example.com#AnyTLSNode",
+			wantErr: false,
+			check: func(t *testing.T, n *ProxyNode) {
+				if n.Protocol != "anytls" {
+					t.Errorf("Expected protocol anytls, got %s", n.Protocol)
+				}
+			},
+		},
+		{
 			name:    "不支持的协议",
 			url:     "unknown://test",
 			wantErr: true,
@@ -404,6 +443,7 @@ func TestParseSubscription(t *testing.T) {
 	// 混合协议订阅测试
 	mixedContent := `trojan://pass1@example.com#Trojan1
 vless://uuid@example.com#VLESS1
+anytls://secret@example.com:443/?sni=edge.example.com#AnyTLS1
 hysteria2://pass2@example.com#H2_1
 tuic://uuid:pass@example.com#TUIC1
 `
@@ -413,8 +453,8 @@ tuic://uuid:pass@example.com#TUIC1
 		t.Fatalf("parseSubscription() error = %v", err)
 	}
 
-	if len(nodes) != 4 {
-		t.Errorf("parseSubscription() returned %d nodes, want 4", len(nodes))
+	if len(nodes) != 5 {
+		t.Errorf("parseSubscription() returned %d nodes, want 5", len(nodes))
 	}
 
 	protocols := make(map[string]bool)
@@ -422,7 +462,7 @@ tuic://uuid:pass@example.com#TUIC1
 		protocols[node.Protocol] = true
 	}
 
-	expectedProtocols := []string{"trojan", "vless", "hysteria2", "tuic"}
+	expectedProtocols := []string{"trojan", "vless", "anytls", "hysteria2", "tuic"}
 	for _, proto := range expectedProtocols {
 		if !protocols[proto] {
 			t.Errorf("parseSubscription() missing protocol %s", proto)

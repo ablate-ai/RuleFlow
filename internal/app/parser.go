@@ -19,9 +19,10 @@ var (
 	vmessURLPattern     = regexp.MustCompile(`vmess://[a-zA-Z0-9_=]+`)
 	vlessURLPattern     = regexp.MustCompile(`vless://[^\s]+`)
 	ssURLPattern        = regexp.MustCompile(`ss://[^\s]+`)
+	anytlsURLPattern    = regexp.MustCompile(`anytls://[^\s]+`)
 	hysteria2URLPattern = regexp.MustCompile(`(?:hysteria2|hy2)://[^\s]+`)
 	tuicURLPattern      = regexp.MustCompile(`tuic://[^\s]+`)
-	allProtocolPattern  = regexp.MustCompile(`(trojan|vmess|vless|ss|hysteria2|hy2|tuic)://[^\s]+`)
+	allProtocolPattern  = regexp.MustCompile(`(trojan|vmess|vless|ss|anytls|hysteria2|hy2|tuic)://[^\s]+`)
 )
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;:]*[A-Za-z]`)
@@ -52,6 +53,8 @@ func parseNodeURL(nodeURL string) (*ProxyNode, error) {
 		return parseVLESSNode(nodeURL)
 	case "ss":
 		return parseShadowsocksNode(nodeURL)
+	case "anytls":
+		return parseAnyTLSNode(nodeURL)
 	case "hysteria2", "hy2":
 		return parseHysteria2Node(nodeURL)
 	case "tuic":
@@ -59,6 +62,72 @@ func parseNodeURL(nodeURL string) (*ProxyNode, error) {
 	default:
 		return nil, fmt.Errorf("不支持的协议: %s", u.Scheme)
 	}
+}
+
+func parseAnyTLSNode(nodeURL string) (*ProxyNode, error) {
+	nodeURL = strings.TrimSpace(nodeURL)
+	if !strings.HasPrefix(nodeURL, "anytls://") {
+		return nil, fmt.Errorf("无效的 AnyTLS 链接格式")
+	}
+
+	u, err := url.Parse(nodeURL)
+	if err != nil {
+		return nil, fmt.Errorf("解析 URL 失败: %w", err)
+	}
+
+	password := u.User.Username()
+	if password == "" {
+		return nil, fmt.Errorf("未找到密码")
+	}
+
+	server := u.Hostname()
+	if server == "" {
+		return nil, fmt.Errorf("未找到服务器地址")
+	}
+
+	port := 443
+	if portStr := u.Port(); portStr != "" {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fmt.Errorf("无效端口: %w", err)
+		}
+	}
+
+	query := u.Query()
+	name := query.Get("name")
+	if name == "" && u.Fragment != "" {
+		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
+			name = decoded
+		} else {
+			name = u.Fragment
+		}
+	}
+	if name == "" {
+		name = server
+	}
+
+	sni := query.Get("sni")
+	if sni == "" {
+		sni = server
+	}
+
+	insecure := query.Get("insecure") == "1" || strings.EqualFold(query.Get("insecure"), "true")
+	if !insecure {
+		insecure = query.Get("allowInsecure") == "1" || strings.EqualFold(query.Get("allowInsecure"), "true")
+	}
+
+	opts := map[string]interface{}{
+		"password": password,
+		"tls":      buildTLSOptions(true, sni, insecure, parseALPN(query), query.Get("fp")),
+	}
+
+	return &ProxyNode{
+		Protocol: "anytls",
+		Name:     name,
+		Server:   server,
+		Port:     port,
+		Options:  opts,
+	}, nil
 }
 
 // parseTrojanNode 解析 Trojan 节点

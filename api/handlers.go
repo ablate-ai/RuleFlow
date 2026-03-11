@@ -29,6 +29,17 @@ type policyConfigCache interface {
 	DeleteAllByPattern(ctx context.Context, pattern string) error
 }
 
+type manualNodeRequest struct {
+	Name     string                 `json:"name"`
+	Protocol string                 `json:"protocol"`
+	Server   string                 `json:"server"`
+	Port     int                    `json:"port"`
+	Config   map[string]interface{} `json:"config"`
+	Tags     []string               `json:"tags"`
+	Enabled  bool                   `json:"enabled"`
+	ShareURL string                 `json:"share_url"`
+}
+
 // Handlers API 处理器
 type Handlers struct {
 	subscriptionService     *services.SubscriptionService
@@ -579,19 +590,25 @@ func (h *Handlers) ImportNodes(w http.ResponseWriter, r *http.Request) {
 
 // CreateNode 创建节点（手动添加）
 func (h *Handlers) CreateNode(w http.ResponseWriter, r *http.Request) {
-	var node database.Node
-	if err := json.NewDecoder(r.Body).Decode(&node); err != nil {
+	var req manualNodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
 		return
 	}
 
-	ctx := r.Context()
-	if err := h.nodeService.ValidateNode(&node); err != nil {
+	node, err := h.buildManualNodeFromRequest(req, nil)
+	if err != nil {
 		SendError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err := h.nodeService.AddManualNode(ctx, &node); err != nil {
+	ctx := r.Context()
+	if err := h.nodeService.ValidateNode(node); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.nodeService.AddManualNode(ctx, node); err != nil {
 		SendError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -662,19 +679,31 @@ func (h *Handlers) UpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var node database.Node
-	if err := json.NewDecoder(r.Body).Decode(&node); err != nil {
+	ctx := r.Context()
+	existing, err := h.nodeService.GetNode(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	var req manualNodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		SendError(w, http.StatusBadRequest, "无效的请求体")
 		return
 	}
 
-	ctx := r.Context()
-	if err := h.nodeService.ValidateNode(&node); err != nil {
+	node, err := h.buildManualNodeFromRequest(req, existing)
+	if err != nil {
 		SendError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err := h.nodeService.UpdateNode(ctx, id, &node); err != nil {
+	if err := h.nodeService.ValidateNode(node); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.nodeService.UpdateNode(ctx, id, node); err != nil {
 		SendError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -687,6 +716,68 @@ func (h *Handlers) UpdateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendSuccess(w, updatedNode)
+}
+
+func (h *Handlers) buildManualNodeFromRequest(req manualNodeRequest, existing *database.Node) (*database.Node, error) {
+	tags := req.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	if req.Protocol == "wireguard" {
+		return &database.Node{
+			Name:     strings.TrimSpace(req.Name),
+			Protocol: req.Protocol,
+			Server:   strings.TrimSpace(req.Server),
+			Port:     req.Port,
+			Config:   req.Config,
+			Tags:     tags,
+			Enabled:  req.Enabled,
+		}, nil
+	}
+
+	if existing != nil && existing.Protocol != "wireguard" && strings.TrimSpace(req.ShareURL) == "" {
+		name := strings.TrimSpace(req.Name)
+		if name == "" {
+			name = existing.Name
+		}
+		return &database.Node{
+			Name:     name,
+			Protocol: existing.Protocol,
+			Server:   existing.Server,
+			Port:     existing.Port,
+			Config:   existing.Config,
+			Tags:     tags,
+			Enabled:  req.Enabled,
+		}, nil
+	}
+
+	if strings.TrimSpace(req.ShareURL) == "" {
+		return nil, fmt.Errorf("普通节点请使用分享链接导入")
+	}
+
+	proxyNode, err := app.ParseNodeURL(strings.TrimSpace(req.ShareURL))
+	if err != nil {
+		return nil, fmt.Errorf("分享链接解析失败: %w", err)
+	}
+	if proxyNode.Protocol == "wireguard" {
+		return nil, fmt.Errorf("wireguard 请使用专用表单添加")
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = proxyNode.Name
+	}
+
+	return &database.Node{
+		Name:     name,
+		Protocol: proxyNode.Protocol,
+		Server:   proxyNode.Server,
+		Port:     proxyNode.Port,
+		Config:   proxyNode.Options,
+		Tags:     tags,
+		Enabled:  req.Enabled,
+	}, nil
 }
 
 // DeleteNode 删除节点

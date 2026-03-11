@@ -116,7 +116,8 @@
     /* ===================== 节点表单默认值 ===================== */
     const defaultForm = {
       name: '',
-      protocol: 'trojan',
+      protocol: 'share',
+      shareUrl: '',
       server: '',
       port: 443,
       configStr: '{}',
@@ -131,7 +132,8 @@
         if (node) {
           return {
             name: node.name || '',
-            protocol: node.protocol || 'trojan',
+            protocol: node.protocol === 'wireguard' ? 'wireguard' : (node.id ? 'share' : (node.protocol || 'share')),
+            shareUrl: '',
             server: node.server || '',
             port: node.port || 443,
             configStr: JSON.stringify(node.config || {}, null, 2),
@@ -143,9 +145,14 @@
       });
       const [saving, setSaving] = useState(false);
       const [configErr, setConfigErr] = useState('');
+      const isWireGuard = form.protocol === 'wireguard';
 
       /* 验证 JSON 格式 */
       const validateConfig = (str) => {
+        if (!isWireGuard) {
+          setConfigErr('');
+          return true;
+        }
         try {
           JSON.parse(str);
           setConfigErr('');
@@ -163,10 +170,14 @@
 
       const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!isWireGuard && !form.shareUrl.trim() && !node?.id) {
+          addToast('请输入分享链接', 'err');
+          return;
+        }
         if (!validateConfig(form.configStr)) return;
         setSaving(true);
         try {
-          const payload = {
+          const payload = isWireGuard ? {
             name: form.name.trim(),
             protocol: form.protocol,
             server: form.server.trim(),
@@ -174,8 +185,14 @@
             config: JSON.parse(form.configStr),
             tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
             enabled: form.enabled,
+          } : {
+            name: form.name.trim(),
+            protocol: form.protocol,
+            share_url: form.shareUrl.trim(),
+            tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+            enabled: form.enabled,
           };
-          if (node) {
+          if (node?.id) {
             await api.put(`/api/nodes/${node.id}`, payload);
             addToast('节点更新成功');
           } else {
@@ -196,14 +213,13 @@
           <div className="modal modal-lg">
             {/* Modal 头部 */}
             <div className="mh">
-              <span className="mht">{node ? '编辑节点' : '添加节点'}</span>
+              <span className="mht">{node?.id ? '编辑节点' : (isWireGuard ? '添加 WireGuard 节点' : '添加链接节点')}</span>
               <button className="btic" onClick={onClose}><IcoX /></button>
             </div>
 
             {/* Modal 正文 */}
             <form onSubmit={handleSubmit}>
               <div className="mb">
-                {/* 节点名称 + 协议 */}
                 <div className="frow" style={{marginBottom: 14}}>
                   <div className="fg" style={{marginBottom: 0}}>
                     <label className="fl">节点名称</label>
@@ -217,67 +233,80 @@
                     />
                   </div>
                   <div className="fg" style={{marginBottom: 0}}>
-                    <label className="fl">协议类型</label>
-                    <select
-                      className="fc"
-                      value={form.protocol}
-                      onChange={e => setForm(f => ({ ...f, protocol: e.target.value }))}
-                    >
-                      <option value="trojan">Trojan</option>
-                      <option value="vmess">VMess</option>
-                      <option value="vless">VLESS</option>
-                      <option value="ss">Shadowsocks</option>
-                      <option value="wireguard">WireGuard</option>
-                      <option value="anytls">AnyTLS</option>
-                      <option value="hysteria2">Hysteria2</option>
-                      <option value="tuic">TUIC</option>
-                    </select>
+                    <label className="fl">添加方式</label>
+                    <div className="fc" style={{display: 'flex', alignItems: 'center', background: '#f9fafb'}}>
+                      {isWireGuard ? 'WireGuard 专用表单' : '分享链接解析'}
+                    </div>
                   </div>
                 </div>
 
-                {/* 服务器地址 + 端口 */}
-                <div className="frow" style={{marginBottom: 14}}>
-                  <div className="fg" style={{marginBottom: 0}}>
-                    <label className="fl">服务器地址</label>
-                    <input
-                      className="fc"
-                      type="text"
-                      required
-                      placeholder="example.com"
-                      value={form.server}
-                      onChange={e => setForm(f => ({ ...f, server: e.target.value }))}
-                    />
-                  </div>
-                  <div className="fg" style={{marginBottom: 0}}>
-                    <label className="fl">端口</label>
-                    <input
-                      className="fc"
-                      type="number"
-                      required
-                      min="1"
-                      max="65535"
-                      placeholder="443"
-                      value={form.port}
-                      onChange={e => setForm(f => ({ ...f, port: e.target.value }))}
-                    />
-                  </div>
-                </div>
+                {isWireGuard ? (
+                  <>
+                    <div className="frow" style={{marginBottom: 14}}>
+                      <div className="fg" style={{marginBottom: 0}}>
+                        <label className="fl">服务器地址</label>
+                        <input
+                          className="fc"
+                          type="text"
+                          required
+                          placeholder="example.com"
+                          value={form.server}
+                          onChange={e => setForm(f => ({ ...f, server: e.target.value }))}
+                        />
+                      </div>
+                      <div className="fg" style={{marginBottom: 0}}>
+                        <label className="fl">端口</label>
+                        <input
+                          className="fc"
+                          type="number"
+                          required
+                          min="1"
+                          max="65535"
+                          placeholder="443"
+                          value={form.port}
+                          onChange={e => setForm(f => ({ ...f, port: e.target.value }))}
+                        />
+                      </div>
+                    </div>
 
-                {/* 配置 JSON */}
-                <div className="fg">
-                  <label className="fl">
-                    配置参数
-                    <span className="flo">JSON 格式</span>
-                  </label>
-                  <textarea
-                    className="fc"
-                    rows="5"
-                    placeholder={'{\n  "password": "your-password",\n  "sni": "example.com"\n}'}
-                    value={form.configStr}
-                    onChange={e => handleConfigChange(e.target.value)}
-                  />
-                  {configErr && <div className="fhint" style={{color: 'var(--red)'}}>{configErr}</div>}
-                </div>
+                    <div className="fg">
+                      <label className="fl">
+                        配置参数
+                        <span className="flo">JSON 格式</span>
+                      </label>
+                      <textarea
+                        className="fc"
+                        rows="5"
+                        placeholder={'{\n  "private_key": "...",\n  "peer_public_key": "..."\n}'}
+                        value={form.configStr}
+                        onChange={e => handleConfigChange(e.target.value)}
+                      />
+                      {configErr && <div className="fhint" style={{color: 'var(--red)'}}>{configErr}</div>}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="fg">
+                      <label className="fl">
+                        分享链接
+                        <span className="flo">{node?.id ? '留空则只更新名称/标签/启用状态' : '支持 ss/vless/vmess/trojan/anytls/hysteria2/tuic'}</span>
+                      </label>
+                      <textarea
+                        className="fc"
+                        rows="4"
+                        required={!node?.id}
+                        placeholder={'ss://YWVzLTI1Ni1nY206...\nvless://700229f2-...\ntrojan://password@...'}
+                        value={form.shareUrl}
+                        onChange={e => setForm(f => ({ ...f, shareUrl: e.target.value }))}
+                      />
+                      {node?.id && (
+                        <div className="fhint">
+                          当前节点：{node.protocol} / {node.server}:{node.port}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {/* 标签 */}
                 <div className="fg">
@@ -308,66 +337,10 @@
                 <button type="button" className="btn btn-s" onClick={onClose}>取消</button>
                 <button type="submit" className="btn btn-p" disabled={saving || !!configErr}>
                   {saving && <span className="spin"></span>}
-                  {saving ? '保存中...' : (node ? '保存更改' : '创建节点')}
+                  {saving ? '保存中...' : (node?.id ? '保存更改' : '创建节点')}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      );
-    };
-
-    /* ===================== URL 批量导入 Modal ===================== */
-    const ImportModal = ({ onClose, onImported, addToast }) => {
-      const [content, setContent] = useState('');
-      const [importing, setImporting] = useState(false);
-
-      const handleImport = async () => {
-        if (!content.trim()) return;
-        setImporting(true);
-        try {
-          const result = await api.post('/api/nodes/import', { content });
-          const { created, errors } = result.data;
-          if (created > 0) addToast(`成功导入 ${created} 个节点`, 'ok');
-          if (errors && errors.length > 0) addToast(`${errors.length} 条解析失败`, 'err');
-          if (created > 0) { onImported(); onClose(); }
-        } catch (err) {
-          addToast('导入失败：' + err.message, 'err');
-        } finally {
-          setImporting(false);
-        }
-      };
-
-      return (
-        <div className="modal-overlay" onClick={onClose}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="mh">
-              <span className="mht">URL 批量导入</span>
-              <button className="btic" onClick={onClose}><IcoX /></button>
-            </div>
-            <div className="mb">
-              <div className="fg">
-                <label className="fl">
-                  节点链接
-                  <span className="flo">每行一条，支持 ss/vless/vmess/trojan/hysteria2/tuic</span>
-                </label>
-                <textarea
-                  className="fc"
-                  rows="10"
-                  placeholder={"ss://YWVzLTI1Ni1nY206...\nvless://700229f2-...\ntrojan://password@..."}
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  style={{fontFamily: 'monospace', fontSize: 12}}
-                />
-              </div>
-            </div>
-            <div className="mf">
-              <button className="btn btn-s" onClick={onClose}>取消</button>
-              <button className="btn btn-p" onClick={handleImport} disabled={importing || !content.trim()}>
-                {importing && <span className="spin"></span>}
-                {importing ? '导入中...' : '开始导入'}
-              </button>
-            </div>
           </div>
         </div>
       );
@@ -389,7 +362,6 @@
       /* Modal 状态：null=关闭，{} 或 node 对象=打开 */
       const [modalNode, setModalNode] = useState(null);
       const [modalOpen, setModalOpen] = useState(false);
-      const [importOpen, setImportOpen] = useState(false);
 
       /* Toast 通知 */
       const [toasts, setToasts] = useState([]);
@@ -480,8 +452,8 @@
       };
 
       /* 打开新建 Modal */
-      const openCreate = () => {
-        setModalNode(null);
+      const openCreate = (protocol = 'share') => {
+        setModalNode({ protocol });
         setModalOpen(true);
       };
 
@@ -513,14 +485,14 @@
             <div className="ph">
               <div>
                 <div className="pt">节点管理</div>
-                <div className="ps">管理所有代理节点，支持多协议和批量操作</div>
+                <div className="ps">普通节点通过分享链接添加，WireGuard 使用专用表单</div>
               </div>
               <div className="phr">
-                <button className="btn btn-s" onClick={() => setImportOpen(true)}>
-                  URL 导入
+                <button className="btn btn-s" onClick={() => openCreate('wireguard')}>
+                  添加 WireGuard
                 </button>
-                <button className="btn btn-p" onClick={openCreate}>
-                  <IcoPlus />添加节点
+                <button className="btn btn-p" onClick={() => openCreate('share')}>
+                  <IcoPlus />添加链接节点
                 </button>
               </div>
             </div>
@@ -663,7 +635,7 @@
                           <div className="empty-d">
                             {filter.source || filter.protocol || filter.enabled !== ''
                               ? '尝试调整筛选条件，或清除所有筛选'
-                              : '点击右上角「添加节点」创建第一个节点，或从订阅源同步节点'}
+                              : '点击右上角添加链接节点或 WireGuard 节点，或从订阅源同步节点'}
                           </div>
                         </div>
                       </td>
@@ -763,16 +735,6 @@
               addToast={addToast}
             />
           )}
-
-          {/* URL 批量导入 Modal */}
-          {importOpen && (
-            <ImportModal
-              onClose={() => setImportOpen(false)}
-              onImported={() => { loadNodes(); loadStats(); }}
-              addToast={addToast}
-            />
-          )}
-
           {/* Toast 通知容器 */}
           <ToastContainer toasts={toasts} />
         </div>
