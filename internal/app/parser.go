@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -485,56 +486,54 @@ func decodeSSBase64(s string) (string, error) {
 
 // parseVMessJSON 解析 VMess JSON 配置（简化版）
 func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
-	// 简化的 JSON 解析，实际应该使用 encoding/json
-	// 这里使用字符串匹配来提取关键字段
-
-	pswd := extractJSONField(jsonStr, "id")
-	if pswd == "" {
-		return nil, fmt.Errorf("未找到 UUID")
+	type vmessConfig struct {
+		ID      string `json:"id"`
+		Add     string `json:"add"`
+		Port    int    `json:"port"`
+		PS      string `json:"ps"`
+		Aid     int    `json:"aid"`
+		Net     string `json:"net"`
+		TLS     string `json:"tls"`
+		SNI     string `json:"sni"`
+		Path    string `json:"path"`
 	}
 
-	addrs := extractJSONField(jsonStr, "add")
-	if addrs == "" {
+	var cfg vmessConfig
+	if err := json.Unmarshal([]byte(jsonStr), &cfg); err != nil {
+		return nil, fmt.Errorf("解析 VMess JSON 失败: %w", err)
+	}
+
+	if cfg.ID == "" {
+		return nil, fmt.Errorf("未找到 UUID")
+	}
+	if cfg.Add == "" {
 		return nil, fmt.Errorf("未找到服务器地址")
 	}
 
-	port := 80
-	if portStr := extractJSONField(jsonStr, "port"); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
-
-	name := extractJSONField(jsonStr, "ps")
+	name := cfg.PS
 	if name == "" {
-		name = addrs
+		name = cfg.Add
 	}
 
-	alterID := 0
-	if alterIDStr := extractJSONField(jsonStr, "aid"); alterIDStr != "" {
-		fmt.Sscanf(alterIDStr, "%d", &alterID)
-	}
-
-	network := extractJSONField(jsonStr, "net")
+	network := cfg.Net
 	if network == "" {
 		network = "tcp"
 	}
 
-	tls := extractJSONField(jsonStr, "tls") == "true"
-
-	sni := extractJSONField(jsonStr, "sni")
-	wsPath := extractJSONField(jsonStr, "path")
+	tls := cfg.TLS == "tls" || cfg.TLS == "true"
 
 	return &ProxyNode{
 		Protocol: "vmess",
 		Name:     name,
-		Server:   addrs,
-		Port:     port,
+		Server:   cfg.Add,
+		Port:     cfg.Port,
 		Options: map[string]interface{}{
-			"uuid":    pswd,
-			"alterID": alterID,
+			"uuid":    cfg.ID,
+			"alterID": cfg.Aid,
 			"network": network,
 			"tls":     tls,
-			"sni":     sni,
-			"wsPath":  wsPath,
+			"sni":     cfg.SNI,
+			"wsPath":  cfg.Path,
 		},
 	}, nil
 }
