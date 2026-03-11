@@ -230,7 +230,7 @@
       const [deleteTarget, setDeleteTarget] = useState(null);
 
       /* Toast */
-      const { toasts, addToast } = useToasts();
+      const { toasts, addToast } = window.useToasts();
 
       /* 表单状态 */
       const defaultForm = { name: '', target: 'clash', description: '', content: '' };
@@ -531,7 +531,7 @@
           )}
 
           {/* 删除确认 Modal */}
-          <ConfirmDialog
+          <window.ConfirmDialog
             isOpen={showDeleteModal && !!deleteTarget}
             title="确认删除"
             message={

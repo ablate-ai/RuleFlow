@@ -118,7 +118,7 @@
       const [syncing, setSyncing]         = useState(null);        // 正在同步的订阅 ID
       const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅对象（显示确认框）
       const [deleting, setDeleting]       = useState(false);       // 删除中
-      const { toasts, addToast }          = useToasts();           // Toast 列表
+      const { toasts, addToast }          = window.useToasts();           // Toast 列表
       const [filterOpen, setFilterOpen]   = useState(false);       // 过滤规则折叠状态
       const [kwInput, setKwInput]         = useState('');          // 关键词输入缓冲
 
@@ -245,7 +245,7 @@
 
       // 复制到剪贴板
       const copyToClipboard = async (text, label) => {
-        await copyText(text, {
+        await window.copyText(text, {
           successMessage: `${label}已复制到剪贴板`,
           errorMessage: `复制失败`,
           addToast
@@ -627,7 +627,7 @@
           )}
 
           {/* ===== 删除确认 Modal ===== */}
-          <ConfirmDialog
+          <window.ConfirmDialog
             isOpen={!!confirmDelete}
             title="确认删除"
             message={

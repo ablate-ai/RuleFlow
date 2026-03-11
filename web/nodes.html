@@ -364,7 +364,7 @@
       const [modalOpen, setModalOpen] = useState(false);
 
       /* Toast 通知 */
-      const { toasts, addToast } = useToasts();
+      const { toasts, addToast } = window.useToasts();
 
       /* 加载节点列表 */
       const loadNodes = useCallback(async () => {

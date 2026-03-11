@@ -343,7 +343,7 @@
       const [lastUpdated, setLastUpdated]   = useState(null);
       const [loaded, setLoaded]             = useState(false);
       const [refreshing, setRefreshing]     = useState(false);
-      const { toasts, addToast }            = useToasts();
+      const { toasts, addToast }            = window.useToasts();
 
       const clearPolicyCache = useCallback(async () => {
         await fetch('/api/cache/policies/clear', {

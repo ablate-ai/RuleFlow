@@ -133,7 +133,7 @@
       const [accessLogs, setAccessLogs] = useState([]);
 
       /* Toast */
-      const { toasts, addToast } = useToasts();
+      const { toasts, addToast } = window.useToasts();
 
       /* 表单状态 */
       const defaultForm = { name: '', target: 'clash-meta', subscription_ids: [], node_ids: [], template_name: '', description: '', enabled: true };
@@ -258,7 +258,7 @@
       /* 复制配置链接 */
       const handleCopyLink = async (policy) => {
         const url = `${window.location.origin}/subscribe?token=${policy.token}`;
-        await copyText(url, {
+        await window.copyText(url, {
           successMessage: '配置链接已复制到剪贴板',
           errorMessage: '复制失败，请手动复制',
           addToast
@@ -654,7 +654,7 @@
           )}
 
           {/* 删除确认 Modal */}
-          <ConfirmDialog
+          <window.ConfirmDialog
             isOpen={showDeleteModal && !!deleteTarget}
             title="确认删除"
             message={

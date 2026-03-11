@@ -118,7 +118,7 @@
       const [showDeleteModal, setShowDeleteModal] = useState(false);
       const [deleteTarget, setDeleteTarget] = useState(null);
       const [deleting, setDeleting] = useState(false);
-      const { toasts, addToast } = useToasts();
+      const { toasts, addToast } = window.useToasts();
 
       const loadItems = useCallback(async () => {
         try {
@@ -225,7 +225,7 @@
       };
 
       const handleCopy = async (text, label) => {
-        await copyText(text, {
+        await window.copyText(text, {
           successMessage: `${label}已复制`,
           errorMessage: `复制${label}失败`,
           addToast
@@ -414,7 +414,7 @@
             </div>
           )}
 
-          <ConfirmDialog
+          <window.ConfirmDialog
             isOpen={showDeleteModal}
             title="删除规则源"
             message={
