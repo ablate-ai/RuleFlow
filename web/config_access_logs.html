@@ -35,6 +35,7 @@
     .stat-k { font-size: 12px; color: var(--t3); }
     .stat-v { font-size: 24px; font-weight: 750; color: var(--t1); margin-top: 4px; letter-spacing: -.03em; }
     .stat-n { font-size: 12px; color: var(--t2); margin-top: 4px; }
+    .list-wrap { max-height: calc(100vh - 480px); overflow-y: auto; }
     .list { display: grid; gap: 10px; }
     .item { border: 1px solid var(--bdr); border-radius: 14px; background: #fff; padding: 14px 16px; }
     .item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -296,28 +297,30 @@
                     <div className="empty-d">可以放宽筛选条件，或者先让客户端请求一次订阅链接再来看。</div>
                   </div>
                 ) : (
-                  <div className="list">
-                    {visibleLogs.map(log => (
-                      <div key={log.id} className="item">
-                        <div className="item-top">
-                          <div>
-                            <div className="item-title">{log.policy_name || '未知策略 / 无效 token'}</div>
-                            <div className="item-sub">{formatDate(log.created_at)} · token: {log.token || '-'}</div>
+                  <div className="list-wrap">
+                    <div className="list">
+                      {visibleLogs.map(log => (
+                        <div key={log.id} className="item">
+                          <div className="item-top">
+                            <div>
+                              <div className="item-title">{log.policy_name || '未知策略 / 无效 token'}</div>
+                              <div className="item-sub">{formatDate(log.created_at)} · token: {log.token || '-'}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <ResultBadge success={log.success} />
+                              <CacheBadge cacheHit={log.cache_hit} />
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <ResultBadge success={log.success} />
-                            <CacheBadge cacheHit={log.cache_hit} />
+                          <div className="item-meta">
+                            <span><IcoClock />状态码：{log.status_code}</span>
+                            <span><IcoRSS />IP：{log.client_ip || '-'}</span>
+                            <span><IcoList />节点数：{log.node_count != null ? log.node_count : '-'}</span>
+                            <span><IcoSettings />UA：{log.user_agent || '-'}</span>
                           </div>
+                          {log.error_message && <div className="item-err">{log.error_message}</div>}
                         </div>
-                        <div className="item-meta">
-                          <span><IcoClock />状态码：{log.status_code}</span>
-                          <span><IcoRSS />IP：{log.client_ip || '-'}</span>
-                          <span><IcoList />节点数：{log.node_count != null ? log.node_count : '-'}</span>
-                          <span><IcoSettings />UA：{log.user_agent || '-'}</span>
-                        </div>
-                        {log.error_message && <div className="item-err">{log.error_message}</div>}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

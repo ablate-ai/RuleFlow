@@ -343,6 +343,13 @@
       const [lastUpdated, setLastUpdated]   = useState(null);
       const [loaded, setLoaded]             = useState(false);
       const [refreshing, setRefreshing]     = useState(false);
+      const [toasts, setToasts]             = useState([]);
+
+      const addToast = useCallback((msg, type = 'ok') => {
+        const id = Date.now() + Math.random();
+        setToasts(t => [...t, { id, msg, type }]);
+        setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+      }, []);
 
       const clearPolicyCache = useCallback(async () => {
         await fetch('/api/cache/policies/clear', {
@@ -390,11 +397,14 @@
           setTemplates(tplRes.data || []);
           setPolicies(policyRes.data || []);
           setLastUpdated(new Date());
+          addToast('概览已刷新');
+        } catch (err) {
+          addToast(`刷新概览失败：${err.message}`, 'err');
         } finally {
           setLoaded(true);
           setRefreshing(false);
         }
-      }, [clearPolicyCache]);
+      }, [addToast, clearPolicyCache]);
 
       useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
@@ -435,6 +445,7 @@
         <div className="app">
           <Sidebar active="home" />
           <main className="main">
+            <ToastContainer toasts={toasts} />
 
             {/* Hero */}
             <section className="hero">
@@ -540,16 +551,9 @@
                               onClick={() => {
                                 const url = `${window.location.origin}/subscribe?token=${policy.token}`;
                                 navigator.clipboard.writeText(url).then(() => {
-                                  const tempToast = document.createElement('div');
-                                  tempToast.className = 'toast t-ok';
-                                  tempToast.textContent = '订阅链接已复制';
-                                  tempToast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 16px;border-radius:8px;background:#16a34a;color:#fff;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;';
-                                  document.body.appendChild(tempToast);
-                                  setTimeout(() => tempToast.style.opacity = '1', 100);
-                                  setTimeout(() => {
-                                    tempToast.style.opacity = '0';
-                                    setTimeout(() => document.body.removeChild(tempToast), 300);
-                                  }, 2000);
+                                  addToast('订阅链接已复制');
+                                }).catch(err => {
+                                  addToast(`复制失败：${err.message}`, 'err');
                                 });
                               }}
                             >
