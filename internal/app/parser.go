@@ -642,8 +642,7 @@ func buildTLSOptions(enabled bool, serverName string, insecure bool, alpn []stri
 	return tlsObj
 }
 
-// decodeVMessBase64 解码 VMess Base64
-func decodeVMessBase64(s string) (string, error) {
+func decodeURLSafeBase64String(s string) (string, error) {
 	// URL 安全的 Base64 可能包含 - 和 _
 	s = strings.NewReplacer("-", "+", "_", "/").Replace(s)
 
@@ -659,6 +658,11 @@ func decodeVMessBase64(s string) (string, error) {
 	return string(decoded), nil
 }
 
+// decodeVMessBase64 解码 VMess Base64
+func decodeVMessBase64(s string) (string, error) {
+	return decodeURLSafeBase64String(s)
+}
+
 // decodeSSBase64 解码 Shadowsocks Base64
 func decodeSSBase64(s string) (string, error) {
 	// 移除可能存在的 fragment
@@ -666,18 +670,7 @@ func decodeSSBase64(s string) (string, error) {
 		s = s[:idx]
 	}
 
-	s = strings.NewReplacer("-", "+", "_", "/").Replace(s)
-
-	if rem := len(s) % 4; rem != 0 {
-		s += strings.Repeat("=", 4-rem)
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return "", fmt.Errorf("Base64 解码失败: %w", err)
-	}
-
-	return string(decoded), nil
+	return decodeURLSafeBase64String(s)
 }
 
 // parseVMessJSON 解析 VMess JSON 配置（简化版）

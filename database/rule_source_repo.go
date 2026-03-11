@@ -101,17 +101,7 @@ func (r *RuleSourceRepo) Create(ctx context.Context, source *RuleSource) error {
 		return fmt.Errorf("创建规则源失败: %w", err)
 	}
 
-	// 如果是手动规则源（无 URL）且有内容，直接解析并更新
-	if source.URL == "" && source.RawContent != "" {
-		var rules []app.RuleSetRule
-		rules, err = app.ParseRuleSet(source.RawContent, source.SourceFormat)
-		if err == nil {
-			parsed, marshalErr := json.Marshal(rules)
-			if marshalErr == nil {
-				_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, len(rules), nil)
-			}
-		}
-	}
+	r.syncManualRuleSource(ctx, source)
 
 	return nil
 }
@@ -189,17 +179,7 @@ func (r *RuleSourceRepo) Update(ctx context.Context, source *RuleSource) error {
 		return fmt.Errorf("更新规则源失败: %w", err)
 	}
 
-	// 如果是手动规则源且有内容，直接解析并更新
-	if source.URL == "" && source.RawContent != "" {
-		var rules []app.RuleSetRule
-		rules, err = app.ParseRuleSet(source.RawContent, source.SourceFormat)
-		if err == nil {
-			parsed, marshalErr := json.Marshal(rules)
-			if marshalErr == nil {
-				_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, len(rules), nil)
-			}
-		}
-	}
+	r.syncManualRuleSource(ctx, source)
 
 	return nil
 }
@@ -243,4 +223,22 @@ func (r *RuleSourceRepo) UpdateSyncResult(ctx context.Context, id int, rawConten
 		return fmt.Errorf("更新规则源同步结果失败: %w", err)
 	}
 	return nil
+}
+
+func (r *RuleSourceRepo) syncManualRuleSource(ctx context.Context, source *RuleSource) {
+	if source.URL != "" || source.RawContent == "" {
+		return
+	}
+
+	rules, err := app.ParseRuleSet(source.RawContent, source.SourceFormat)
+	if err != nil {
+		return
+	}
+
+	parsed, err := json.Marshal(rules)
+	if err != nil {
+		return
+	}
+
+	_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, len(rules), nil)
 }

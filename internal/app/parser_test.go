@@ -4,6 +4,58 @@ import (
 	"testing"
 )
 
+func TestDecodeURLSafeBase64String(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "标准 Base64",
+			input: "YWJjZA==",
+			want:  "abcd",
+		},
+		{
+			name:  "缺少 padding",
+			input: "YWJjZA",
+			want:  "abcd",
+		},
+		{
+			name:  "URL 安全 Base64",
+			input: "Pz8_",
+			want:  "???",
+		},
+		{
+			name:    "非法 Base64",
+			input:   "not-base64!",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := decodeURLSafeBase64String(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("decodeURLSafeBase64String() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Fatalf("decodeURLSafeBase64String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeSSBase64IgnoresFragment(t *testing.T) {
+	got, err := decodeSSBase64("YWVzLTI1Ni1nY206cGFzc3dvcmQ=#TestNode")
+	if err != nil {
+		t.Fatalf("decodeSSBase64() error = %v", err)
+	}
+	if got != "aes-256-gcm:password" {
+		t.Fatalf("decodeSSBase64() = %q, want %q", got, "aes-256-gcm:password")
+	}
+}
+
 func TestParseTrojanNode(t *testing.T) {
 	tests := []struct {
 		name    string
