@@ -213,6 +213,84 @@ window.Toggle = ({ checked, onChange, label, id }) => (
   </label>
 );
 
+// ===== Toast 状态管理 =====
+window.useToasts = (dismissMs = 3500) => {
+  const [toasts, setToasts] = React.useState([]);
+
+  const addToast = React.useCallback((msg, type = 'ok') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, msg, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, dismissMs);
+  }, [dismissMs]);
+
+  return { toasts, addToast };
+};
+
+// ===== 剪贴板复制工具函数 =====
+window.copyText = async (text, options = {}) => {
+  const {
+    successMessage = '已复制',
+    errorMessage = '复制失败',
+    addToast
+  } = options;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    if (addToast) {
+      addToast(successMessage);
+    }
+    return true;
+  } catch (err) {
+    if (addToast) {
+      addToast(errorMessage, 'err');
+    }
+    return false;
+  }
+};
+
+// ===== 确认删除弹窗组件 =====
+window.ConfirmDialog = ({
+  isOpen,
+  title,
+  message,
+  confirmText = '确认删除',
+  cancelText = '取消',
+  loading,
+  onConfirm,
+  onClose
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="overlay" onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}>
+      <div className="modal modal-sm">
+        <div className="mh">
+          <span className="mht">{title}</span>
+          <button className="btic" onClick={() => !loading && onClose()} disabled={loading}>
+            <IcoX />
+          </button>
+        </div>
+        <div className="mb">
+          <div style={{ fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.7 }}>
+            {message}
+          </div>
+        </div>
+        <div className="mf">
+          <button className="btn btn-s" onClick={onClose} disabled={loading}>
+            {cancelText}
+          </button>
+          <button className="btn btn-p" onClick={onConfirm} disabled={loading}>
+            {loading && <span className="spin"></span>}
+            {loading ? '处理中...' : confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ===== Toast 通知容器 =====
 window.ToastContainer = ({ toasts }) => (
   <div className="tc">
