@@ -122,6 +122,7 @@
       { value: 'clash_meta',   label: 'Clash Meta',   badge: 'bdg-b' },
       { value: 'stash',        label: 'Stash',        badge: 'bdg-p' },
       { value: 'surge',        label: 'Surge',        badge: 'bdg-o' },
+      { value: 'sing_box',     label: 'sing-box',     badge: 'bdg-c' },
       { value: 'loon',         label: 'Loon',         badge: 'bdg-c' },
       { value: 'shadowrocket', label: 'Shadowrocket', badge: 'bdg-c' },
     ];
@@ -262,14 +263,26 @@
       useEffect(() => { loadTemplates(); }, []);
 
       /* 加载内置模板文件内容（新建时使用） */
-      const loadDefaultContent = async () => {
+      const builtinTemplateURL = (target) => {
+        if (target === 'surge') return '/rules/surge.conf';
+        if (target === 'sing_box') return '/rules/sing-box.json.template';
+        return '/rules/clash.yaml';
+      };
+
+      const builtinTemplateLabel = (target) => {
+        if (target === 'surge') return 'INI';
+        if (target === 'sing_box') return 'JSON';
+        return 'YAML';
+      };
+
+      const loadDefaultContent = async (target) => {
         try {
-          const res = await fetch('/rules/clash.yaml');
+          const res = await fetch(builtinTemplateURL(target));
           if (res.ok) {
             const text = await res.text();
             const contentType = res.headers.get('content-type') || '';
             if (contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
-              throw new Error('内置模板响应不是 YAML');
+              throw new Error('内置模板响应格式不正确');
             }
             return text;
           }
@@ -280,7 +293,7 @@
       /* 打开新建 Modal */
       const openCreate = async () => {
         setEditItem(null);
-        const content = await loadDefaultContent();
+        const content = await loadDefaultContent(defaultForm.target);
         setForm({ ...defaultForm, content });
         setEditorContent(content);
         setShowModal(true);
@@ -472,7 +485,14 @@
                           <select
                             className="fc"
                             value={form.target}
-                            onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
+                            onChange={async e => {
+                              const target = e.target.value;
+                              setForm(f => ({ ...f, target }));
+                              if (!editItem && !editorContent.trim()) {
+                                const content = await loadDefaultContent(target);
+                                setEditorContent(content);
+                              }
+                            }}
                           >
                             {TARGET_OPTIONS.map(opt => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -496,7 +516,7 @@
 
                     <div className="editor-pane">
                       <div className="fg editor-form-group">
-                        <label className="fl">模板内容 <span className="flo">YAML 格式</span></label>
+                        <label className="fl">模板内容 <span className="flo">{builtinTemplateLabel(form.target)} 格式</span></label>
                         <MonacoEditor
                           value={editorContent}
                           onChange={handleEditorChange}

@@ -1,0 +1,560 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "local",
+        "tag": "dns_local"
+      },
+      {
+        "type": "udp",
+        "tag": "dns_direct",
+        "server": "223.5.5.5",
+        "server_port": 53
+      },
+      {
+        "type": "https",
+        "tag": "dns_proxy",
+        "server": "cloudflare-dns.com",
+        "path": "/dns-query",
+        "detour": "🌐 Proxy"
+      }
+    ],
+    "rules": [
+      {
+        "domain_suffix": [
+          "internal.example",
+          "private.example",
+          "nio.com",
+          "dev.example",
+          "juejin.cn",
+          "bochk.com",
+          "hf-mirror.com",
+          "lmstudio.ai",
+          "intl-subscription.iqiyi.com",
+          "intl-rcd.iqiyi.com",
+          "intl.iqiyi.com"
+        ],
+        "server": "dns_direct"
+      },
+      {
+        "domain": [
+          "cache.video.iqiyi.com"
+        ],
+        "server": "dns_direct"
+      },
+      {
+        "rule_set": [
+          "apple_cdn",
+          "apple_services",
+          "apple_cn_non_ip",
+          "microsoft_cdn_non_ip",
+          "microsoft_non_ip",
+          "neteasemusic_non_ip",
+          "download_domainset",
+          "download_non_ip",
+          "lan_non_ip",
+          "domestic_non_ip",
+          "direct_non_ip"
+        ],
+        "server": "dns_direct"
+      },
+      {
+        "rule_set": [
+          "stream_non_ip",
+          "ai_non_ip",
+          "telegram_non_ip",
+          "cdn_domainset",
+          "cdn_non_ip"
+        ],
+        "server": "dns_proxy"
+      }
+    ],
+    "final": "dns_direct",
+    "strategy": "prefer_ipv4",
+    "independent_cache": true
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "0.0.0.0",
+      "listen_port": 7890,
+      "set_system_proxy": false
+    },
+    {
+      "type": "socks",
+      "tag": "socks-in",
+      "listen": "0.0.0.0",
+      "listen_port": 7891
+    },
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "address": [
+        "172.19.0.1/30"
+      ],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "mixed"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "selector",
+      "tag": "🌐 Proxy",
+      "outbounds": [
+        "🛰 Auto",
+        "🤖 AI",
+        "🇭🇰 HK",
+        "🇺🇸 US",
+        "🇯🇵 JP",
+        "🇸🇬 SG",
+        "DIRECT",
+        "__PROXY_NODES__"
+      ],
+      "default": "🛰 Auto",
+      "interrupt_exist_connections": true
+    },
+    {
+      "type": "urltest",
+      "tag": "🛰 Auto",
+      "outbounds": [
+        "__AUTO_NODES__"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "20m",
+      "tolerance": 50,
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "🇸🇬 SG",
+      "outbounds": [
+        "__SG_NODES__"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "20m",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "🇭🇰 HK",
+      "outbounds": [
+        "__HK_NODES__"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "20m",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "🇺🇸 US",
+      "outbounds": [
+        "__US_NODES__"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "20m",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "🇯🇵 JP",
+      "outbounds": [
+        "__JP_NODES__"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "20m",
+      "tolerance": 50
+    },
+    {
+      "type": "selector",
+      "tag": "🎬 Stream",
+      "outbounds": [
+        "🤖 AI",
+        "🇺🇸 US",
+        "🇯🇵 JP",
+        "🇭🇰 HK",
+        "🇸🇬 SG"
+      ],
+      "default": "🇺🇸 US",
+      "interrupt_exist_connections": true
+    },
+    {
+      "type": "selector",
+      "tag": "🤖 AI",
+      "outbounds": [
+        "🇺🇸 AI-PRIMARY"
+      ],
+      "default": "🇺🇸 AI-PRIMARY",
+      "interrupt_exist_connections": true
+    },
+    "__OUTBOUNDS__",
+    {
+      "type": "direct",
+      "tag": "DIRECT"
+    },
+    {
+      "type": "block",
+      "tag": "REJECT"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns_local",
+      "strategy": "prefer_ipv4"
+    },
+    "final": "🌐 Proxy",
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "reject_non_ip_no_drop",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/reject-no-drop.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "reject_non_ip_drop",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/reject-drop.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "reject_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/reject.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "reject_domainset",
+        "url": "https://ruleset.skk.moe/sing-box/domainset/reject.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "reject_extra_domainset",
+        "url": "https://ruleset.skk.moe/sing-box/domainset/reject_extra.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "cdn_domainset",
+        "url": "https://ruleset.skk.moe/sing-box/domainset/cdn.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "cdn_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/cdn.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "stream_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/stream.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "ai_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/ai.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "telegram_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/telegram.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "apple_cdn",
+        "url": "https://ruleset.skk.moe/sing-box/domainset/apple_cdn.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "apple_services",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/apple_services.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "apple_cn_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/apple_cn.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "microsoft_cdn_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/microsoft_cdn.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "microsoft_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/microsoft.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "neteasemusic_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/neteasemusic.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "download_domainset",
+        "url": "https://ruleset.skk.moe/sing-box/domainset/download.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "domestic_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/domestic.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "direct_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/direct.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "download_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/download.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "lan_non_ip",
+        "url": "https://ruleset.skk.moe/sing-box/non_ip/lan.json",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      }
+    ],
+    "rules": [
+      {
+        "network": [
+          "udp",
+          "tcp"
+        ],
+        "port": 53,
+        "action": "hijack-dns"
+      },
+      {
+        "wifi_ssid": [
+          "YOUR_WIFI_SSID",
+          "YOUR_WIFI_SSID_5G"
+        ],
+        "outbound": "DIRECT"
+      },
+      {
+        "domain_suffix": [
+          "cdn.wwm.app",
+          "internal.example",
+          "nio.com",
+          "dev.example",
+          "juejin.cn",
+          "bochk.com",
+          "hf-mirror.com",
+          "lmstudio.ai",
+          "intl-subscription.iqiyi.com",
+          "intl-rcd.iqiyi.com",
+          "intl.iqiyi.com"
+        ],
+        "outbound": "DIRECT"
+      },
+      {
+        "domain": [
+          "cache.video.iqiyi.com"
+        ],
+        "outbound": "DIRECT"
+      },
+      {
+        "domain_suffix": [
+          "polymarket.com"
+        ],
+        "outbound": "🇯🇵 JP"
+      },
+      {
+        "domain_suffix": [
+          "payment.example"
+        ],
+        "outbound": "🛰 Auto"
+      },
+      {
+        "domain_suffix": [
+          "claude.ai",
+          "usefathom.com",
+          "servd-anthropic-website.b-cdn.net",
+          "claudeusercontent.com",
+          "cdn.usefathom.com",
+          "anthropic.com"
+        ],
+        "outbound": "🤖 AI"
+      },
+      {
+        "domain_suffix": [
+          "huggingface.co",
+          "hf.co",
+          "brew.sh",
+          "npmjs.org",
+          "discordapp.net",
+          "cloudflarestorage.com",
+          "pypi.org",
+          "pythonhosted.org",
+          "golang.org",
+          "docker.com",
+          "alpinelinux.org",
+          "githubusercontent.com",
+          "github.com",
+          "amazonaws.com"
+        ],
+        "outbound": "🌐 Proxy"
+      },
+      {
+        "domain_suffix": [
+          "alpaca.markets"
+        ],
+        "outbound": "🇭🇰 HK"
+      },
+      {
+        "ip_cidr": [
+          "44.215.95.164/32",
+          "64.186.229.131/32",
+          "176.34.57.76/32"
+        ],
+        "outbound": "DIRECT"
+      },
+      {
+        "network": [
+          "udp"
+        ],
+        "port": [
+          443
+        ],
+        "action": "reject"
+      },
+      {
+        "rule_set": [
+          "reject_non_ip_drop"
+        ],
+        "action": "reject",
+        "method": "drop"
+      },
+      {
+        "rule_set": [
+          "reject_domainset",
+          "reject_extra_domainset",
+          "reject_non_ip"
+        ],
+        "action": "reject"
+      },
+      {
+        "rule_set": [
+          "reject_non_ip_no_drop"
+        ],
+        "action": "reject",
+        "no_drop": true
+      },
+      {
+        "rule_set": [
+          "cdn_domainset"
+        ],
+        "outbound": "🛰 Auto"
+      },
+      {
+        "rule_set": [
+          "stream_non_ip"
+        ],
+        "outbound": "🎬 Stream"
+      },
+      {
+        "rule_set": [
+          "ai_non_ip"
+        ],
+        "outbound": "🤖 AI"
+      },
+      {
+        "rule_set": [
+          "telegram_non_ip"
+        ],
+        "outbound": "🇸🇬 SG"
+      },
+      {
+        "rule_set": [
+          "apple_cdn",
+          "apple_services",
+          "apple_cn_non_ip",
+          "microsoft_cdn_non_ip",
+          "microsoft_non_ip",
+          "neteasemusic_non_ip",
+          "download_domainset",
+          "download_non_ip",
+          "lan_non_ip",
+          "domestic_non_ip",
+          "direct_non_ip"
+        ],
+        "outbound": "DIRECT"
+      }
+    ]
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "cache.db"
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:7892",
+      "default_mode": "Rule"
+    }
+  }
+}

@@ -103,7 +103,7 @@
 
     /* ===== 目标类型徽章 ===== */
     const TargetBadge = ({ target }) => {
-      const map = { 'clash-meta': ['Clash Meta', 'bdg-b'], stash: ['Stash', 'bdg-p'], surge: ['Surge', 'bdg-o'] };
+      const map = { 'clash-meta': ['Clash Meta', 'bdg-b'], stash: ['Stash', 'bdg-p'], surge: ['Surge', 'bdg-o'], 'sing-box': ['sing-box', 'bdg-c'] };
       const [label, cls] = map[target] || [target, 'bdg-gray'];
       return <span className={`bdg ${cls}`}><span className="bdg-dot"></span>{label}</span>;
     };
@@ -444,6 +444,7 @@
                         <option value="clash-meta">Clash Meta</option>
                         <option value="stash">Stash</option>
                         <option value="surge">Surge</option>
+                        <option value="sing-box">sing-box</option>
                       </select>
                     </div>
                   </div>
@@ -537,7 +538,11 @@
                       onChange={e => setForm(f => ({ ...f, template_name: e.target.value }))}
                     >
                       <option value="">内置模板</option>
-                      {templates.filter(tpl => form.target === 'surge' ? tpl.target === 'surge' : tpl.target !== 'surge').map(tpl => (
+                      {templates.filter(tpl => {
+                        if (form.target === 'surge') return tpl.target === 'surge';
+                        if (form.target === 'sing-box') return tpl.target === 'sing_box';
+                        return tpl.target !== 'surge' && tpl.target !== 'sing_box';
+                      }).map(tpl => (
                         <option key={tpl.name} value={tpl.name}>
                           {tpl.name}
                         </option>

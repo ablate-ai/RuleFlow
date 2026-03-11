@@ -49,7 +49,7 @@ CREATE TABLE templates (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT templates_target_check
-        CHECK (target IN ('clash', 'clash_meta', 'stash', 'surge', 'loon', 'shadowrocket'))
+        CHECK (target IN ('clash', 'clash_meta', 'stash', 'surge', 'sing_box', 'loon', 'shadowrocket'))
 );
 
 CREATE INDEX idx_templates_name ON templates(name);
@@ -73,7 +73,7 @@ CREATE TABLE config_policies (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT config_policies_target_check
-        CHECK (target IN ('clash-meta', 'stash', 'surge'))
+        CHECK (target IN ('clash-meta', 'stash', 'surge', 'sing-box'))
 );
 
 CREATE INDEX idx_config_policies_name ON config_policies(name);

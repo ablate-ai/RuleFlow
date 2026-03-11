@@ -685,9 +685,16 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	// 优先从 Redis 缓存读取
 	if h.policyCache != nil {
 		if cached, err := h.policyCache.GetPolicyConfig(ctx, token); err == nil && cached != "" {
-			if policy, err := h.configPolicyService.GetByToken(ctx, token); err == nil && policy.Target == "surge" {
-				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-				cached = finalizeConfigContent(r, "surge", cached)
+			if policy, err := h.configPolicyService.GetByToken(ctx, token); err == nil {
+				switch policy.Target {
+				case "surge":
+					w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+					cached = finalizeConfigContent(r, "surge", cached)
+				case "sing-box":
+					w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				default:
+					w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+				}
 			} else {
 				w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 			}
@@ -759,6 +766,12 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		} else {
 			configContent, err = app.BuildSurgeFromDefaultTemplate(proxyNodes)
 		}
+	} else if target == "sing-box" {
+		if templateContent != "" {
+			configContent, err = app.BuildSingBoxFromTemplateContent(proxyNodes, templateContent)
+		} else {
+			configContent, err = app.BuildSingBoxFromDefaultTemplate(proxyNodes)
+		}
 	} else {
 		if templateContent != "" {
 			configContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
@@ -783,12 +796,15 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	case "surge":
 		filename = "surge_config.conf"
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	case "sing-box":
+		filename = "sing_box_config.json"
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	case "clash-meta":
 		filename = "clash_meta_config.yaml"
 	default:
 		filename = "clash_meta_config.yaml"
 	}
-	if target != "surge" {
+	if target != "surge" && target != "sing-box" {
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
