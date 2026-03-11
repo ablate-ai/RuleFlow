@@ -273,13 +273,6 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/non_ip/global.txt
     path: ./sukkaw_ruleset/global_non_ip.txt
-  global_plus_non_ip:
-    type: http
-    behavior: classical
-    format: text
-    interval: 43200
-    url: https://ruleset.skk.moe/Clash/non_ip/global_plus.txt
-    path: ./sukkaw_ruleset/global_plus_non_ip.txt
   domestic_ip:
     type: http
     behavior: classical
@@ -402,7 +395,6 @@ rules:
   - RULE-SET,lan_ip,DIRECT
   - RULE-SET,domestic_non_ip,DIRECT
   - RULE-SET,direct_non_ip,DIRECT
-  - RULE-SET,global_plus_non_ip,🚀 Proxy
   - RULE-SET,global_non_ip,🚀 Proxy
   - DOMAIN-SUFFIX,amazonaws.com,🚀 Proxy
   - RULE-SET,domestic_ip,DIRECT
