@@ -108,9 +108,6 @@ func main() {
 	// 创建 API 处理器
 	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache)
 
-	// 设置路由
-	setupRoutes(cfg, apiHandlers)
-
 	// 启动服务器
 	port := cfg.Port
 	log.Printf("🚀 服务器启动: http://localhost:%s\n", port)
@@ -124,7 +121,7 @@ func main() {
 	r := setupRoutes(cfg, apiHandlers)
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: api.LoggingMiddleware(api.CORSMiddleware(api.RecoveryMiddleware(r))),
+		Handler: api.LoggingMiddleware(api.CORSMiddleware(cfg.CORSAllowedOrigins)(api.RecoveryMiddleware(r))),
 	}
 
 	go func() {

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -105,19 +106,52 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 }
 
 // CORSMiddleware CORS 中间件
-func CORSMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+func CORSMiddleware(allowedOrigins string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			if origin != "" {
+				w.Header().Add("Vary", "Origin")
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
+				allowedOrigin, allowCredentials := resolveAllowedOrigin(origin, allowedOrigins)
+				if allowedOrigin == "" {
+					next.ServeHTTP(w, r)
+					return
+				}
+
+				w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+				if allowCredentials {
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+				}
+			}
+
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func resolveAllowedOrigin(origin, allowedOrigins string) (string, bool) {
+	for _, allowedOrigin := range strings.Split(allowedOrigins, ",") {
+		allowedOrigin = strings.TrimSpace(allowedOrigin)
+		if allowedOrigin == "" {
+			continue
 		}
-
-		next.ServeHTTP(w, r)
-	})
+		if allowedOrigin == "*" {
+			return "*", false
+		}
+		if allowedOrigin == origin {
+			return origin, true
+		}
+	}
+	return "", false
 }
 
 // RecoveryMiddleware 恢复中间件
