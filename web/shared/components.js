@@ -136,6 +136,11 @@ window.IcoClock = () => (
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
 );
+window.IcoActivity = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+  </svg>
+);
 window.IcoList = () => (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
@@ -158,6 +163,7 @@ window.Sidebar = ({ active }) => {
     { id: 'rulesets',  label: '规则源',   href: '/rule-sources',   icon: <IcoFile /> },
     { id: 'templates', label: '规则模板', href: '/templates',      icon: <IcoFile /> },
     { id: 'configs',   label: '订阅配置', href: '/configs',        icon: <IcoSettings /> },
+    { id: 'config-logs', label: '访问日志', href: '/config-access-logs', icon: <window.IcoActivity /> },
   ];
   return (
     <aside className="sidebar">

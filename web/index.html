@@ -478,63 +478,23 @@
                 kicker="节点可用性"
                 value={`${enabledNodes}/${totalNodes}`}
                 label="启用节点 / 总节点"
-                note={totalNodes ? `禁用节点 ${disabledNodes} 个` : '还没有节点数据'}
+                note={totalNodes ? `${sourceCount} 个来源，禁用 ${disabledNodes} 个` : '还没有节点数据'}
                 iconBg="var(--blubg)"
                 icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blu)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>}
               />
               <StatCard
                 loaded={loaded}
                 kicker="配置能力"
-                value={`${enabledPolicies}/${templates.length}`}
-                label="启用策略 / 模板数"
-                note={`${policies.length} 个策略，${templates.length} 个模板`}
+                value={`${enabledPolicies}/${policies.length}`}
+                label="启用策略 / 全部策略"
+                note={policies.length ? `${templates.length} 个模板（${templateTypes}）` : '还没有配置策略'}
                 iconBg="var(--orgbg)"
                 icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--org)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>}
               />
             </section>
 
-            {/* 资源概览 + 配置策略总览 */}
+            {/* 配置策略总览 + 节点协议分布 */}
             <section className="grid" style={{ marginBottom: 22 }}>
-              {/* 资源概览 */}
-              <div className="card">
-                <div className="card-h">
-                  <div>
-                    <div className="card-ht">资源概览</div>
-                    <div className="card-hs">看整体是否够用，而不是看一堆接口路径</div>
-                  </div>
-                </div>
-                <div className="card-b">
-                  <div className="mini-grid">
-                    <div className="mini-stat">
-                      <div className="mini-label">模板数量</div>
-                      <div className="mini-value">{loaded ? templates.length : '--'}</div>
-                      <div className="mini-note">{loaded ? (templates.length ? `${templateTypes} 模板可用` : '尚未创建模板') : '加载中'}</div>
-                    </div>
-                    <div className="mini-stat">
-                      <div className="mini-label">节点来源</div>
-                      <div className="mini-value">{loaded ? sourceCount : '--'}</div>
-                      <div className="mini-note">区分订阅导入与手动节点</div>
-                    </div>
-                    <div className="mini-stat">
-                      <div className="mini-label">配置策略</div>
-                      <div className="mini-value">{loaded ? policies.length : '--'}</div>
-                      <div className="mini-note">{loaded ? (policies.length ? `${policies.filter(p => p.enabled).length} 个启用` : '尚未创建配置策略') : '加载中'}</div>
-                    </div>
-                  </div>
-                  <div className="breakdown">
-                    <div className="muted" style={{ fontSize: 12 }}>节点协议分布</div>
-                    {!loaded
-                      ? <div className="empty">加载中...</div>
-                      : protocolItems.length === 0
-                      ? <div className="empty">暂无节点协议数据</div>
-                      : protocolItems.map(([label, count]) => (
-                          <BreakItem key={label} label={label} count={count} max={protocolMax} />
-                        ))
-                    }
-                  </div>
-                </div>
-              </div>
-
               {/* 配置策略总览 */}
               <div className="card">
                 <div className="card-h">
@@ -605,6 +565,28 @@
                       )}
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* 节点协议分布 */}
+              <div className="card">
+                <div className="card-h">
+                  <div>
+                    <div className="card-ht">节点协议分布</div>
+                    <div className="card-hs">查看不同协议的节点数量</div>
+                  </div>
+                </div>
+                <div className="card-b">
+                  <div className="breakdown">
+                    {!loaded
+                      ? <div className="empty">加载中...</div>
+                      : protocolItems.length === 0
+                      ? <div className="empty">暂无节点协议数据</div>
+                      : protocolItems.map(([label, count]) => (
+                          <BreakItem key={label} label={label} count={count} max={protocolMax} />
+                        ))
+                    }
+                  </div>
                 </div>
               </div>
             </section>

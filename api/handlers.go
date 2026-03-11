@@ -570,6 +570,58 @@ func (h *Handlers) ListConfigPolicyAccessLogs(w http.ResponseWriter, r *http.Req
 	SendSuccess(w, logs)
 }
 
+// ListAllConfigAccessLogs 列出全局访问日志
+func (h *Handlers) ListAllConfigAccessLogs(w http.ResponseWriter, r *http.Request) {
+	filter := database.ConfigAccessLogFilter{Limit: 100}
+
+	if raw := strings.TrimSpace(r.URL.Query().Get("policy_id")); raw != "" {
+		policyID, err := strconv.Atoi(raw)
+		if err != nil || policyID <= 0 {
+			SendError(w, http.StatusBadRequest, "无效的 policy_id 参数")
+			return
+		}
+		filter.PolicyID = &policyID
+	}
+
+	if raw := strings.TrimSpace(r.URL.Query().Get("success")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, "无效的 success 参数")
+			return
+		}
+		filter.Success = &value
+	}
+
+	if raw := strings.TrimSpace(r.URL.Query().Get("cache_hit")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, "无效的 cache_hit 参数")
+			return
+		}
+		filter.CacheHit = &value
+	}
+
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value <= 0 {
+			SendError(w, http.StatusBadRequest, "无效的 limit 参数")
+			return
+		}
+		if value > 500 {
+			value = 500
+		}
+		filter.Limit = value
+	}
+
+	logs, err := h.configPolicyService.ListAllAccessLogs(r.Context(), filter)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	SendSuccess(w, logs)
+}
+
 // ==================== 节点管理 API ====================
 
 // ImportNodes 通过 URL 批量导入节点

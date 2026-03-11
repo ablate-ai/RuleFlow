@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuleFlow - 访问日志</title>
+  <link rel="stylesheet" href="/web/shared/base.css">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    .ph { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
+    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; max-width: 760px; }
+    .phr { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
+    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
+    .card-hs { font-size: 12px; color: var(--t3); }
+    .card-b { padding: 18px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
+    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
+    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
+    .btn-s:hover:not(:disabled) { background: #f9fafb; }
+    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
+    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
+    .fg { min-width: 0; }
+    .fl { display: block; font-size: 12px; font-weight: 600; color: var(--t2); margin-bottom: 6px; }
+    .filters { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1.2fr; gap: 12px; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .stat { border: 1px solid var(--bdr); border-radius: 14px; padding: 14px; background: linear-gradient(180deg, #fff 0%, #fafafa 100%); }
+    .stat-k { font-size: 12px; color: var(--t3); }
+    .stat-v { font-size: 24px; font-weight: 750; color: var(--t1); margin-top: 4px; letter-spacing: -.03em; }
+    .stat-n { font-size: 12px; color: var(--t2); margin-top: 4px; }
+    .list { display: grid; gap: 10px; }
+    .item { border: 1px solid var(--bdr); border-radius: 14px; background: #fff; padding: 14px 16px; }
+    .item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .item-title { font-size: 14px; font-weight: 650; color: var(--t1); }
+    .item-sub { margin-top: 4px; font-size: 12px; color: var(--t3); word-break: break-all; }
+    .item-meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--t2); }
+    .item-meta span { display: inline-flex; align-items: center; gap: 4px; }
+    .item-err { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--redbg); color: var(--redt); font-size: 12px; line-height: 1.5; word-break: break-word; }
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
+    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
+    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
+    .empty-d { font-size: 13px; color: var(--t2); max-width: 360px; line-height: 1.6; }
+    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; display: inline-block; }
+    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
+    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
+    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
+    @keyframes rot { to { transform: rotate(360deg); } }
+    @media (max-width: 1100px) {
+      .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .ph { flex-direction: column; }
+      .filters, .stats { grid-template-columns: 1fr; }
+      .item-top { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="/web/shared/components.js" data-presets="react"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const defaultFilters = {
+      policy_id: '',
+      success: '',
+      cache_hit: '',
+      limit: '100',
+      keyword: '',
+    };
+
+    const ResultBadge = ({ success }) => (
+      <span className={`bdg ${success ? 'bdg-g' : 'bdg-r'}`}>
+        <span className="bdg-dot"></span>
+        {success ? '成功' : '失败'}
+      </span>
+    );
+
+    const CacheBadge = ({ cacheHit }) => (
+      <span className="bdg bdg-b">
+        <span className="bdg-dot"></span>
+        {cacheHit ? '缓存命中' : '实时生成'}
+      </span>
+    );
+
+    const App = () => {
+      const [logs, setLogs] = useState([]);
+      const [policies, setPolicies] = useState([]);
+      const [filters, setFilters] = useState(defaultFilters);
+      const [loading, setLoading] = useState(true);
+      const [refreshing, setRefreshing] = useState(false);
+      const [toasts, setToasts] = useState([]);
+
+      const addToast = useCallback((msg, type = 'ok') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      }, []);
+
+      const loadPolicies = useCallback(async () => {
+        const res = await api.get('/api/config-policies');
+        setPolicies(res.data || []);
+      }, []);
+
+      const loadLogs = useCallback(async (nextFilters = filters, silent = false) => {
+        if (silent) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+        try {
+          const params = new URLSearchParams();
+          if (nextFilters.policy_id) params.set('policy_id', nextFilters.policy_id);
+          if (nextFilters.success) params.set('success', nextFilters.success);
+          if (nextFilters.cache_hit) params.set('cache_hit', nextFilters.cache_hit);
+          if (nextFilters.limit) params.set('limit', nextFilters.limit);
+          const res = await api.get(`/api/config-access-logs?${params.toString()}`);
+          setLogs(res.data || []);
+        } catch (err) {
+          addToast('加载访问日志失败：' + err.message, 'err');
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }, [addToast, filters]);
+
+      useEffect(() => {
+        Promise.all([loadPolicies(), loadLogs(defaultFilters)]).catch(err => {
+          addToast('初始化失败：' + err.message, 'err');
+          setLoading(false);
+          setRefreshing(false);
+        });
+      }, [addToast, loadLogs, loadPolicies]);
+
+      const visibleLogs = (() => {
+        const keyword = filters.keyword.trim().toLowerCase();
+        if (!keyword) return logs;
+        return logs.filter(log => {
+          const haystack = [
+            log.policy_name,
+            log.client_ip,
+            log.user_agent,
+            log.token,
+            log.error_message,
+          ].filter(Boolean).join(' ').toLowerCase();
+          return haystack.includes(keyword);
+        });
+      })();
+
+      const stats = (() => {
+        const total = visibleLogs.length;
+        const successCount = visibleLogs.filter(log => log.success).length;
+        const failCount = total - successCount;
+        const cacheHitCount = visibleLogs.filter(log => log.cache_hit).length;
+        return { total, successCount, failCount, cacheHitCount };
+      })();
+
+      const applyFilters = async () => {
+        await loadLogs(filters, true);
+      };
+
+      const resetFilters = async () => {
+        setFilters(defaultFilters);
+        await loadLogs(defaultFilters, true);
+      };
+
+      return (
+        <div className="app">
+          <Sidebar active="config-logs" />
+          <main className="main">
+            <div className="ph">
+              <div>
+                <div className="pt">访问日志</div>
+                <div className="ps">集中查看生成订阅的请求记录，支持按策略、成功状态、缓存命中和关键词筛选。</div>
+              </div>
+              <div className="phr">
+                <a className="btn btn-s" href="/configs"><IcoSettings />查看策略</a>
+                <button className="btn btn-p" onClick={applyFilters} disabled={refreshing}>
+                  {refreshing ? <span className="spin"></span> : <IcoRefresh />}
+                  刷新日志
+                </button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div className="card-h">
+                <div>
+                  <div className="card-ht">筛选条件</div>
+                  <div className="card-hs">服务端先过滤策略、成功状态与缓存命中，关键词在当前结果里做本地搜索。</div>
+                </div>
+                <button className="btn btn-s" onClick={resetFilters}>重置</button>
+              </div>
+              <div className="card-b">
+                <div className="filters">
+                  <div className="fg">
+                    <label className="fl">策略</label>
+                    <select className="fc" value={filters.policy_id} onChange={e => setFilters(f => ({ ...f, policy_id: e.target.value }))}>
+                      <option value="">全部策略</option>
+                      {policies.map(policy => (
+                        <option key={policy.id} value={policy.id}>{policy.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="fg">
+                    <label className="fl">结果</label>
+                    <select className="fc" value={filters.success} onChange={e => setFilters(f => ({ ...f, success: e.target.value }))}>
+                      <option value="">全部</option>
+                      <option value="true">仅成功</option>
+                      <option value="false">仅失败</option>
+                    </select>
+                  </div>
+                  <div className="fg">
+                    <label className="fl">缓存</label>
+                    <select className="fc" value={filters.cache_hit} onChange={e => setFilters(f => ({ ...f, cache_hit: e.target.value }))}>
+                      <option value="">全部</option>
+                      <option value="true">仅缓存命中</option>
+                      <option value="false">仅实时生成</option>
+                    </select>
+                  </div>
+                  <div className="fg">
+                    <label className="fl">条数</label>
+                    <select className="fc" value={filters.limit} onChange={e => setFilters(f => ({ ...f, limit: e.target.value }))}>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                      <option value="200">200</option>
+                      <option value="500">500</option>
+                    </select>
+                  </div>
+                  <div className="fg">
+                    <label className="fl">关键词</label>
+                    <input
+                      className="fc"
+                      type="text"
+                      placeholder="搜策略名 / IP / UA / token / 错误"
+                      value={filters.keyword}
+                      onChange={e => setFilters(f => ({ ...f, keyword: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="stats">
+              <div className="stat">
+                <div className="stat-k">当前结果</div>
+                <div className="stat-v">{stats.total}</div>
+                <div className="stat-n">筛选后日志条数</div>
+              </div>
+              <div className="stat">
+                <div className="stat-k">成功请求</div>
+                <div className="stat-v">{stats.successCount}</div>
+                <div className="stat-n">成功返回配置</div>
+              </div>
+              <div className="stat">
+                <div className="stat-k">失败请求</div>
+                <div className="stat-v">{stats.failCount}</div>
+                <div className="stat-n">可用于排查错误</div>
+              </div>
+              <div className="stat">
+                <div className="stat-k">缓存命中</div>
+                <div className="stat-v">{stats.cacheHitCount}</div>
+                <div className="stat-n">直接返回缓存配置</div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-h">
+                <div>
+                  <div className="card-ht">日志列表</div>
+                  <div className="card-hs">按时间倒序展示，优先看失败记录和异常来源 IP。</div>
+                </div>
+              </div>
+              <div className="card-b">
+                {loading ? (
+                  <div className="empty">
+                    <div className="empty-ic"><window.IcoActivity /></div>
+                    <div className="empty-t">日志加载中</div>
+                    <div className="empty-d">正在读取访问记录。</div>
+                  </div>
+                ) : visibleLogs.length === 0 ? (
+                  <div className="empty">
+                    <div className="empty-ic"><window.IcoActivity /></div>
+                    <div className="empty-t">没有匹配的访问日志</div>
+                    <div className="empty-d">可以放宽筛选条件，或者先让客户端请求一次订阅链接再来看。</div>
+                  </div>
+                ) : (
+                  <div className="list">
+                    {visibleLogs.map(log => (
+                      <div key={log.id} className="item">
+                        <div className="item-top">
+                          <div>
+                            <div className="item-title">{log.policy_name || '未知策略 / 无效 token'}</div>
+                            <div className="item-sub">{formatDate(log.created_at)} · token: {log.token || '-'}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <ResultBadge success={log.success} />
+                            <CacheBadge cacheHit={log.cache_hit} />
+                          </div>
+                        </div>
+                        <div className="item-meta">
+                          <span><IcoClock />状态码：{log.status_code}</span>
+                          <span><IcoRSS />IP：{log.client_ip || '-'}</span>
+                          <span><IcoList />节点数：{log.node_count != null ? log.node_count : '-'}</span>
+                          <span><IcoSettings />UA：{log.user_agent || '-'}</span>
+                        </div>
+                        {log.error_message && <div className="item-err">{log.error_message}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <ToastContainer toasts={toasts} />
+          </main>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

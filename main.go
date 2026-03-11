@@ -97,6 +97,13 @@ func main() {
 		ruleSourceScheduler := services.NewRuleSourceScheduler(ruleSourceSyncService)
 		ruleSourceScheduler.Start(schedulerCtx)
 	}
+	// 启动日志清理调度器
+	logCleanupScheduler := services.NewLogCleanupScheduler(configAccessLogRepo,
+		services.WithLogCleanupKeepDays(cfg.LogKeepDays),
+		services.WithLogCleanupMaxRecords(cfg.LogMaxRecords),
+		services.WithLogCleanupCheckInterval(time.Duration(cfg.LogCheckInterval)*time.Hour),
+	)
+	logCleanupScheduler.Start(schedulerCtx)
 
 	// 创建 API 处理器
 	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache)
@@ -199,6 +206,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.With(webAuth).Get("/rule-sources", servePage("web/rule_sources.html"))
 	r.With(webAuth).Get("/templates", servePage("web/templates.html"))
 	r.With(webAuth).Get("/configs", servePage("web/configs.html"))
+	r.With(webAuth).Get("/config-access-logs", servePage("web/config_access_logs.html"))
 
 	// 根路径重定向到仪表盘
 	r.With(webAuth).Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -249,6 +257,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 
 		// 配置策略管理
 		r.Get("/config-policies", apiHandlers.ListConfigPolicies)
+		r.Get("/config-access-logs", apiHandlers.ListAllConfigAccessLogs)
 		r.Post("/config-policies", apiHandlers.CreateConfigPolicy)
 		r.Route("/config-policies/{id}", func(r chi.Router) {
 			r.Get("/", apiHandlers.GetConfigPolicy)

@@ -122,6 +122,19 @@ func (s *ConfigPolicyService) ListAccessLogs(ctx context.Context, policyID int, 
 	return s.accessLogRepo.ListByPolicy(ctx, policyID, limit)
 }
 
+// ListAllAccessLogs 获取全局访问日志
+func (s *ConfigPolicyService) ListAllAccessLogs(ctx context.Context, filter database.ConfigAccessLogFilter) ([]*database.ConfigAccessLog, error) {
+	if filter.PolicyID != nil {
+		if _, err := s.policyRepo.GetByID(ctx, *filter.PolicyID); err != nil {
+			return nil, err
+		}
+	}
+	if s.accessLogRepo == nil {
+		return []*database.ConfigAccessLog{}, nil
+	}
+	return s.accessLogRepo.List(ctx, filter)
+}
+
 // ValidateConfig 验证配置策略
 func (s *ConfigPolicyService) ValidateConfig(policy *database.ConfigPolicy) error {
 	// 验证名称

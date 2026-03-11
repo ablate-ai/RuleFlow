@@ -25,6 +25,11 @@ type Config struct {
 
 	// 缓存配置
 	CacheTTLSeconds int
+
+	// 日志清理配置
+	LogKeepDays    int // 保留日志天数，默认 30 天
+	LogMaxRecords  int // 最大保留日志记录数，默认 10000 条
+	LogCheckInterval int // 日志检查间隔（小时），默认 24 小时
 }
 
 // Load 从环境变量加载配置
@@ -40,6 +45,9 @@ func Load() *Config {
 		RedisPassword:    getEnv("REDIS_PASSWORD", ""),
 		RedisDB:          getEnvInt("REDIS_DB", 0),
 		CacheTTLSeconds:  getEnvInt("CACHE_TTL_SECONDS", 3600),
+		LogKeepDays:      getEnvInt("LOG_KEEP_DAYS", 30),
+		LogMaxRecords:    getEnvInt("LOG_MAX_RECORDS", 10000),
+		LogCheckInterval: getEnvInt("LOG_CHECK_INTERVAL", 1),
 	}
 }
 
