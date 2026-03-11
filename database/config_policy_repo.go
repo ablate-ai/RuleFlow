@@ -22,6 +22,7 @@ type ConfigPolicy struct {
 	NodeFilters     map[string]interface{} `json:"node_filters"`
 	Enabled         bool                   `json:"enabled"`
 	Tags            []string               `json:"tags"`
+	LastAccessedAt  *time.Time             `json:"last_accessed_at"`
 	CreatedAt       time.Time              `json:"created_at"`
 	UpdatedAt       time.Time              `json:"updated_at"`
 }
@@ -101,6 +102,7 @@ func scanPolicy(scan func(...any) error) (*ConfigPolicy, error) {
 		&nodeFiltersJSON,
 		&policy.Enabled,
 		&policy.Tags,
+		&policy.LastAccessedAt,
 		&policy.CreatedAt,
 		&policy.UpdatedAt,
 	)
@@ -118,7 +120,7 @@ func scanPolicy(scan func(...any) error) (*ConfigPolicy, error) {
 }
 
 const selectPolicyFields = `
-	SELECT id, name, token, description, subscription_ids, node_ids, template_name, target, node_filters, enabled, tags, created_at, updated_at
+	SELECT id, name, token, description, subscription_ids, node_ids, template_name, target, node_filters, enabled, tags, last_accessed_at, created_at, updated_at
 	FROM config_policies
 `
 
@@ -252,4 +254,23 @@ func (r *ConfigPolicyRepo) GetEnabled(ctx context.Context) ([]*ConfigPolicy, err
 	}
 
 	return policies, nil
+}
+
+// TouchAccess 更新策略最近访问时间
+func (r *ConfigPolicyRepo) TouchAccess(ctx context.Context, id int) error {
+	query := `
+		UPDATE config_policies
+		SET last_accessed_at = CURRENT_TIMESTAMP
+		WHERE id = $1
+	`
+
+	result, err := r.db.Pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("更新策略最近访问时间失败: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("配置策略不存在: %d", id)
+	}
+
+	return nil
 }

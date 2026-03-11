@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -537,6 +539,37 @@ func (h *Handlers) ClearPolicyConfigCache(w http.ResponseWriter, r *http.Request
 	SendSuccess(w, map[string]string{"message": "配置缓存已清除"})
 }
 
+// ListConfigPolicyAccessLogs 列出指定策略最近访问日志
+func (h *Handlers) ListConfigPolicyAccessLogs(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的策略 ID")
+		return
+	}
+
+	limit := 20
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			SendError(w, http.StatusBadRequest, "无效的 limit 参数")
+			return
+		}
+		if parsed > 100 {
+			parsed = 100
+		}
+		limit = parsed
+	}
+
+	ctx := r.Context()
+	logs, err := h.configPolicyService.ListAccessLogs(ctx, id, limit)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	SendSuccess(w, logs)
+}
+
 // ==================== 节点管理 API ====================
 
 // ImportNodes 通过 URL 批量导入节点
@@ -912,53 +945,55 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
+		h.recordConfigAccess(r, nil, token, http.StatusBadRequest, false, false, nil, "缺少 token 参数")
 		http.Error(w, "缺少 token 参数", http.StatusBadRequest)
 		return
 	}
 
 	ctx := r.Context()
 
-	// 优先从 Redis 缓存读取
-	if h.policyCache != nil {
-		if cached, err := h.policyCache.GetPolicyConfig(ctx, token); err == nil && cached != "" {
-			if policy, err := h.configPolicyService.GetByToken(ctx, token); err == nil {
-				switch policy.Target {
-				case "surge":
-					w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-					cached = finalizeConfigContent(r, "surge", cached)
-				case "sing-box":
-					w.Header().Set("Content-Type", "application/json; charset=utf-8")
-				default:
-					w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-				}
-			} else {
-				w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-			}
-			w.Header().Set("X-Cache", "HIT")
-			fmt.Fprint(w, cached)
-			return
-		}
-	}
-
 	// 根据 token 查找策略
 	policy, err := h.configPolicyService.GetByToken(ctx, token)
 	if err != nil {
+		h.recordConfigAccess(r, nil, token, http.StatusNotFound, false, false, nil, "无效的 token")
 		http.Error(w, "无效的 token", http.StatusNotFound)
 		return
 	}
 
 	if !policy.Enabled {
+		h.recordConfigAccess(r, policy, token, http.StatusForbidden, false, false, nil, "该配置策略已禁用")
 		http.Error(w, "该配置策略已禁用", http.StatusForbidden)
 		return
+	}
+
+	// 优先从 Redis 缓存读取
+	if h.policyCache != nil {
+		if cached, err := h.policyCache.GetPolicyConfig(ctx, token); err == nil && cached != "" {
+			switch policy.Target {
+			case "surge":
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				cached = finalizeConfigContent(r, "surge", cached)
+			case "sing-box":
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			default:
+				w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+			}
+			w.Header().Set("X-Cache", "HIT")
+			h.recordConfigAccess(r, policy, token, http.StatusOK, true, true, nil, "")
+			fmt.Fprint(w, cached)
+			return
+		}
 	}
 
 	// 获取节点
 	dbNodes, err := h.configPolicyService.GetNodesForPolicy(ctx, policy)
 	if err != nil {
+		h.recordConfigAccess(r, policy, token, http.StatusInternalServerError, false, false, nil, "获取节点失败: "+err.Error())
 		http.Error(w, "获取节点失败: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if len(dbNodes) == 0 {
+		h.recordConfigAccess(r, policy, token, http.StatusServiceUnavailable, false, false, nil, "该配置策略下没有可用节点，请先同步订阅源")
 		http.Error(w, "该配置策略下没有可用节点，请先同步订阅源", http.StatusServiceUnavailable)
 		return
 	}
@@ -1022,6 +1057,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
+		h.recordConfigAccess(r, policy, token, http.StatusInternalServerError, false, false, nil, "生成配置失败: "+err.Error())
 		http.Error(w, "生成配置失败: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1052,7 +1088,69 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
 	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
 	w.Header().Set("X-Cache", "MISS")
+	nodeCount := len(proxyNodes)
+	h.recordConfigAccess(r, policy, token, http.StatusOK, true, false, &nodeCount, "")
 	fmt.Fprint(w, finalizeConfigContent(r, target, configContent))
+}
+
+func (h *Handlers) recordConfigAccess(
+	r *http.Request,
+	policy *database.ConfigPolicy,
+	token string,
+	statusCode int,
+	success bool,
+	cacheHit bool,
+	nodeCount *int,
+	errorMessage string,
+) {
+	if h.configPolicyService == nil {
+		return
+	}
+
+	var policyID *int
+	if policy != nil {
+		policyID = &policy.ID
+	}
+
+	log := &database.ConfigAccessLog{
+		PolicyID:     policyID,
+		Token:        token,
+		ClientIP:     extractClientIP(r),
+		UserAgent:    strings.TrimSpace(r.UserAgent()),
+		StatusCode:   statusCode,
+		Success:      success,
+		CacheHit:     cacheHit,
+		NodeCount:    nodeCount,
+		ErrorMessage: strings.TrimSpace(errorMessage),
+	}
+	_ = h.configPolicyService.RecordAccess(r.Context(), log)
+}
+
+func extractClientIP(r *http.Request) *string {
+	candidates := []string{
+		r.Header.Get("CF-Connecting-IP"),
+		r.Header.Get("X-Real-IP"),
+	}
+	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+		candidates = append(candidates, strings.Split(forwardedFor, ",")[0])
+	}
+	candidates = append(candidates, r.RemoteAddr)
+
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if host, _, err := net.SplitHostPort(candidate); err == nil {
+			candidate = host
+		}
+		if addr, err := netip.ParseAddr(candidate); err == nil {
+			value := addr.String()
+			return &value
+		}
+	}
+
+	return nil
 }
 
 func replaceTemplateRuntimePlaceholders(r *http.Request, content string) string {

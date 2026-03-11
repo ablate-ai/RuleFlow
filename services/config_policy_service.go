@@ -11,21 +11,24 @@ import (
 
 // ConfigPolicyService 配置策略服务
 type ConfigPolicyService struct {
-	policyRepo *database.ConfigPolicyRepo
-	subRepo    *database.SubscriptionRepo
-	nodeRepo   *database.NodeRepo
+	policyRepo    *database.ConfigPolicyRepo
+	accessLogRepo *database.ConfigAccessLogRepo
+	subRepo       *database.SubscriptionRepo
+	nodeRepo      *database.NodeRepo
 }
 
 // NewConfigPolicyService 创建配置策略服务
 func NewConfigPolicyService(
 	policyRepo *database.ConfigPolicyRepo,
+	accessLogRepo *database.ConfigAccessLogRepo,
 	subRepo *database.SubscriptionRepo,
 	nodeRepo *database.NodeRepo,
 ) *ConfigPolicyService {
 	return &ConfigPolicyService{
-		policyRepo: policyRepo,
-		subRepo:    subRepo,
-		nodeRepo:   nodeRepo,
+		policyRepo:    policyRepo,
+		accessLogRepo: accessLogRepo,
+		subRepo:       subRepo,
+		nodeRepo:      nodeRepo,
 	}
 }
 
@@ -91,6 +94,32 @@ func (s *ConfigPolicyService) Delete(ctx context.Context, id int) error {
 // GetEnabled 获取所有启用的配置策略
 func (s *ConfigPolicyService) GetEnabled(ctx context.Context) ([]*database.ConfigPolicy, error) {
 	return s.policyRepo.GetEnabled(ctx)
+}
+
+// RecordAccess 记录配置访问日志，成功时同步刷新最近访问时间
+func (s *ConfigPolicyService) RecordAccess(ctx context.Context, log *database.ConfigAccessLog) error {
+	if s.accessLogRepo != nil {
+		if err := s.accessLogRepo.Create(ctx, log); err != nil {
+			return err
+		}
+	}
+
+	if log.Success && log.PolicyID != nil {
+		return s.policyRepo.TouchAccess(ctx, *log.PolicyID)
+	}
+
+	return nil
+}
+
+// ListAccessLogs 获取指定策略最近访问日志
+func (s *ConfigPolicyService) ListAccessLogs(ctx context.Context, policyID int, limit int) ([]*database.ConfigAccessLog, error) {
+	if _, err := s.policyRepo.GetByID(ctx, policyID); err != nil {
+		return nil, err
+	}
+	if s.accessLogRepo == nil {
+		return []*database.ConfigAccessLog{}, nil
+	}
+	return s.accessLogRepo.ListByPolicy(ctx, policyID, limit)
 }
 
 // ValidateConfig 验证配置策略

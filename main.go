@@ -71,8 +71,9 @@ func main() {
 
 	// 创建配置策略服务
 	configPolicyRepo := database.NewConfigPolicyRepo(db)
+	configAccessLogRepo := database.NewConfigAccessLogRepo(db)
 	nodeRepo := database.NewNodeRepo(db)
-	configPolicyService = services.NewConfigPolicyService(configPolicyRepo, subscriptionRepo, nodeRepo)
+	configPolicyService = services.NewConfigPolicyService(configPolicyRepo, configAccessLogRepo, subscriptionRepo, nodeRepo)
 
 	// 创建规则源服务
 	ruleSourceRepo := database.NewRuleSourceRepo(db)
@@ -255,6 +256,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 			r.Patch("/", apiHandlers.UpdateConfigPolicy)
 			r.Delete("/", apiHandlers.DeleteConfigPolicy)
 			r.Delete("/cache", apiHandlers.ClearPolicyConfigCache)
+			r.Get("/access-logs", apiHandlers.ListConfigPolicyAccessLogs)
 		})
 
 		// 节点管理

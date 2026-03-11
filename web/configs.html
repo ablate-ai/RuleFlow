@@ -88,6 +88,11 @@
     .sub-check { width: 15px; height: 15px; border: 2px solid var(--bdr); border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
     .sub-item.checked .sub-check { background: var(--grn); border-color: var(--grn); }
     .sub-label { font-size: 13px; color: var(--t1); font-weight: 500; }
+    .log-list { display: flex; flex-direction: column; gap: 10px; }
+    .log-item { border: 1px solid var(--bdr); border-radius: var(--rm); padding: 12px 14px; background: #fff; }
+    .log-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .log-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--t2); }
+    .log-err { margin-top: 6px; font-size: 12px; color: var(--red); line-height: 1.5; word-break: break-word; }
     @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
     @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -122,6 +127,10 @@
       const [editItem, setEditItem] = useState(null); // null = 新建
       const [showDeleteModal, setShowDeleteModal] = useState(false);
       const [deleteTarget, setDeleteTarget] = useState(null);
+      const [showLogsModal, setShowLogsModal] = useState(false);
+      const [logTarget, setLogTarget] = useState(null);
+      const [logsLoading, setLogsLoading] = useState(false);
+      const [accessLogs, setAccessLogs] = useState([]);
 
       /* Toast */
       const [toasts, setToasts] = useState([]);
@@ -300,6 +309,27 @@
         }
       };
 
+      const openLogs = async (policy) => {
+        setLogTarget(policy);
+        setShowLogsModal(true);
+        setLogsLoading(true);
+        try {
+          const res = await api.get(`/api/config-policies/${policy.id}/access-logs?limit=20`);
+          setAccessLogs(res.data || []);
+        } catch (err) {
+          addToast('加载访问日志失败：' + err.message, 'err');
+          setAccessLogs([]);
+        } finally {
+          setLogsLoading(false);
+        }
+      };
+
+      const closeLogsModal = () => {
+        setShowLogsModal(false);
+        setLogTarget(null);
+        setAccessLogs([]);
+      };
+
       return (
         <div className="app">
           <Sidebar active="configs" />
@@ -382,10 +412,17 @@
                           <IcoTag />
                           模板：{policy.template_name || '默认'}
                         </span>
+                        <span className="item-mi">
+                          <IcoClock />
+                          最近访问：{formatDate(policy.last_accessed_at)}
+                        </span>
                       </div>
                     </div>
                     {/* 操作按钮 */}
                     <div className="item-r">
+                      <button className="btic" title="查看访问日志" onClick={() => openLogs(policy)}>
+                        <IcoClock />
+                      </button>
                       <button className="btic green" title="复制配置链接" onClick={() => handleCopyLink(policy)}>
                         <IcoCopy />
                       </button>
@@ -569,6 +606,53 @@
                     {saving && <span className="spin"></span>}
                     {saving ? '保存中...' : (editItem ? '保存更改' : '创建策略')}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showLogsModal && (
+            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeLogsModal(); }}>
+              <div className="modal modal-md">
+                <div className="mh">
+                  <div className="mht">{logTarget ? `${logTarget.name} 的访问日志` : '访问日志'}</div>
+                  <button className="btic" onClick={closeLogsModal}><IcoX /></button>
+                </div>
+                <div className="mb">
+                  {logsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t2)', fontSize: 13 }}>加载中...</div>
+                  ) : accessLogs.length === 0 ? (
+                    <div className="empty" style={{ padding: '24px 0' }}>
+                      <div className="empty-t">暂无访问日志</div>
+                      <div className="empty-d">用户请求订阅配置后，这里会记录最近的访问明细。</div>
+                    </div>
+                  ) : (
+                    <div className="log-list">
+                      {accessLogs.map(log => (
+                        <div key={log.id} className="log-item">
+                          <div className="log-head">
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--t1)' }}>
+                              {formatDate(log.created_at)}
+                            </div>
+                            <span className={`bdg ${log.success ? 'bdg-g' : 'bdg-r'}`}>
+                              <span className="bdg-dot"></span>
+                              {log.success ? '成功' : '失败'}
+                            </span>
+                          </div>
+                          <div className="log-meta">
+                            <span>状态码：{log.status_code}</span>
+                            <span>缓存：{log.cache_hit ? '命中' : '未命中'}</span>
+                            <span>节点数：{log.node_count != null ? log.node_count : '-'}</span>
+                            <span>IP：{log.client_ip || '-'}</span>
+                          </div>
+                          <div className="log-meta" style={{ marginTop: 6 }}>
+                            <span title={log.user_agent || ''}>UA：{log.user_agent || '-'}</span>
+                          </div>
+                          {log.error_message && <div className="log-err">{log.error_message}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
