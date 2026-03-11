@@ -98,7 +98,7 @@ body {
 .tg input:checked + .tg-tr .tg-th { transform: translateX(16px); }
 .tg-lb { font-size: 13px; color: var(--t1); user-select: none; }
 
-.tc { position: fixed; left: calc(var(--sw) + 18px); bottom: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.tc { position: fixed; bottom: 18px; left: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .toast { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-radius: var(--rl); font-size: 13.5px; font-weight: 500; box-shadow: var(--sh3); min-width: 260px; max-width: 380px; pointer-events: all; animation: si .25s ease; }
 .toast svg { flex-shrink: 0; }
 .t-ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
@@ -108,7 +108,6 @@ body {
   .sidebar { position: static; width: 100%; }
   .app { display: block; }
   .main { margin-left: 0; padding: 18px; }
-  .tc { left: 18px; }
 }
 
 @keyframes si {
