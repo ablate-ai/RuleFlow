@@ -123,11 +123,42 @@ func TestBuildSingBoxSupportsFilterExpansion(t *testing.T) {
 	if strings.Contains(config, "\"filter\":") || strings.Contains(config, "__NODES__") {
 		t.Fatalf("sing-box 输出中不应保留 filter 或 __NODES__ 占位符，实际配置为:\n%s", config)
 	}
-	if !strings.Contains(config, "\"tag\": \"🇸🇬 SG\"") || !strings.Contains(config, "\"SG Node 1\"") {
-		t.Fatalf("期望 SG 组按 filter 命中新加坡节点，实际配置为:\n%s", config)
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
 	}
-	if strings.Contains(config, "\"🛰 Auto\",\n      \"v2 SG Node\"") {
-		t.Fatalf("Auto 组应通过 filter 排除 v2 节点，实际配置为:\n%s", config)
+	outbounds, ok := cfg["outbounds"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 outbounds")
+	}
+
+	for _, item := range outbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if outbound["tag"] != "🇸🇬 SG" {
+			continue
+		}
+		members, ok := outbound["outbounds"].([]interface{})
+		if !ok {
+			t.Fatalf("SG 组缺少 outbounds，实际配置为:\n%s", config)
+		}
+		if len(members) != 2 {
+			t.Fatalf("期望 SG 组按 filter 命中两个新加坡节点，实际配置为:\n%s", config)
+		}
+		continue
+	}
+	if outbound["tag"] != "🛰 Auto" {
+		continue
+	}
+	members, ok := outbound["outbounds"].([]interface{})
+	if !ok {
+		t.Fatalf("Auto 组缺少 outbounds，实际配置为:\n%s", config)
+	}
+	if len(members) != 1 || members[0] != "🇸🇬 SG Node 1" {
+		t.Fatalf("期望 Auto 组通过负向前瞻排除 v2 节点，实际配置为:\n%s", config)
 	}
 }
 
