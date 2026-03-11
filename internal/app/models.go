@@ -42,6 +42,7 @@ type Proxy struct {
 	Reality                  *RealityCfg     `yaml:"reality-opts,omitempty"`
 	WSOpts                   *WSOpts         `yaml:"ws-opts,omitempty"`
 	HTTPOpts                 *HTTPOpts       `yaml:"http-opts,omitempty"`
+	GRPCOpts                 *GRPCOpts       `yaml:"grpc-opts,omitempty"`
 	DialerProxy              string          `yaml:"dialer-proxy,omitempty"`
 	IP                       string          `yaml:"ip,omitempty"`
 	IPv6                     string          `yaml:"ipv6,omitempty"`
@@ -63,6 +64,10 @@ type WSOpts struct {
 type HTTPOpts struct {
 	Path    string            `yaml:"path,omitempty"`
 	Headers map[string]string `yaml:"headers,omitempty"`
+}
+
+type GRPCOpts struct {
+	GrpcServiceName string `yaml:"grpc-service-name,omitempty"`
 }
 
 type RealityCfg struct {
@@ -512,8 +517,21 @@ func applyTransportFields(proxy *Proxy, opts map[string]interface{}) {
 		if transport.Type != "" {
 			proxy.Network = transport.Type
 		}
-		if transport.Type == "ws" && transport.Path != "" {
-			proxy.WSOpts = &WSOpts{Path: transport.Path}
+		switch transport.Type {
+		case "ws":
+			proxy.WSOpts = &WSOpts{
+				Path:    transport.Path,
+				Headers: transport.Headers,
+			}
+		case "http", "httpupgrade":
+			proxy.HTTPOpts = &HTTPOpts{
+				Path:    transport.Path,
+				Headers: transport.Headers,
+			}
+		case "grpc":
+			if transport.ServiceName != "" {
+				proxy.GRPCOpts = &GRPCOpts{GrpcServiceName: transport.ServiceName}
+			}
 		}
 		return
 	}
@@ -601,6 +619,16 @@ func extractTransportOptions(opts map[string]interface{}) (*TransportOptions, bo
 			for k, v := range headersRaw {
 				if s, ok := v.(string); ok && s != "" {
 					headers[k] = s
+				}
+			}
+			if len(headers) > 0 {
+				transport.Headers = headers
+			}
+		} else if headersRaw, ok := value["headers"].(map[string]string); ok && len(headersRaw) > 0 {
+			headers := make(map[string]string, len(headersRaw))
+			for k, v := range headersRaw {
+				if v != "" {
+					headers[k] = v
 				}
 			}
 			if len(headers) > 0 {

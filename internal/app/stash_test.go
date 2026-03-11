@@ -383,6 +383,61 @@ func TestAddTrojanFieldsWithWebSocketOptions(t *testing.T) {
 	}
 }
 
+func TestAddTrojanFieldsWithNestedTransportHost(t *testing.T) {
+	proxy := &Proxy{Name: "US WS", Type: "trojan", Server: "cdn.wwm.app", Port: 443, UDP: true}
+	opts := map[string]interface{}{
+		"password": "test-password",
+		"tls": map[string]interface{}{
+			"enabled":     true,
+			"server_name": "cdn.wwm.app",
+			"alpn":        []string{"h2", "http/1.1"},
+		},
+		"transport": map[string]interface{}{
+			"type": "ws",
+			"path": "/test-path",
+			"host": "edge.example.com",
+			"headers": map[string]interface{}{
+				"Host": "edge.example.com",
+			},
+		},
+	}
+
+	addTrojanFields(proxy, opts)
+
+	if proxy.WSOpts == nil {
+		t.Fatal("期望 trojan 生成 ws-opts，实际为 nil")
+	}
+	if proxy.WSOpts.Headers["Host"] != "edge.example.com" {
+		t.Fatalf("期望 ws host 为 edge.example.com，实际为 %#v", proxy.WSOpts.Headers)
+	}
+	if len(proxy.Alpn) != 2 || proxy.Alpn[0] != "h2" {
+		t.Fatalf("期望从嵌套 tls 读取 alpn，实际为 %#v", proxy.Alpn)
+	}
+}
+
+func TestAddVLESSFieldsWithNestedGRPCTransport(t *testing.T) {
+	proxy := &Proxy{Name: "东京", Type: "vless", Server: "154.31.116.16", Port: 45478, UDP: true}
+	opts := map[string]interface{}{
+		"uuid": "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+		"tls": map[string]interface{}{
+			"enabled":     true,
+			"server_name": "music.apple.com",
+		},
+		"transport": map[string]interface{}{
+			"type":         "grpc",
+			"service_name": "grpc-svc",
+		},
+	}
+	addVLESSFields(proxy, opts)
+
+	if proxy.Network != "grpc" {
+		t.Fatalf("期望 network=grpc，实际为 %q", proxy.Network)
+	}
+	if proxy.GRPCOpts == nil || proxy.GRPCOpts.GrpcServiceName != "grpc-svc" {
+		t.Fatalf("期望 grpc-opts.grpc-service-name=grpc-svc，实际为 %#v", proxy.GRPCOpts)
+	}
+}
+
 
 // 模拟完整手动导入路径：vless:// URL → DB JSON 往返 → 生成 YAML
 func TestVLESSManualImportFullPath(t *testing.T) {

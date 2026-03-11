@@ -112,11 +112,7 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 
 	opts := map[string]interface{}{
 		"password": password,
-		"tls": map[string]interface{}{
-			"enabled":     true,
-			"server_name": sni,
-			"insecure":    skipCertVerify,
-		},
+		"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
 		// 兼容旧 builder 读取路径。
 		"sni":            sni,
 		"skipCertVerify": skipCertVerify,
@@ -222,20 +218,16 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 	if flow := query.Get("flow"); flow != "" {
 		opts["flow"] = flow
 	}
+	alpn := parseALPN(query)
 	tlsObj := map[string]interface{}{}
-	if tls {
-		tlsObj["enabled"] = true
-	}
 	if sni := query.Get("sni"); sni != "" {
 		opts["sni"] = sni
-		tlsObj["server_name"] = sni
 	}
 	if fingerprint := query.Get("fp"); fingerprint != "" {
 		opts["fingerprint"] = fingerprint
-		tlsObj["utls"] = map[string]interface{}{
-			"enabled":     true,
-			"fingerprint": fingerprint,
-		}
+		tlsObj = buildTLSOptions(tls, query.Get("sni"), false, alpn, fingerprint)
+	} else if tls || len(alpn) > 0 || query.Get("sni") != "" {
+		tlsObj = buildTLSOptions(tls, query.Get("sni"), false, alpn, "")
 	}
 	if len(tlsObj) > 0 {
 		opts["tls"] = tlsObj
@@ -503,11 +495,7 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 		Options: map[string]interface{}{
 			"uuid":     uuid,
 			"password": password,
-			"tls": map[string]interface{}{
-				"enabled":     true,
-				"server_name": sni,
-				"insecure":    skipCertVerify,
-			},
+			"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
 			"sni":            sni,
 			"skipCertVerify": skipCertVerify,
 		},
@@ -543,7 +531,7 @@ func parseTransportOptions(query url.Values) map[string]interface{} {
 	return transport
 }
 
-func parseVMessTransportOptions(network, path string) map[string]interface{} {
+func parseVMessTransportOptions(network, path, host, serviceName string) map[string]interface{} {
 	network = strings.TrimSpace(network)
 	if network == "" || network == "tcp" {
 		return nil
@@ -555,7 +543,60 @@ func parseVMessTransportOptions(network, path string) map[string]interface{} {
 	if path != "" {
 		transport["path"] = path
 	}
+	if host != "" {
+		transport["host"] = host
+		transport["headers"] = map[string]string{"Host": host}
+	}
+	if serviceName != "" {
+		transport["service_name"] = serviceName
+	}
 	return transport
+}
+
+func parseALPN(query url.Values) []string {
+	return splitAndTrim(query.Get("alpn"))
+}
+
+func splitAndTrim(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == '|'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func buildTLSOptions(enabled bool, serverName string, insecure bool, alpn []string, fingerprint string) map[string]interface{} {
+	tlsObj := map[string]interface{}{
+		"enabled": enabled,
+	}
+	if serverName != "" {
+		tlsObj["server_name"] = serverName
+	}
+	if insecure {
+		tlsObj["insecure"] = true
+	}
+	if len(alpn) > 0 {
+		tlsObj["alpn"] = alpn
+	}
+	if fingerprint != "" {
+		tlsObj["utls"] = map[string]interface{}{
+			"enabled":     true,
+			"fingerprint": fingerprint,
+		}
+	}
+	return tlsObj
 }
 
 // decodeVMessBase64 解码 VMess Base64
@@ -608,6 +649,9 @@ func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
 		TLS     string `json:"tls"`
 		SNI     string `json:"sni"`
 		Path    string `json:"path"`
+		Host    string `json:"host"`
+		ALPN    string `json:"alpn"`
+		Service string `json:"serviceName"`
 	}
 
 	var cfg vmessConfig
@@ -642,15 +686,13 @@ func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
 	if cfg.SNI != "" {
 		opts["sni"] = cfg.SNI
 	}
+	alpn := splitAndTrim(cfg.ALPN)
 	if tls {
-		opts["tls"] = map[string]interface{}{
-			"enabled":     true,
-			"server_name": cfg.SNI,
-		}
+		opts["tls"] = buildTLSOptions(true, cfg.SNI, false, alpn, "")
 	} else {
 		opts["tls"] = false
 	}
-	if transport := parseVMessTransportOptions(cfg.Net, cfg.Path); transport != nil {
+	if transport := parseVMessTransportOptions(cfg.Net, cfg.Path, cfg.Host, cfg.Service); transport != nil {
 		opts["transport"] = transport
 	}
 	if cfg.Path != "" {

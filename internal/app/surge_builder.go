@@ -391,12 +391,76 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		}
 		return fmt.Sprintf("%s, underlying-proxy=%s", line, underlyingProxy)
 	}
-
+	tlsOptions, _ := extractTLSOptions(opts)
+	transportOptions, _ := extractTransportOptions(opts)
+	tlsEnabled := func() bool {
+		if tlsOptions != nil {
+			return tlsOptions.Enabled || tlsOptions.ServerName != "" || tlsOptions.Reality != nil
+		}
+		return boolOpt("tls")
+	}
+	tlsSNI := func() string {
+		if tlsOptions != nil && tlsOptions.ServerName != "" {
+			return tlsOptions.ServerName
+		}
+		return strOpt("sni")
+	}
+	tlsInsecure := func() bool {
+		if tlsOptions != nil {
+			return tlsOptions.Insecure
+		}
+		return boolOpt("skipCertVerify")
+	}
+	transportType := func() string {
+		if transportOptions != nil {
+			return transportOptions.Type
+		}
+		network := strOpt("network")
+		if network == "" && boolOpt("ws") {
+			return "ws"
+		}
+		return network
+	}
+	transportPath := func() string {
+		if transportOptions != nil && transportOptions.Path != "" {
+			return transportOptions.Path
+		}
+		if wsPath := strOpt("wsPath"); wsPath != "" {
+			return wsPath
+		}
+		return strOpt("ws-path")
+	}
+	transportHost := func() string {
+		if transportOptions != nil {
+			if transportOptions.Host != "" {
+				return transportOptions.Host
+			}
+			if host, ok := transportOptions.Headers["Host"]; ok {
+				return host
+			}
+		}
+		return ""
+	}
+	transportServiceName := func() string {
+		if transportOptions != nil {
+			return transportOptions.ServiceName
+		}
+		return ""
+	}
+	alpnValues := func() []string {
+		if tlsOptions != nil && len(tlsOptions.ALPN) > 0 {
+			return append([]string(nil), tlsOptions.ALPN...)
+		}
+		if values, ok := stringSliceOption(opts, "alpn"); ok {
+			return values
+		}
+		return nil
+	}
 	switch node.Protocol {
 	case "trojan":
 		password := strOpt("password")
-		sni := strOpt("sni")
-		skipVerify := boolOpt("skipCertVerify")
+		sni := tlsSNI()
+		skipVerify := tlsInsecure()
 		parts := []string{
 			fmt.Sprintf("%s = trojan", name),
 			node.Server,
@@ -405,16 +469,14 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 			fmt.Sprintf("sni=%s", sni),
 			fmt.Sprintf("skip-cert-verify=%v", skipVerify),
 		}
-		network := strOpt("network")
-		if network == "" && boolOpt("ws") {
-			network = "ws"
-		}
+		network := transportType()
 		if network == "ws" {
 			parts = append(parts, "ws=true")
-			if wsPath := strOpt("wsPath"); wsPath != "" {
+			if wsPath := transportPath(); wsPath != "" {
 				parts = append(parts, fmt.Sprintf("ws-path=%s", wsPath))
-			} else if wsPath := strOpt("ws-path"); wsPath != "" {
-				parts = append(parts, fmt.Sprintf("ws-path=%s", wsPath))
+			}
+			if wsHost := transportHost(); wsHost != "" {
+				parts = append(parts, fmt.Sprintf("ws-headers=Host:%s", wsHost))
 			}
 		}
 		return appendUnderlyingProxy(strings.Join(parts, ", "))
@@ -425,17 +487,60 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		if security == "" {
 			security = "auto"
 		}
-		tls := boolOpt("tls")
-		sni := strOpt("sni")
-		return appendUnderlyingProxy(fmt.Sprintf("%s = vmess, %s, %d, username=%s, encrypt-method=%s, tls=%v, sni=%s",
-			name, node.Server, node.Port, uuid, security, tls, sni))
+		tls := tlsEnabled()
+		sni := tlsSNI()
+		parts := []string{
+			fmt.Sprintf("%s = vmess", name),
+			node.Server,
+			fmt.Sprintf("%d", node.Port),
+			fmt.Sprintf("username=%s", uuid),
+			fmt.Sprintf("encrypt-method=%s", security),
+			fmt.Sprintf("tls=%v", tls),
+			fmt.Sprintf("sni=%s", sni),
+		}
+		if network := transportType(); network == "ws" {
+			parts = append(parts, "ws=true")
+			if path := transportPath(); path != "" {
+				parts = append(parts, fmt.Sprintf("ws-path=%s", path))
+			}
+			if host := transportHost(); host != "" {
+				parts = append(parts, fmt.Sprintf("ws-headers=Host:%s", host))
+			}
+		} else if network == "grpc" {
+			parts = append(parts, "grpc=true")
+			if serviceName := transportServiceName(); serviceName != "" {
+				parts = append(parts, fmt.Sprintf("grpc-service-name=%s", serviceName))
+			}
+		}
+		return appendUnderlyingProxy(strings.Join(parts, ", "))
 
 	case "vless":
 		uuid := strOpt("uuid")
-		tls := boolOpt("tls")
-		sni := strOpt("sni")
-		return appendUnderlyingProxy(fmt.Sprintf("%s = vless, %s, %d, uuid=%s, tls=%v, sni=%s",
-			name, node.Server, node.Port, uuid, tls, sni))
+		tls := tlsEnabled()
+		sni := tlsSNI()
+		parts := []string{
+			fmt.Sprintf("%s = vless", name),
+			node.Server,
+			fmt.Sprintf("%d", node.Port),
+			fmt.Sprintf("uuid=%s", uuid),
+			fmt.Sprintf("tls=%v", tls),
+			fmt.Sprintf("sni=%s", sni),
+		}
+		if network := transportType(); network == "ws" {
+			parts = append(parts, "ws=true")
+			if path := transportPath(); path != "" {
+				parts = append(parts, fmt.Sprintf("ws-path=%s", path))
+			}
+			if host := transportHost(); host != "" {
+				parts = append(parts, fmt.Sprintf("ws-headers=Host:%s", host))
+			}
+		} else if network == "grpc" {
+			parts = append(parts, "grpc=true")
+			if serviceName := transportServiceName(); serviceName != "" {
+				parts = append(parts, fmt.Sprintf("grpc-service-name=%s", serviceName))
+			}
+		}
+		return appendUnderlyingProxy(strings.Join(parts, ", "))
 
 	case "ss":
 		cipher := strOpt("cipher")
@@ -496,9 +601,19 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 	case "tuic":
 		uuid := strOpt("uuid")
 		password := strOpt("password")
-		sni := strOpt("sni")
-		return appendUnderlyingProxy(fmt.Sprintf("%s = tuic-v5, %s, %d, uuid=%s, password=%s, sni=%s",
-			name, node.Server, node.Port, uuid, password, sni))
+		sni := tlsSNI()
+		parts := []string{
+			fmt.Sprintf("%s = tuic-v5", name),
+			node.Server,
+			fmt.Sprintf("%d", node.Port),
+			fmt.Sprintf("uuid=%s", uuid),
+			fmt.Sprintf("password=%s", password),
+			fmt.Sprintf("sni=%s", sni),
+		}
+		if alpn := alpnValues(); len(alpn) > 0 {
+			parts = append(parts, fmt.Sprintf("alpn=%s", strings.Join(alpn, "|")))
+		}
+		return appendUnderlyingProxy(strings.Join(parts, ", "))
 
 	case "wireguard":
 		parts := []string{

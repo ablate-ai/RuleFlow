@@ -126,7 +126,7 @@ func TestParseVLESSNode(t *testing.T) {
 		},
 		{
 			name: "VLESS with WebSocket",
-			url:  "vless://uuid@example.com:443?type=ws&path=/ws#VLESSWS",
+			url:  "vless://uuid@example.com:443?type=ws&path=/ws&host=cdn.example.com#VLESSWS",
 			want: &ProxyNode{
 				Protocol: "vless",
 				Name:     "VLESSWS",
@@ -174,9 +174,34 @@ func TestParseVLESSNode(t *testing.T) {
 					if transport["type"] != "ws" || transport["path"] != "/ws" {
 						t.Fatalf("parseVLESSNode() transport=%#v, want ws /ws", transport)
 					}
+					if transport["host"] != "cdn.example.com" {
+						t.Fatalf("parseVLESSNode() transport.host=%v, want cdn.example.com", transport["host"])
+					}
 				}
 			}
 		})
+	}
+}
+
+func TestParseVLESSNodeWithGRPCTransport(t *testing.T) {
+	got, err := parseVLESSNode("vless://uuid@example.com:443?type=grpc&serviceName=grpc-svc&security=tls&sni=example.com&alpn=h2,http/1.1#VLESSGRPC")
+	if err != nil {
+		t.Fatalf("parseVLESSNode() error = %v", err)
+	}
+	transport, ok := got.Options["transport"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("缺少 transport 对象，got=%#v", got.Options["transport"])
+	}
+	if transport["type"] != "grpc" || transport["service_name"] != "grpc-svc" {
+		t.Fatalf("transport = %#v, want grpc/grpc-svc", transport)
+	}
+	tlsObj, ok := got.Options["tls"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("缺少 tls 对象，got=%#v", got.Options["tls"])
+	}
+	alpn, ok := tlsObj["alpn"].([]string)
+	if !ok || len(alpn) != 2 {
+		t.Fatalf("tls.alpn = %#v, want [h2 http/1.1]", tlsObj["alpn"])
 	}
 }
 
@@ -339,7 +364,7 @@ func TestParseTUICNode(t *testing.T) {
 	}{
 		{
 			name: "标准 TUIC 链接",
-			url:  "tuic://uuid:password@example.com:443?sni=example.com#TUICNode",
+			url:  "tuic://uuid:password@example.com:443?sni=example.com&alpn=h3#TUICNode",
 			want: &ProxyNode{
 				Protocol: "tuic",
 				Name:     "TUICNode",
@@ -375,6 +400,9 @@ func TestParseTUICNode(t *testing.T) {
 				}
 				if tlsObj["server_name"] != "example.com" {
 					t.Fatalf("parseTUICNode() tls.server_name = %v, want example.com", tlsObj["server_name"])
+				}
+				if alpn, ok := tlsObj["alpn"].([]string); !ok || len(alpn) != 1 || alpn[0] != "h3" {
+					t.Fatalf("parseTUICNode() tls.alpn = %#v, want [h3]", tlsObj["alpn"])
 				}
 			}
 		})

@@ -425,3 +425,79 @@ func TestSurgeProxyLineSupportsTrojanWebSocket(t *testing.T) {
 		t.Fatalf("期望 trojan ws 节点输出 ws-path，实际为: %s", line)
 	}
 }
+
+func TestSurgeProxyLineSupportsNestedTransportAndTLS(t *testing.T) {
+	node := &ProxyNode{
+		Protocol: "trojan",
+		Name:     "us.lax.dmit",
+		Server:   "cdn.wwm.app",
+		Port:     443,
+		Options: map[string]interface{}{
+			"password": "d85ec159-128e-4903-bf8e-b4313c3631c0",
+			"tls": map[string]interface{}{
+				"enabled":     true,
+				"server_name": "cdn.wwm.app",
+			},
+			"transport": map[string]interface{}{
+				"type": "ws",
+				"path": "/d85ec159-128e-4903-bf8e-b4313c3631c0",
+				"host": "edge.example.com",
+				"headers": map[string]interface{}{
+					"Host": "edge.example.com",
+				},
+			},
+		},
+	}
+
+	line := surgeProxyLine(node, "🇺🇸 us.lax.dmit")
+	if !strings.Contains(line, "ws=true") || !strings.Contains(line, "ws-path=/d85ec159-128e-4903-bf8e-b4313c3631c0") {
+		t.Fatalf("期望输出 ws 参数，实际为: %s", line)
+	}
+	if !strings.Contains(line, "ws-headers=Host:edge.example.com") {
+		t.Fatalf("期望输出 ws host，实际为: %s", line)
+	}
+}
+
+func TestSurgeProxyLineSupportsGRPCAndALPN(t *testing.T) {
+	node := &ProxyNode{
+		Protocol: "tuic",
+		Name:     "JP TUIC",
+		Server:   "jp.example.com",
+		Port:     443,
+		Options: map[string]interface{}{
+			"uuid":     "949862c6-2854-475d-bf74-c73eda541d22",
+			"password": "949862c6-2854-475d-bf74-c73eda541d22",
+			"tls": map[string]interface{}{
+				"enabled":     true,
+				"server_name": "jp.example.com",
+				"alpn":        []string{"h3"},
+			},
+		},
+	}
+
+	line := surgeProxyLine(node, "JP TUIC")
+	if !strings.Contains(line, "alpn=h3") {
+		t.Fatalf("期望输出嵌套 tls 中的 alpn，实际为: %s", line)
+	}
+
+	vlessLine := surgeProxyLine(&ProxyNode{
+		Protocol: "vless",
+		Name:     "GRPC Node",
+		Server:   "grpc.example.com",
+		Port:     443,
+		Options: map[string]interface{}{
+			"uuid": "11111111-1111-1111-1111-111111111111",
+			"tls": map[string]interface{}{
+				"enabled":     true,
+				"server_name": "grpc.example.com",
+			},
+			"transport": map[string]interface{}{
+				"type":         "grpc",
+				"service_name": "grpc-svc",
+			},
+		},
+	}, "GRPC Node")
+	if !strings.Contains(vlessLine, "grpc=true") || !strings.Contains(vlessLine, "grpc-service-name=grpc-svc") {
+		t.Fatalf("期望输出 grpc 参数，实际为: %s", vlessLine)
+	}
+}
