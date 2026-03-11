@@ -170,6 +170,7 @@
 
       const applyFilters = async () => {
         await loadLogs(filters, true);
+        addToast('访问日志已刷新');
       };
 
       const resetFilters = async () => {

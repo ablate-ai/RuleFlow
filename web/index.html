@@ -346,9 +346,9 @@
       const [toasts, setToasts]             = useState([]);
 
       const addToast = useCallback((msg, type = 'ok') => {
-        const id = Date.now() + Math.random();
-        setToasts(t => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
       }, []);
 
       const clearPolicyCache = useCallback(async () => {
@@ -397,14 +397,14 @@
           setTemplates(tplRes.data || []);
           setPolicies(policyRes.data || []);
           setLastUpdated(new Date());
-          addToast('概览已刷新');
+          addToast('概览数据已刷新');
         } catch (err) {
-          addToast(`刷新概览失败：${err.message}`, 'err');
+          addToast('刷新失败：' + err.message, 'err');
         } finally {
           setLoaded(true);
           setRefreshing(false);
         }
-      }, [addToast, clearPolicyCache]);
+      }, [clearPolicyCache, addToast]);
 
       useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
@@ -446,7 +446,6 @@
           <Sidebar active="home" />
           <main className="main">
             <ToastContainer toasts={toasts} />
-
             {/* Hero */}
             <section className="hero">
               <div>
@@ -553,7 +552,7 @@
                                 navigator.clipboard.writeText(url).then(() => {
                                   addToast('订阅链接已复制');
                                 }).catch(err => {
-                                  addToast(`复制失败：${err.message}`, 'err');
+                                  addToast('复制失败：' + err.message, 'err');
                                 });
                               }}
                             >

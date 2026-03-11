@@ -130,6 +130,7 @@
         try {
           const data = await api.get('/api/rule-sources');
           setItems(data.data || []);
+          addToast('规则源列表已刷新');
         } catch (err) {
           addToast('加载规则源失败：' + err.message, 'err');
         } finally {
