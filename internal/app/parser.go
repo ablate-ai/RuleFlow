@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -80,7 +81,10 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 	server := u.Hostname()
 	port := 443
 	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			port = 443
+		}
 	}
 
 	query := u.Query()
@@ -165,7 +169,10 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 	server := u.Hostname()
 	port := 443
 	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			port = 443
+		}
 	}
 
 	query := u.Query()
@@ -324,7 +331,10 @@ func parseServerPartSimple(serverPart string) (server string, port int, err erro
 
 	port = 8388 // 默认端口
 	if portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			port = 8388
+		}
 	}
 
 	return server, port, nil
@@ -353,7 +363,10 @@ func parseHysteria2Node(nodeURL string) (*ProxyNode, error) {
 	server := u.Hostname()
 	port := 443
 	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			port = 443
+		}
 	}
 
 	query := u.Query()
@@ -415,7 +428,10 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 
 	port := 443
 	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			port = 443
+		}
 	}
 
 	query := u.Query()
