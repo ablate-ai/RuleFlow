@@ -358,10 +358,6 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		v, _ := opts[key].(string)
 		return v
 	}
-	boolOpt := func(key string) bool {
-		v, _ := opts[key].(bool)
-		return v
-	}
 	intOpt := func(key string) int {
 		switch v := opts[key].(type) {
 		case int:
@@ -397,38 +393,31 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		if tlsOptions != nil {
 			return tlsOptions.Enabled || tlsOptions.ServerName != "" || tlsOptions.Reality != nil
 		}
-		return boolOpt("tls")
+		return false
 	}
 	tlsSNI := func() string {
 		if tlsOptions != nil && tlsOptions.ServerName != "" {
 			return tlsOptions.ServerName
 		}
-		return strOpt("sni")
+		return node.Server
 	}
 	tlsInsecure := func() bool {
 		if tlsOptions != nil {
 			return tlsOptions.Insecure
 		}
-		return boolOpt("skipCertVerify")
+		return false
 	}
 	transportType := func() string {
 		if transportOptions != nil {
 			return transportOptions.Type
 		}
-		network := strOpt("network")
-		if network == "" && boolOpt("ws") {
-			return "ws"
-		}
-		return network
+		return ""
 	}
 	transportPath := func() string {
 		if transportOptions != nil && transportOptions.Path != "" {
 			return transportOptions.Path
 		}
-		if wsPath := strOpt("wsPath"); wsPath != "" {
-			return wsPath
-		}
-		return strOpt("ws-path")
+		return ""
 	}
 	transportHost := func() string {
 		if transportOptions != nil {
@@ -550,15 +539,15 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 
 	case "hysteria2", "hy2":
 		password := strOpt("password")
-		sni := strOpt("sni")
-		skipVerify := boolOpt("skipCertVerify")
+		sni := tlsSNI()
+		skipVerify := tlsInsecure()
 		return appendUnderlyingProxy(fmt.Sprintf("%s = hysteria2, %s, %d, password=%s, sni=%s, skip-cert-verify=%v",
 			name, node.Server, node.Port, password, sni, skipVerify))
 
 	case "anytls":
 		password := strOpt("password")
-		sni := strOpt("sni")
-		skipVerify := boolOpt("skipCertVerify") || boolOpt("skip-cert-verify")
+		sni := tlsSNI()
+		skipVerify := tlsInsecure()
 		parts := []string{
 			fmt.Sprintf("%s = anytls", name),
 			node.Server,
@@ -568,22 +557,10 @@ func surgeProxyLine(node *ProxyNode, name string) string {
 		if sni != "" {
 			parts = append(parts, fmt.Sprintf("sni=%s", sni))
 		}
-		if fingerprint := strOpt("client-fingerprint"); fingerprint != "" {
-			parts = append(parts, fmt.Sprintf("client-fingerprint=%s", fingerprint))
-		} else if fingerprint := strOpt("fingerprint"); fingerprint != "" {
-			parts = append(parts, fmt.Sprintf("client-fingerprint=%s", fingerprint))
+		if tlsOptions != nil && tlsOptions.UTLS != nil && tlsOptions.UTLS.Fingerprint != "" {
+			parts = append(parts, fmt.Sprintf("client-fingerprint=%s", tlsOptions.UTLS.Fingerprint))
 		}
-		if alpn, ok := opts["alpn"].([]interface{}); ok && len(alpn) > 0 {
-			values := make([]string, 0, len(alpn))
-			for _, item := range alpn {
-				if s, ok := item.(string); ok && s != "" {
-					values = append(values, s)
-				}
-			}
-			if len(values) > 0 {
-				parts = append(parts, fmt.Sprintf("alpn=%s", strings.Join(values, "|")))
-			}
-		} else if alpn, ok := opts["alpn"].([]string); ok && len(alpn) > 0 {
+		if alpn := alpnValues(); len(alpn) > 0 {
 			parts = append(parts, fmt.Sprintf("alpn=%s", strings.Join(alpn, "|")))
 		}
 		if interval := intOpt("idle-session-check-interval"); interval > 0 {

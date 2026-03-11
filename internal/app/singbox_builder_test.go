@@ -80,9 +80,14 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 			Port:     443,
 			Options: map[string]interface{}{
 				"password": "password123",
-				"sni":      "ws.example.com",
-				"network":  "ws",
-				"wsPath":   "/ws",
+				"tls": map[string]interface{}{
+					"enabled":     true,
+					"server_name": "ws.example.com",
+				},
+				"transport": map[string]interface{}{
+					"type": "ws",
+					"path": "/ws",
+				},
 			},
 		},
 	}

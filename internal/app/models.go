@@ -315,36 +315,6 @@ func addVLESSFields(proxy *Proxy, opts map[string]interface{}) {
 	}
 	applyTLSFields(proxy, opts)
 	applyTransportFields(proxy, opts)
-	// 兼容两种 key："reality"（vless:// URL 解析）和 "reality-opts"（Clash YAML 解析）
-	// 同时兼容两种类型：*RealityConfig 和 map[string]interface{}
-	for _, key := range []string{"reality", "reality-opts"} {
-		raw, exists := opts[key]
-		if !exists || raw == nil {
-			continue
-		}
-		switch r := raw.(type) {
-		case *RealityConfig:
-			if r.PublicKey != "" || r.ShortID != "" {
-				proxy.Reality = &RealityCfg{PublicKey: r.PublicKey, ShortID: r.ShortID}
-			}
-		case map[string]interface{}:
-			// 兼容两种 key 格式：
-			//   Clash YAML / 加 tag 后的 JSON: "public-key" / "short-id"
-			//   旧 DB 数据（无 tag，PascalCase）: "PublicKey" / "ShortID"
-			pk, _ := r["public-key"].(string)
-			if pk == "" {
-				pk, _ = r["PublicKey"].(string)
-			}
-			sid, _ := r["short-id"].(string)
-			if sid == "" {
-				sid, _ = r["ShortID"].(string)
-			}
-			if pk != "" || sid != "" {
-				proxy.Reality = &RealityCfg{PublicKey: pk, ShortID: sid}
-			}
-		}
-		break
-	}
 }
 
 func addShadowsocksFields(proxy *Proxy, opts map[string]interface{}) {
@@ -362,12 +332,7 @@ func addHysteria2Fields(proxy *Proxy, opts map[string]interface{}) {
 	if password, ok := opts["password"].(string); ok {
 		proxy.Password = password
 	}
-	if sni, ok := opts["sni"].(string); ok && sni != "" {
-		proxy.SNI = sni
-	}
-	if skip, ok := opts["skipCertVerify"].(bool); ok {
-		proxy.SkipCertVerify = skip
-	}
+	applyTLSFields(proxy, opts)
 }
 
 func addWireGuardFields(proxy *Proxy, node *ProxyNode) {
@@ -409,18 +374,7 @@ func addAnyTLSFields(proxy *Proxy, opts map[string]interface{}) {
 	if password, ok := opts["password"].(string); ok {
 		proxy.Password = password
 	}
-	if sni, ok := opts["sni"].(string); ok && sni != "" {
-		proxy.SNI = sni
-	}
-	if skip, ok := boolOption(opts, "skipCertVerify", "skip-cert-verify"); ok {
-		proxy.SkipCertVerify = skip
-	}
-	if fingerprint, ok := stringOption(opts, "fingerprint", "client-fingerprint"); ok {
-		proxy.Fingerprint = fingerprint
-	}
-	if alpn, ok := stringSliceOption(opts, "alpn"); ok {
-		proxy.Alpn = alpn
-	}
+	applyTLSFields(proxy, opts)
 	if v, ok := intOption(opts, "idleSessionCheckInterval", "idle-session-check-interval"); ok {
 		proxy.IdleSessionCheckInterval = v
 	}
@@ -462,53 +416,7 @@ func applyTLSFields(proxy *Proxy, opts map[string]interface{}) {
 				ShortID:   tlsObj.Reality.ShortID,
 			}
 		}
-		if proxy.SNI == "" {
-			if sni, ok := opts["sni"].(string); ok && sni != "" {
-				proxy.SNI = sni
-			}
-		}
-		if !proxy.SkipCertVerify {
-			if skip, ok := boolOption(opts, "skipCertVerify", "skip-cert-verify"); ok {
-				proxy.SkipCertVerify = skip
-			}
-		}
-		if len(proxy.Alpn) == 0 {
-			if alpn, ok := stringSliceOption(opts, "alpn"); ok {
-				proxy.Alpn = alpn
-			}
-		}
-		if proxy.Fingerprint == "" {
-			if fingerprint, ok := stringOption(opts, "fingerprint", "client-fingerprint"); ok {
-				proxy.Fingerprint = fingerprint
-			}
-		}
-		if proxy.Reality == nil {
-			if reality := extractLegacyRealityOptions(opts); reality != nil {
-				proxy.Reality = reality
-			}
-		}
 		return
-	}
-
-	if sni, ok := opts["sni"].(string); ok && sni != "" {
-		proxy.SNI = sni
-	}
-	if skip, ok := boolOption(opts, "skipCertVerify", "skip-cert-verify"); ok {
-		proxy.SkipCertVerify = skip
-	}
-	if tls, ok := boolOption(opts, "tls"); ok {
-		proxy.TLS = tls
-	}
-	if alpn, ok := stringSliceOption(opts, "alpn"); ok {
-		proxy.Alpn = alpn
-	}
-	if fingerprint, ok := stringOption(opts, "fingerprint", "client-fingerprint"); ok {
-		proxy.Fingerprint = fingerprint
-	}
-	if proxy.Reality == nil {
-		if reality := extractLegacyRealityOptions(opts); reality != nil {
-			proxy.Reality = reality
-		}
 	}
 }
 
@@ -535,17 +443,6 @@ func applyTransportFields(proxy *Proxy, opts map[string]interface{}) {
 		}
 		return
 	}
-
-	if network, ok := opts["network"].(string); ok && network != "" {
-		proxy.Network = network
-	} else if ws, ok := opts["ws"].(bool); ok && ws {
-		proxy.Network = "ws"
-	}
-	if wsPath, ok := opts["wsPath"].(string); ok && wsPath != "" {
-		proxy.WSOpts = &WSOpts{Path: wsPath}
-	} else if wsPath, ok := opts["ws-path"].(string); ok && wsPath != "" {
-		proxy.WSOpts = &WSOpts{Path: wsPath}
-	}
 }
 
 func extractTLSOptions(opts map[string]interface{}) (*TLSOptions, bool) {
@@ -563,9 +460,12 @@ func extractTLSOptions(opts map[string]interface{}) (*TLSOptions, bool) {
 			tlsObj.Enabled = enabled
 		}
 		if serverName, ok := stringOption(value, "server_name", "server-name", "sni"); ok {
+			if serverName == "" {
+				return nil, false
+			}
 			tlsObj.ServerName = serverName
 		}
-		if insecure, ok := boolOption(value, "insecure", "skip-cert-verify", "skipCertVerify"); ok {
+		if insecure, ok := boolOption(value, "insecure"); ok {
 			tlsObj.Insecure = insecure
 		}
 		if alpn, ok := stringSliceOption(value, "alpn"); ok {
@@ -585,15 +485,13 @@ func extractTLSOptions(opts map[string]interface{}) (*TLSOptions, bool) {
 		}
 		if realityRaw, ok := value["reality"].(map[string]interface{}); ok {
 			realityObj := &RealityConfig{}
-			realityObj.PublicKey, _ = stringOption(realityRaw, "public_key", "public-key", "PublicKey")
-			realityObj.ShortID, _ = stringOption(realityRaw, "short_id", "short-id", "ShortID")
+			realityObj.PublicKey, _ = stringOption(realityRaw, "public_key")
+			realityObj.ShortID, _ = stringOption(realityRaw, "short_id")
 			if realityObj.PublicKey != "" || realityObj.ShortID != "" {
 				tlsObj.Reality = realityObj
 			}
 		}
 		return tlsObj, true
-	case bool:
-		return &TLSOptions{Enabled: value}, true
 	default:
 		return nil, false
 	}
@@ -613,7 +511,7 @@ func extractTransportOptions(opts map[string]interface{}) (*TransportOptions, bo
 		transport.Type, _ = stringOption(value, "type")
 		transport.Path, _ = stringOption(value, "path")
 		transport.Host, _ = stringOption(value, "host")
-		transport.ServiceName, _ = stringOption(value, "service_name", "serviceName")
+		transport.ServiceName, _ = stringOption(value, "service_name")
 		if headersRaw, ok := value["headers"].(map[string]interface{}); ok {
 			headers := make(map[string]string, len(headersRaw))
 			for k, v := range headersRaw {
@@ -639,28 +537,6 @@ func extractTransportOptions(opts map[string]interface{}) (*TransportOptions, bo
 	default:
 		return nil, false
 	}
-}
-
-func extractLegacyRealityOptions(opts map[string]interface{}) *RealityCfg {
-	for _, key := range []string{"reality", "reality-opts"} {
-		raw, exists := opts[key]
-		if !exists || raw == nil {
-			continue
-		}
-		switch r := raw.(type) {
-		case *RealityConfig:
-			if r.PublicKey != "" || r.ShortID != "" {
-				return &RealityCfg{PublicKey: r.PublicKey, ShortID: r.ShortID}
-			}
-		case map[string]interface{}:
-			pk, _ := stringOption(r, "public-key", "public_key", "PublicKey")
-			sid, _ := stringOption(r, "short-id", "short_id", "ShortID")
-			if pk != "" || sid != "" {
-				return &RealityCfg{PublicKey: pk, ShortID: sid}
-			}
-		}
-	}
-	return nil
 }
 
 func stringOption(opts map[string]interface{}, keys ...string) (string, bool) {

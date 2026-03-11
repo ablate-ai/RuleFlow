@@ -330,28 +330,31 @@ func TestVLESSRealityYAMLOutput(t *testing.T) {
 	}
 }
 
-// 测试 addVLESSFields 能正确处理 Clash YAML 格式的 options（key 为 reality-opts / client-fingerprint）
-func TestAddVLESSFieldsFromClashYAML(t *testing.T) {
+func TestAddVLESSFieldsFromNestedTLS(t *testing.T) {
 	proxy := &Proxy{Name: "东京", Type: "vless", Server: "154.31.116.16", Port: 45478, UDP: true}
 	opts := map[string]interface{}{
-		"uuid":               "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
-		"flow":               "xtls-rprx-vision",
-		"network":            "tcp",
-		"tls":                true,
-		"sni":                "music.apple.com",
-		"client-fingerprint": "random",
-		"reality-opts": map[string]interface{}{
-			"public-key": "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
-			"short-id":   "0892831900b76d85",
+		"uuid": "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
+		"flow": "xtls-rprx-vision",
+		"tls": map[string]interface{}{
+			"enabled":     true,
+			"server_name": "music.apple.com",
+			"utls": map[string]interface{}{
+				"enabled":     true,
+				"fingerprint": "random",
+			},
+			"reality": map[string]interface{}{
+				"public_key": "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
+				"short_id":   "0892831900b76d85",
+			},
 		},
 	}
 	addVLESSFields(proxy, opts)
 
 	if proxy.Fingerprint != "random" {
-		t.Errorf("client-fingerprint 未映射，got %q", proxy.Fingerprint)
+		t.Errorf("utls fingerprint 未映射，got %q", proxy.Fingerprint)
 	}
 	if proxy.Reality == nil {
-		t.Fatal("reality-opts 未映射，proxy.Reality 为 nil")
+		t.Fatal("nested reality 未映射，proxy.Reality 为 nil")
 	}
 	if proxy.Reality.PublicKey != "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM" {
 		t.Errorf("public-key 错误，got %q", proxy.Reality.PublicKey)
@@ -365,9 +368,14 @@ func TestAddTrojanFieldsWithWebSocketOptions(t *testing.T) {
 	proxy := &Proxy{Name: "US WS", Type: "trojan", Server: "cdn.wwm.app", Port: 443, UDP: true}
 	opts := map[string]interface{}{
 		"password": "test-password",
-		"sni":      "cdn.wwm.app",
-		"network":  "ws",
-		"wsPath":   "/test-path",
+		"tls": map[string]interface{}{
+			"enabled":     true,
+			"server_name": "cdn.wwm.app",
+		},
+		"transport": map[string]interface{}{
+			"type": "ws",
+			"path": "/test-path",
+		},
 	}
 
 	addTrojanFields(proxy, opts)
@@ -448,13 +456,12 @@ func TestVLESSManualImportFullPath(t *testing.T) {
 		t.Fatalf("parseVLESSNode error: %v", err)
 	}
 
-	// 模拟 DB JSON 往返（*RealityConfig 无 tag 时序列化为 PascalCase）
 	jsonBytes, _ := json.Marshal(node.Options)
 	var dbConfig map[string]interface{}
 	json.Unmarshal(jsonBytes, &dbConfig)
 
 	t.Logf("DB JSON: %s", jsonBytes)
-	t.Logf("DB Config reality: %#v", dbConfig["reality"])
+	t.Logf("DB Config tls: %#v", dbConfig["tls"])
 
 	proxyNodes := []*ProxyNode{{
 		Protocol: node.Protocol,
@@ -478,33 +485,6 @@ func TestVLESSManualImportFullPath(t *testing.T) {
 	}
 	t.Logf("Reality: %+v", p.Reality)
 }
-func TestAddVLESSFieldsFromDB(t *testing.T) {
-	proxy := &Proxy{Name: "东京", Type: "vless", Server: "154.31.116.16", Port: 45478}
-	opts := map[string]interface{}{
-		"uuid":    "700229f2-3709-4fc5-8d8e-ae1af6ed8d58",
-		"network": "tcp",
-		"tls":     true,
-		"sni":     "music.apple.com",
-		"flow":    "xtls-rprx-vision",
-		// DB JSON 反序列化：*RealityConfig{} 无 tag 时序列化为 PascalCase
-		"reality": map[string]interface{}{
-			"PublicKey": "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM",
-			"ShortID":   "0892831900b76d85",
-		},
-	}
-	addVLESSFields(proxy, opts)
-
-	if proxy.Reality == nil {
-		t.Fatal("DB 路径: proxy.Reality 为 nil")
-	}
-	if proxy.Reality.PublicKey != "Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM" {
-		t.Errorf("PublicKey 错误: %q", proxy.Reality.PublicKey)
-	}
-	if proxy.Reality.ShortID != "0892831900b76d85" {
-		t.Errorf("ShortID 错误: %q", proxy.Reality.ShortID)
-	}
-}
-
 func TestBuildProxiesSupportsAnyTLS(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
@@ -513,11 +493,17 @@ func TestBuildProxiesSupportsAnyTLS(t *testing.T) {
 			Server:   "sg.example.com",
 			Port:     443,
 			Options: map[string]interface{}{
-				"password":            "secret",
-				"sni":                 "sg.example.com",
-				"client-fingerprint":  "chrome",
-				"skip-cert-verify":    true,
-				"alpn":                []interface{}{"h2", "http/1.1"},
+				"password": "secret",
+				"tls": map[string]interface{}{
+					"enabled":     true,
+					"server_name": "sg.example.com",
+					"insecure":    true,
+					"alpn":        []string{"h2", "http/1.1"},
+					"utls": map[string]interface{}{
+						"enabled":     true,
+						"fingerprint": "chrome",
+					},
+				},
 				"idle-session-timeout": 30,
 			},
 		},
@@ -547,46 +533,4 @@ func TestBuildProxiesSupportsAnyTLS(t *testing.T) {
 	if len(proxy.Alpn) != 2 || proxy.Alpn[0] != "h2" || proxy.Alpn[1] != "http/1.1" {
 		t.Fatalf("proxy.Alpn = %#v, want [h2 http/1.1]", proxy.Alpn)
 	}
-}
-
-func TestVLESSRealityEndToEnd(t *testing.T) {
-	clashYAML := `proxies:
-  - name: 东京
-    type: vless
-    server: 154.31.116.16
-    port: 45478
-    uuid: 700229f2-3709-4fc5-8d8e-ae1af6ed8d58
-    network: tcp
-    tls: true
-    udp: true
-    flow: xtls-rprx-vision
-    sni: music.apple.com
-    client-fingerprint: random
-    reality-opts:
-      public-key: Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM
-      short-id: "0892831900b76d85"
-`
-	nodes, err := parseClashYAML(clashYAML)
-	if err != nil || len(nodes) == 0 {
-		t.Fatalf("parseClashYAML failed: %v", err)
-	}
-
-	node := nodes[0]
-	t.Logf("options map: %#v", node.Options)
-
-	ro := node.Options["reality-opts"]
-	t.Logf("reality-opts type=%T value=%#v", ro, ro)
-
-	proxies, _ := buildProxies(nodes)
-	if len(proxies) == 0 {
-		t.Fatal("buildProxies returned empty")
-	}
-	p := proxies[0]
-	if p.Reality == nil {
-		t.Fatal("proxy.Reality is nil")
-	}
-	if p.Reality.PublicKey == "" {
-		t.Errorf("PublicKey 为空，options=%#v", node.Options)
-	}
-	t.Logf("Reality=%+v", p.Reality)
 }

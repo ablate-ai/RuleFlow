@@ -113,18 +113,9 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 	opts := map[string]interface{}{
 		"password": password,
 		"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
-		// 兼容旧 builder 读取路径。
-		"sni":            sni,
-		"skipCertVerify": skipCertVerify,
 	}
 	if transport := parseTransportOptions(query); transport != nil {
 		opts["transport"] = transport
-		if transportType, _ := transport["type"].(string); transportType != "" {
-			opts["network"] = transportType
-		}
-		if path, _ := transport["path"].(string); path != "" {
-			opts["wsPath"] = path
-		}
 	}
 
 	return &ProxyNode{
@@ -211,20 +202,13 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 	opts := map[string]interface{}{
 		"uuid": uuid,
 	}
-	if network != "" {
-		opts["network"] = network
-	}
 
 	if flow := query.Get("flow"); flow != "" {
 		opts["flow"] = flow
 	}
 	alpn := parseALPN(query)
 	tlsObj := map[string]interface{}{}
-	if sni := query.Get("sni"); sni != "" {
-		opts["sni"] = sni
-	}
 	if fingerprint := query.Get("fp"); fingerprint != "" {
-		opts["fingerprint"] = fingerprint
 		tlsObj = buildTLSOptions(tls, query.Get("sni"), false, alpn, fingerprint)
 	} else if tls || len(alpn) > 0 || query.Get("sni") != "" {
 		tlsObj = buildTLSOptions(tls, query.Get("sni"), false, alpn, "")
@@ -236,12 +220,6 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 	}
 	if transport := parseTransportOptions(query); transport != nil {
 		opts["transport"] = transport
-		if transportType, _ := transport["type"].(string); transportType != "" {
-			opts["network"] = transportType
-		}
-		if path, _ := transport["path"].(string); path != "" {
-			opts["wsPath"] = path
-		}
 	}
 
 	// Reality 配置
@@ -250,7 +228,6 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 			PublicKey: query.Get("pbk"),
 			ShortID:   query.Get("sid"),
 		}
-		opts["reality"] = reality
 		if tlsMap, ok := opts["tls"].(map[string]interface{}); ok {
 			tlsMap["enabled"] = true
 			tlsMap["reality"] = map[string]interface{}{
@@ -423,9 +400,8 @@ func parseHysteria2Node(nodeURL string) (*ProxyNode, error) {
 		Server:   server,
 		Port:     port,
 		Options: map[string]interface{}{
-			"password":       password,
-			"sni":            sni,
-			"skipCertVerify": skipCertVerify,
+			"password": password,
+			"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
 		},
 	}, nil
 }
@@ -496,8 +472,6 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 			"uuid":     uuid,
 			"password": password,
 			"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
-			"sni":            sni,
-			"skipCertVerify": skipCertVerify,
 		},
 	}, nil
 }
@@ -681,10 +655,6 @@ func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
 	opts := map[string]interface{}{
 		"uuid":    cfg.ID,
 		"alterID": cfg.Aid,
-		"network": network,
-	}
-	if cfg.SNI != "" {
-		opts["sni"] = cfg.SNI
 	}
 	alpn := splitAndTrim(cfg.ALPN)
 	if tls {
@@ -694,9 +664,6 @@ func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
 	}
 	if transport := parseVMessTransportOptions(cfg.Net, cfg.Path, cfg.Host, cfg.Service); transport != nil {
 		opts["transport"] = transport
-	}
-	if cfg.Path != "" {
-		opts["wsPath"] = cfg.Path
 	}
 
 	return &ProxyNode{

@@ -332,11 +332,17 @@ func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
 		Server:   "sg.example.com",
 		Port:     443,
 		Options: map[string]interface{}{
-			"password":                    "secret",
-			"sni":                         "sg.example.com",
-			"client-fingerprint":          "chrome",
-			"skip-cert-verify":            true,
-			"alpn":                        []interface{}{"h2", "http/1.1"},
+			"password": "secret",
+			"tls": map[string]interface{}{
+				"enabled":     true,
+				"server_name": "sg.example.com",
+				"insecure":    true,
+				"alpn":        []string{"h2", "http/1.1"},
+				"utls": map[string]interface{}{
+					"enabled":     true,
+					"fingerprint": "chrome",
+				},
+			},
 			"idle-session-check-interval": 15,
 			"idle-session-timeout":        30,
 			"min-idle-session":            2,
@@ -411,9 +417,14 @@ func TestSurgeProxyLineSupportsTrojanWebSocket(t *testing.T) {
 		Port:     443,
 		Options: map[string]interface{}{
 			"password": "d85ec159-128e-4903-bf8e-b4313c3631c0",
-			"sni":      "cdn.wwm.app",
-			"network":  "ws",
-			"wsPath":   "/d85ec159-128e-4903-bf8e-b4313c3631c0",
+			"tls": map[string]interface{}{
+				"enabled":     true,
+				"server_name": "cdn.wwm.app",
+			},
+			"transport": map[string]interface{}{
+				"type": "ws",
+				"path": "/d85ec159-128e-4903-bf8e-b4313c3631c0",
+			},
 		},
 	}
 

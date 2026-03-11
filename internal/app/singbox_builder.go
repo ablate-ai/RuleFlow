@@ -111,7 +111,7 @@ func singBoxOutbound(node *ProxyNode, tag string) map[string]interface{} {
 		if security, ok := stringOption(node.Options, "security"); ok {
 			outbound["security"] = security
 		}
-		if alterID, ok := intOption(node.Options, "alterID", "alterId"); ok {
+		if alterID, ok := intOption(node.Options, "alterID"); ok {
 			outbound["alter_id"] = alterID
 		}
 		if tlsObj := singBoxTLSObject(node.Options, node.Server, false); tlsObj != nil {
@@ -256,19 +256,6 @@ func singBoxTransportObject(opts map[string]interface{}) map[string]interface{} 
 		}
 		return obj
 	}
-
-	network, _ := stringOption(opts, "network")
-	wsEnabled, _ := boolOption(opts, "ws")
-	wsPath, _ := stringOption(opts, "wsPath", "ws-path")
-	if strings.EqualFold(network, "ws") || wsEnabled || wsPath != "" {
-		transport := map[string]interface{}{
-			"type": "ws",
-		}
-		if wsPath != "" {
-			transport["path"] = wsPath
-		}
-		return transport
-	}
 	return nil
 }
 
@@ -312,79 +299,7 @@ func singBoxTLSObject(opts map[string]interface{}, server string, force bool) ma
 		}
 		return tlsObj
 	}
-
-	enabled, hasTLS := boolOption(opts, "tls")
-	sni, hasSNI := stringOption(opts, "sni", "server_name")
-	insecure, hasInsecure := boolOption(opts, "skipCertVerify", "skip-cert-verify")
-	alpn, hasALPN := stringSliceOption(opts, "alpn")
-	fingerprint, hasFingerprint := stringOption(opts, "fingerprint", "client-fingerprint")
-
-	var reality map[string]interface{}
-	for _, key := range []string{"reality", "reality-opts"} {
-		raw, exists := opts[key]
-		if !exists || raw == nil {
-			continue
-		}
-		switch value := raw.(type) {
-		case *RealityConfig:
-			if value.PublicKey != "" || value.ShortID != "" {
-				reality = map[string]interface{}{
-					"enabled": true,
-				}
-				if value.PublicKey != "" {
-					reality["public_key"] = value.PublicKey
-				}
-				if value.ShortID != "" {
-					reality["short_id"] = value.ShortID
-				}
-			}
-		case map[string]interface{}:
-			publicKey, _ := stringOption(value, "public-key", "PublicKey")
-			shortID, _ := stringOption(value, "short-id", "ShortID")
-			if publicKey != "" || shortID != "" {
-				reality = map[string]interface{}{
-					"enabled": true,
-				}
-				if publicKey != "" {
-					reality["public_key"] = publicKey
-				}
-				if shortID != "" {
-					reality["short_id"] = shortID
-				}
-			}
-		}
-		break
-	}
-
-	if !force && !enabled && !hasTLS && !hasSNI && !hasInsecure && !hasALPN && !hasFingerprint && reality == nil {
-		return nil
-	}
-
-	tlsObj := map[string]interface{}{
-		"enabled": force || enabled || reality != nil,
-	}
-	if sni != "" {
-		tlsObj["server_name"] = sni
-	} else if force {
-		tlsObj["server_name"] = server
-	}
-	if hasInsecure {
-		tlsObj["insecure"] = insecure
-	}
-	if hasALPN {
-		tlsObj["alpn"] = alpn
-	}
-	if hasFingerprint {
-		tlsObj["utls"] = map[string]interface{}{
-			"enabled":     true,
-			"fingerprint": fingerprint,
-		}
-	}
-	if reality != nil {
-		tlsObj["reality"] = reality
-	}
-
-	return tlsObj
+	return nil
 }
 
 func joinSingBoxStringLiterals(values []string) string {
