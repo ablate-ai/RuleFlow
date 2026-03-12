@@ -31,7 +31,7 @@ func NewSubscriptionSyncService(
 
 // SyncSubscription 同步指定订阅的节点
 // 使用完全替换策略：删除该订阅的旧节点，插入新节点
-func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscriptionID int) (int, error) {
+func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscriptionID int64) (int, error) {
 	log.Printf("[sync] 开始同步订阅: id=%d", subscriptionID)
 
 	// 1. 获取订阅配置
@@ -166,7 +166,7 @@ func (s *SubscriptionSyncService) fetchSubscriptionContent(ctx context.Context, 
 }
 
 // convertToDBNodes 将解析的节点转换为数据库模型
-func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int, source string, namePrefix string) []database.Node {
+func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int64, source string, namePrefix string) []database.Node {
 	dbNodes := make([]database.Node, 0, len(nodes))
 
 	for _, node := range nodes {
@@ -200,7 +200,7 @@ func (s *SubscriptionSyncService) updateNodesLastSyncedAt(ctx context.Context, s
 }
 
 // GetSyncStatus 获取订阅同步状态
-func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptionID int) (map[string]interface{}, error) {
+func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptionID int64) (map[string]interface{}, error) {
 	// 获取订阅信息
 	sub, err := s.subRepo.GetByID(ctx, subscriptionID)
 	if err != nil {

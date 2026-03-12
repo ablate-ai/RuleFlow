@@ -38,7 +38,7 @@ func (s *TemplateService) GetTemplateByName(ctx context.Context, name string) (*
 }
 
 // GetTemplateByID 根据 ID 获取模板
-func (s *TemplateService) GetTemplateByID(ctx context.Context, id int) (*database.Template, error) {
+func (s *TemplateService) GetTemplateByID(ctx context.Context, id int64) (*database.Template, error) {
 	return s.templateRepo.GetByID(ctx, id)
 }
 
@@ -48,7 +48,7 @@ func (s *TemplateService) ListTemplates(ctx context.Context) ([]database.Templat
 }
 
 // UpdateTemplate 更新模板
-func (s *TemplateService) UpdateTemplate(ctx context.Context, id int, tpl *database.Template) error {
+func (s *TemplateService) UpdateTemplate(ctx context.Context, id int64, tpl *database.Template) error {
 	current, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, id int, tpl *datab
 }
 
 // DeleteTemplate 删除模板
-func (s *TemplateService) DeleteTemplate(ctx context.Context, id int) error {
+func (s *TemplateService) DeleteTemplate(ctx context.Context, id int64) error {
 	return s.templateRepo.Delete(ctx, id)
 }
 

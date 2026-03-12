@@ -12,7 +12,7 @@ import (
 )
 
 type RuleSource struct {
-	ID              int             `json:"id"`
+	ID              int64           `json:"id"`
 	Name            string          `json:"name"`
 	Description     string          `json:"description"`
 	URL             string          `json:"url"`
@@ -81,12 +81,14 @@ func scanRuleSource(scan func(...any) error) (*RuleSource, error) {
 }
 
 func (r *RuleSourceRepo) Create(ctx context.Context, source *RuleSource) error {
+	source.ID = NextID()
 	query := `
-		INSERT INTO rule_sources (name, description, url, source_format, enabled, auto_refresh, refresh_interval, tags, raw_content)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, created_at, updated_at
+		INSERT INTO rule_sources (id, name, description, url, source_format, enabled, auto_refresh, refresh_interval, tags, raw_content)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING created_at, updated_at
 	`
 	err := r.db.Pool.QueryRow(ctx, query,
+		source.ID,
 		source.Name,
 		source.Description,
 		source.URL,
@@ -96,7 +98,7 @@ func (r *RuleSourceRepo) Create(ctx context.Context, source *RuleSource) error {
 		source.RefreshInterval,
 		source.Tags,
 		source.RawContent,
-	).Scan(&source.ID, &source.CreatedAt, &source.UpdatedAt)
+	).Scan(&source.CreatedAt, &source.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("创建规则源失败: %w", err)
 	}
@@ -106,7 +108,7 @@ func (r *RuleSourceRepo) Create(ctx context.Context, source *RuleSource) error {
 	return nil
 }
 
-func (r *RuleSourceRepo) GetByID(ctx context.Context, id int) (*RuleSource, error) {
+func (r *RuleSourceRepo) GetByID(ctx context.Context, id int64) (*RuleSource, error) {
 	query := selectRuleSourceFields + `WHERE id = $1`
 	source, err := scanRuleSource(r.db.Pool.QueryRow(ctx, query, id).Scan)
 	if err == pgx.ErrNoRows {
@@ -184,7 +186,7 @@ func (r *RuleSourceRepo) Update(ctx context.Context, source *RuleSource) error {
 	return nil
 }
 
-func (r *RuleSourceRepo) Delete(ctx context.Context, id int) error {
+func (r *RuleSourceRepo) Delete(ctx context.Context, id int64) error {
 	result, err := r.db.Pool.Exec(ctx, `DELETE FROM rule_sources WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("删除规则源失败: %w", err)
@@ -207,7 +209,7 @@ func (r *RuleSourceRepo) Exists(ctx context.Context, name string) (bool, error) 
 	return true, nil
 }
 
-func (r *RuleSourceRepo) UpdateSyncResult(ctx context.Context, id int, rawContent string, parsedRules json.RawMessage, ruleCount int, syncErr error) error {
+func (r *RuleSourceRepo) UpdateSyncResult(ctx context.Context, id int64, rawContent string, parsedRules json.RawMessage, ruleCount int, syncErr error) error {
 	var errorMsg *string
 	if syncErr != nil {
 		msg := syncErr.Error()

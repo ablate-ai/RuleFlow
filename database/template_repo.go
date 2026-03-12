@@ -10,7 +10,7 @@ import (
 
 // Template 模板模型
 type Template struct {
-	ID          int       `json:"id"`
+	ID          int64     `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Content     string    `json:"content"`
@@ -32,15 +32,16 @@ func NewTemplateRepo(db *DB) *TemplateRepo {
 
 // Create 创建模板
 func (r *TemplateRepo) Create(ctx context.Context, tpl *Template) error {
+	tpl.ID = NextID()
 	query := `
-		INSERT INTO templates (name, description, content, target, tags)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, created_at, updated_at
+		INSERT INTO templates (id, name, description, content, target, tags)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING created_at, updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
-		tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
-	).Scan(&tpl.ID, &tpl.CreatedAt, &tpl.UpdatedAt)
+		tpl.ID, tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
+	).Scan(&tpl.CreatedAt, &tpl.UpdatedAt)
 
 	if err != nil {
 		return fmt.Errorf("创建模板失败: %w", err)
@@ -81,7 +82,7 @@ func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, e
 }
 
 // GetByID 根据 ID 获取模板
-func (r *TemplateRepo) GetByID(ctx context.Context, id int) (*Template, error) {
+func (r *TemplateRepo) GetByID(ctx context.Context, id int64) (*Template, error) {
 	query := `
 		SELECT id, name, description, content, target, tags,
 		       created_at, updated_at
@@ -153,7 +154,7 @@ func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 }
 
 // Update 更新模板，支持修改模板名称，并同步更新策略引用
-func (r *TemplateRepo) Update(ctx context.Context, id int, tpl *Template) error {
+func (r *TemplateRepo) Update(ctx context.Context, id int64, tpl *Template) error {
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("开始事务失败: %w", err)
@@ -204,7 +205,7 @@ func (r *TemplateRepo) Update(ctx context.Context, id int, tpl *Template) error 
 }
 
 // Delete 删除模板
-func (r *TemplateRepo) Delete(ctx context.Context, id int) error {
+func (r *TemplateRepo) Delete(ctx context.Context, id int64) error {
 	query := `DELETE FROM templates WHERE id = $1`
 
 	result, err := r.db.Pool.Exec(ctx, query, id)

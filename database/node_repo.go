@@ -12,14 +12,14 @@ import (
 
 // Node 节点模型
 type Node struct {
-	ID           int                    `json:"id"`
+	ID           int64                  `json:"id"`
 	Name         string                 `json:"name"`
 	Protocol     string                 `json:"protocol"`
 	Server       string                 `json:"server"`
 	Port         int                    `json:"port"`
 	Config       map[string]interface{} `json:"config"`
 	Source       string                 `json:"source"`
-	SourceID     *int                   `json:"source_id"`
+	SourceID     *int64                 `json:"source_id"`
 	SourceName   string                 `json:"source_name"` // 关联查询得到的订阅名称
 	Enabled      bool                   `json:"enabled"`
 	Tags         []string               `json:"tags"`
@@ -31,11 +31,11 @@ type Node struct {
 // NodeFilter 节点筛选条件
 type NodeFilter struct {
 	Source   string   // 按来源筛选
-	SourceID *int     // 按来源 ID 筛选
+	SourceID *int64   // 按来源 ID 筛选
 	Protocol string   // 按协议筛选
 	Enabled  *bool    // 按启用状态筛选
 	Tags     []string // 按标签筛选（OR 关系）
-	IDs      []int    // 按 ID 筛选（精确匹配）
+	IDs      []int64  // 按 ID 筛选（精确匹配）
 }
 
 // NodeRepo 节点仓储
@@ -50,13 +50,15 @@ func NewNodeRepo(db *DB) *NodeRepo {
 
 // Create 创建节点
 func (r *NodeRepo) Create(ctx context.Context, node *Node) error {
+	node.ID = NextID()
 	query := `
-		INSERT INTO nodes (name, protocol, server, port, config, source, source_id, enabled, tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, created_at, updated_at
+		INSERT INTO nodes (id, name, protocol, server, port, config, source, source_id, enabled, tags)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING created_at, updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
+		node.ID,
 		node.Name,
 		node.Protocol,
 		node.Server,
@@ -66,7 +68,7 @@ func (r *NodeRepo) Create(ctx context.Context, node *Node) error {
 		node.SourceID,
 		node.Enabled,
 		node.Tags,
-	).Scan(&node.ID, &node.CreatedAt, &node.UpdatedAt)
+	).Scan(&node.CreatedAt, &node.UpdatedAt)
 
 	if err != nil {
 		// 检查唯一约束冲突
@@ -80,7 +82,7 @@ func (r *NodeRepo) Create(ctx context.Context, node *Node) error {
 }
 
 // GetByID 根据 ID 获取节点
-func (r *NodeRepo) GetByID(ctx context.Context, id int) (*Node, error) {
+func (r *NodeRepo) GetByID(ctx context.Context, id int64) (*Node, error) {
 	query := `
 		SELECT n.id, n.name, n.protocol, n.server, n.port, n.config, n.source, n.source_id,
 		       COALESCE(s.name, '') AS source_name,
@@ -252,7 +254,7 @@ func (r *NodeRepo) Update(ctx context.Context, node *Node) error {
 }
 
 // Delete 删除节点
-func (r *NodeRepo) Delete(ctx context.Context, id int) error {
+func (r *NodeRepo) Delete(ctx context.Context, id int64) error {
 	query := `DELETE FROM nodes WHERE id = $1`
 
 	result, err := r.db.Pool.Exec(ctx, query, id)
@@ -280,7 +282,7 @@ func (r *NodeRepo) DeleteBySource(ctx context.Context, source string) (int64, er
 }
 
 // DeleteBySourceID 根据来源 ID 删除节点（订阅改名后同步使用）
-func (r *NodeRepo) DeleteBySourceID(ctx context.Context, sourceID int) (int64, error) {
+func (r *NodeRepo) DeleteBySourceID(ctx context.Context, sourceID int64) (int64, error) {
 	query := `DELETE FROM nodes WHERE source_id = $1`
 
 	result, err := r.db.Pool.Exec(ctx, query, sourceID)
@@ -308,12 +310,14 @@ func (r *NodeRepo) batchInsert(ctx context.Context, nodes []Node) error {
 	defer tx.Rollback(ctx)
 
 	query := `
-		INSERT INTO nodes (name, protocol, server, port, config, source, source_id, enabled, tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO nodes (id, name, protocol, server, port, config, source, source_id, enabled, tags)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	for _, node := range nodes {
+		node.ID = NextID()
 		_, err := tx.Exec(ctx, query,
+			node.ID,
 			node.Name,
 			node.Protocol,
 			node.Server,
@@ -359,7 +363,7 @@ func dedupeNodes(nodes []Node) []Node {
 }
 
 // BatchUpdateEnabled 批量更新启用状态
-func (r *NodeRepo) BatchUpdateEnabled(ctx context.Context, ids []int, enabled bool) (int64, error) {
+func (r *NodeRepo) BatchUpdateEnabled(ctx context.Context, ids []int64, enabled bool) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
@@ -392,7 +396,7 @@ func (r *NodeRepo) CountBySource(ctx context.Context, source string) (int64, err
 }
 
 // CountBySourceID 统计指定来源 ID 的节点数量
-func (r *NodeRepo) CountBySourceID(ctx context.Context, sourceID int) (int64, error) {
+func (r *NodeRepo) CountBySourceID(ctx context.Context, sourceID int64) (int64, error) {
 	query := `SELECT COUNT(*) FROM nodes WHERE source_id = $1`
 
 	var count int64

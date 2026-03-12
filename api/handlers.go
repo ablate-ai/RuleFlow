@@ -19,9 +19,9 @@ import (
 	"github.com/c.chen/ruleflow/services"
 )
 
-// urlParamInt 从 chi 路由参数中提取整数 ID
-func urlParamInt(r *http.Request, key string) (int, error) {
-	return strconv.Atoi(chi.URLParam(r, key))
+// urlParamInt64 从 chi 路由参数中提取整数 ID
+func urlParamInt64(r *http.Request, key string) (int64, error) {
+	return strconv.ParseInt(chi.URLParam(r, key), 10, 64)
 }
 
 // policyConfigCache 策略配置缓存接口
@@ -49,10 +49,9 @@ type configResponseMeta struct {
 }
 
 type convertRequestParams struct {
-	subURL      string
-	templateRef string
-	templateID  int
-	target      string
+	subURL     string
+	templateID int64
+	target     string
 }
 
 // Handlers API 处理器
@@ -62,6 +61,7 @@ type Handlers struct {
 	configPolicyService     *services.ConfigPolicyService
 	ruleSourceService       *services.RuleSourceService
 	nodeService             *services.NodeService
+	maintenanceService      *services.MaintenanceService
 	subscriptionSyncService *services.SubscriptionSyncService
 	ruleSourceSyncService   *services.RuleSourceSyncService
 	policyCache             policyConfigCache
@@ -74,6 +74,7 @@ func NewHandlers(
 	configPolicyService *services.ConfigPolicyService,
 	ruleSourceService *services.RuleSourceService,
 	nodeService *services.NodeService,
+	maintenanceService *services.MaintenanceService,
 	subscriptionSyncService *services.SubscriptionSyncService,
 	ruleSourceSyncService *services.RuleSourceSyncService,
 	policyCache policyConfigCache,
@@ -84,10 +85,27 @@ func NewHandlers(
 		configPolicyService:     configPolicyService,
 		ruleSourceService:       ruleSourceService,
 		nodeService:             nodeService,
+		maintenanceService:      maintenanceService,
 		subscriptionSyncService: subscriptionSyncService,
 		ruleSourceSyncService:   ruleSourceSyncService,
 		policyCache:             policyCache,
 	}
+}
+
+// MigrateSnowflakeIDs 将旧的自增 ID 数据刷成雪花 ID
+func (h *Handlers) MigrateSnowflakeIDs(w http.ResponseWriter, r *http.Request) {
+	if h.maintenanceService == nil {
+		SendError(w, http.StatusServiceUnavailable, "维护服务未启用")
+		return
+	}
+
+	report, err := h.maintenanceService.MigrateLegacyIDsToSnowflake(r.Context())
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	SendSuccess(w, report)
 }
 
 // CreateSubscription 创建订阅
@@ -109,7 +127,7 @@ func (h *Handlers) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 
 // GetSubscription 获取订阅信息
 func (h *Handlers) GetSubscription(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -139,7 +157,7 @@ func (h *Handlers) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSubscription 更新订阅
 func (h *Handlers) UpdateSubscription(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -163,7 +181,7 @@ func (h *Handlers) UpdateSubscription(w http.ResponseWriter, r *http.Request) {
 
 // DeleteSubscription 删除订阅
 func (h *Handlers) DeleteSubscription(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -221,7 +239,7 @@ func (h *Handlers) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 // GetTemplate 获取模板信息
 func (h *Handlers) GetTemplate(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的模板 ID")
 		return
@@ -251,7 +269,7 @@ func (h *Handlers) ListTemplates(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTemplate 更新模板
 func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的模板 ID")
 		return
@@ -284,7 +302,7 @@ func (h *Handlers) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 // DeleteTemplate 删除模板
 func (h *Handlers) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的模板 ID")
 		return
@@ -323,7 +341,7 @@ func (h *Handlers) CreateRuleSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetRuleSource(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
 		return
@@ -350,7 +368,7 @@ func (h *Handlers) ListRuleSources(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateRuleSource(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
 		return
@@ -373,7 +391,7 @@ func (h *Handlers) UpdateRuleSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeleteRuleSource(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
 		return
@@ -387,7 +405,7 @@ func (h *Handlers) DeleteRuleSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) SyncRuleSource(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的规则源 ID")
 		return
@@ -463,7 +481,7 @@ func (h *Handlers) CreateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // GetConfigPolicy 获取配置策略
 func (h *Handlers) GetConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -493,7 +511,7 @@ func (h *Handlers) ListConfigPolicies(w http.ResponseWriter, r *http.Request) {
 
 // UpdateConfigPolicy 更新配置策略
 func (h *Handlers) UpdateConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -529,7 +547,7 @@ func (h *Handlers) UpdateConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // DeleteConfigPolicy 删除配置策略
 func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -546,7 +564,7 @@ func (h *Handlers) DeleteConfigPolicy(w http.ResponseWriter, r *http.Request) {
 
 // ClearPolicyConfigCache 清除指定策略的生成配置缓存
 func (h *Handlers) ClearPolicyConfigCache(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -568,7 +586,7 @@ func (h *Handlers) ClearPolicyConfigCache(w http.ResponseWriter, r *http.Request
 
 // ListConfigPolicyAccessLogs 列出指定策略最近访问日志
 func (h *Handlers) ListConfigPolicyAccessLogs(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的策略 ID")
 		return
@@ -602,7 +620,7 @@ func (h *Handlers) ListAllConfigAccessLogs(w http.ResponseWriter, r *http.Reques
 	filter := database.ConfigAccessLogFilter{Limit: 100}
 
 	if raw := strings.TrimSpace(r.URL.Query().Get("policy_id")); raw != "" {
-		policyID, err := strconv.Atoi(raw)
+		policyID, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || policyID <= 0 {
 			SendError(w, http.StatusBadRequest, "无效的 policy_id 参数")
 			return
@@ -730,7 +748,7 @@ func (h *Handlers) CreateNode(w http.ResponseWriter, r *http.Request) {
 
 // GetNode 获取节点详情
 func (h *Handlers) GetNode(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的节点 ID")
 		return
@@ -785,7 +803,7 @@ func (h *Handlers) ListNodes(w http.ResponseWriter, r *http.Request) {
 
 // UpdateNode 更新节点
 func (h *Handlers) UpdateNode(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的节点 ID")
 		return
@@ -894,7 +912,7 @@ func (h *Handlers) buildManualNodeFromRequest(req manualNodeRequest, existing *d
 
 // DeleteNode 删除节点
 func (h *Handlers) DeleteNode(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的节点 ID")
 		return
@@ -912,9 +930,9 @@ func (h *Handlers) DeleteNode(w http.ResponseWriter, r *http.Request) {
 // BatchNodeOperation 批量节点操作
 func (h *Handlers) BatchNodeOperation(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		IDs     []int  `json:"ids"`
-		Enabled *bool  `json:"enabled"`
-		Action  string `json:"action"` // enable, disable
+		IDs     []int64 `json:"ids"`
+		Enabled *bool   `json:"enabled"`
+		Action  string  `json:"action"` // enable, disable
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -958,7 +976,7 @@ func (h *Handlers) BatchNodeOperation(w http.ResponseWriter, r *http.Request) {
 
 // SyncSubscription 同步订阅节点
 func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -985,7 +1003,7 @@ func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
 
 // GetSubscriptionSyncStatus 获取订阅同步状态
 func (h *Handlers) GetSubscriptionSyncStatus(w http.ResponseWriter, r *http.Request) {
-	id, err := urlParamInt(r, "id")
+	id, err := urlParamInt64(r, "id")
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "无效的订阅 ID")
 		return
@@ -1020,7 +1038,7 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // ConvertSubscription 在线转换订阅配置
-// 路由: GET /convert?url=https://example.com/sub&template=my-template
+// 路由: GET /convert?url=https://example.com/sub&template=154025419991939
 func (h *Handlers) ConvertSubscription(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logToken := "convert"
@@ -1064,13 +1082,9 @@ func (h *Handlers) ConvertSubscription(w http.ResponseWriter, r *http.Request) {
 
 	templateContent := ""
 	targetFallback := "stash"
-	if params.templateRef != "" || params.templateID > 0 {
+	if params.templateID > 0 {
 		var tpl *database.Template
-		if params.templateID > 0 {
-			tpl, err = h.templateService.GetTemplateByID(ctx, params.templateID)
-		} else {
-			tpl, err = h.templateService.GetTemplateByName(ctx, params.templateRef)
-		}
+		tpl, err = h.templateService.GetTemplateByID(ctx, params.templateID)
 		if err != nil {
 			h.recordStandaloneConfigAccess(r, logToken, http.StatusNotFound, false, nil, err.Error())
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -1222,7 +1236,7 @@ func (h *Handlers) recordConfigAccess(
 		return
 	}
 
-	var policyID *int
+	var policyID *int64
 	if policy != nil {
 		policyID = &policy.ID
 	}
@@ -1383,24 +1397,11 @@ func parseConvertRequestParams(r *http.Request) (convertRequestParams, error) {
 		return convertRequestParams{}, nil
 	}
 
-	rawQuery := strings.TrimSpace(r.URL.RawQuery)
-	if rawQuery == "" {
-		templateRef, templateID, err := parseTemplateLookup(r)
-		if err != nil {
-			return convertRequestParams{}, err
-		}
-		return convertRequestParams{
-			subURL: strings.TrimSpace(firstNonEmpty(
-				r.URL.Query().Get("url"),
-				r.URL.Query().Get("subscription"),
-				r.URL.Query().Get("subscription_url"),
-			)),
-			templateRef: templateRef,
-			templateID:  templateID,
-			target:      strings.TrimSpace(r.URL.Query().Get("target")),
-		}, nil
+	if err := validateConvertTemplateParams(r); err != nil {
+		return convertRequestParams{}, err
 	}
 
+	rawQuery := strings.TrimSpace(r.URL.RawQuery)
 	params := convertRequestParams{}
 	segments := strings.Split(rawQuery, "&")
 	for i := 0; i < len(segments); i++ {
@@ -1426,23 +1427,12 @@ func parseConvertRequestParams(r *http.Request) (convertRequestParams, error) {
 				continue
 			}
 			params.subURL = decodeQueryValue(value)
-		case "template", "template_name":
-			if params.templateID == 0 {
-				decoded := decodeQueryValue(value)
-				if id, err := strconv.Atoi(decoded); err == nil && id > 0 {
-					params.templateID = id
-					params.templateRef = ""
-				} else {
-					params.templateRef = strings.TrimSpace(decoded)
-				}
-			}
-		case "template_id":
-			id, err := strconv.Atoi(strings.TrimSpace(decodeQueryValue(value)))
+		case "template":
+			id, err := strconv.ParseInt(strings.TrimSpace(decodeQueryValue(value)), 10, 64)
 			if err != nil || id <= 0 {
-				return convertRequestParams{}, fmt.Errorf("template_id 必须是正整数")
+				return convertRequestParams{}, fmt.Errorf("template 必须是模板 ID")
 			}
 			params.templateID = id
-			params.templateRef = ""
 		case "target":
 			params.target = strings.TrimSpace(decodeQueryValue(value))
 		}
@@ -1455,14 +1445,6 @@ func parseConvertRequestParams(r *http.Request) (convertRequestParams, error) {
 			r.URL.Query().Get("subscription_url"),
 		))
 	}
-	if params.templateRef == "" && params.templateID == 0 {
-		templateRef, templateID, err := parseTemplateLookup(r)
-		if err != nil {
-			return convertRequestParams{}, err
-		}
-		params.templateRef = templateRef
-		params.templateID = templateID
-	}
 	if params.target == "" {
 		params.target = strings.TrimSpace(r.URL.Query().Get("target"))
 	}
@@ -1470,33 +1452,25 @@ func parseConvertRequestParams(r *http.Request) (convertRequestParams, error) {
 	return params, nil
 }
 
-func parseTemplateLookup(r *http.Request) (string, int, error) {
+func validateConvertTemplateParams(r *http.Request) error {
 	if r == nil || r.URL == nil {
-		return "", 0, nil
+		return nil
 	}
 
 	query := r.URL.Query()
-	if rawID := strings.TrimSpace(query.Get("template_id")); rawID != "" {
-		id, err := strconv.Atoi(rawID)
+	if strings.TrimSpace(query.Get("template_id")) != "" {
+		return fmt.Errorf("不支持 template_id 参数，请使用 template=模板ID")
+	}
+	if strings.TrimSpace(query.Get("template_name")) != "" {
+		return fmt.Errorf("不支持 template_name 参数，请使用 template=模板ID")
+	}
+	if raw := strings.TrimSpace(query.Get("template")); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || id <= 0 {
-			return "", 0, fmt.Errorf("template_id 必须是正整数")
+			return fmt.Errorf("template 必须是模板 ID")
 		}
-		return "", id, nil
 	}
-
-	templateRef := strings.TrimSpace(firstNonEmpty(
-		query.Get("template"),
-		query.Get("template_name"),
-	))
-	if templateRef == "" {
-		return "", 0, nil
-	}
-
-	if id, err := strconv.Atoi(templateRef); err == nil && id > 0 {
-		return "", id, nil
-	}
-
-	return templateRef, 0, nil
+	return nil
 }
 
 func firstNonEmpty(values ...string) string {
@@ -1535,8 +1509,6 @@ func buildConvertLogToken(params convertRequestParams) string {
 		switch {
 		case params.templateID > 0:
 			return fmt.Sprintf("convert:template_id=%d", params.templateID)
-		case strings.TrimSpace(params.templateRef) != "":
-			return "convert:template=" + strings.TrimSpace(params.templateRef)
 		default:
 			return "convert"
 		}

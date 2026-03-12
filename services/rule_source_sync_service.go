@@ -19,7 +19,7 @@ func NewRuleSourceSyncService(repo *database.RuleSourceRepo) *RuleSourceSyncServ
 	return &RuleSourceSyncService{repo: repo}
 }
 
-func (s *RuleSourceSyncService) SyncRuleSource(ctx context.Context, id int) (int, error) {
+func (s *RuleSourceSyncService) SyncRuleSource(ctx context.Context, id int64) (int, error) {
 	source, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return 0, err

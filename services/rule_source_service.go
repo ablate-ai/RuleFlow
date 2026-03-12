@@ -30,7 +30,7 @@ func (s *RuleSourceService) Create(ctx context.Context, source *database.RuleSou
 	return s.repo.Create(ctx, source)
 }
 
-func (s *RuleSourceService) GetByID(ctx context.Context, id int) (*database.RuleSource, error) {
+func (s *RuleSourceService) GetByID(ctx context.Context, id int64) (*database.RuleSource, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -62,7 +62,7 @@ func (s *RuleSourceService) Update(ctx context.Context, source *database.RuleSou
 	return s.repo.Update(ctx, source)
 }
 
-func (s *RuleSourceService) Delete(ctx context.Context, id int) error {
+func (s *RuleSourceService) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
 

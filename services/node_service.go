@@ -47,12 +47,12 @@ func (s *NodeService) ListNodes(ctx context.Context, filter database.NodeFilter)
 }
 
 // GetNode 获取节点详情
-func (s *NodeService) GetNode(ctx context.Context, id int) (*database.Node, error) {
+func (s *NodeService) GetNode(ctx context.Context, id int64) (*database.Node, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
 // UpdateNode 更新节点
-func (s *NodeService) UpdateNode(ctx context.Context, id int, node *database.Node) error {
+func (s *NodeService) UpdateNode(ctx context.Context, id int64, node *database.Node) error {
 	// 验证协议类型
 	if !isValidProtocol(node.Protocol) {
 		return fmt.Errorf("不支持的协议类型: %s", node.Protocol)
@@ -72,12 +72,12 @@ func (s *NodeService) UpdateNode(ctx context.Context, id int, node *database.Nod
 }
 
 // DeleteNode 删除节点
-func (s *NodeService) DeleteNode(ctx context.Context, id int) error {
+func (s *NodeService) DeleteNode(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
 
 // BatchEnable 批量启用/禁用节点
-func (s *NodeService) BatchEnable(ctx context.Context, ids []int, enabled bool) (int64, error) {
+func (s *NodeService) BatchEnable(ctx context.Context, ids []int64, enabled bool) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}

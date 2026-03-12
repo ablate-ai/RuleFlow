@@ -55,7 +55,7 @@ func (s *ConfigPolicyService) GetByName(ctx context.Context, name string) (*data
 }
 
 // GetByID 根据 ID 获取配置策略
-func (s *ConfigPolicyService) GetByID(ctx context.Context, id int) (*database.ConfigPolicy, error) {
+func (s *ConfigPolicyService) GetByID(ctx context.Context, id int64) (*database.ConfigPolicy, error) {
 	return s.policyRepo.GetByID(ctx, id)
 }
 
@@ -87,7 +87,7 @@ func (s *ConfigPolicyService) Update(ctx context.Context, policy *database.Confi
 }
 
 // Delete 删除配置策略
-func (s *ConfigPolicyService) Delete(ctx context.Context, id int) error {
+func (s *ConfigPolicyService) Delete(ctx context.Context, id int64) error {
 	return s.policyRepo.Delete(ctx, id)
 }
 
@@ -112,7 +112,7 @@ func (s *ConfigPolicyService) RecordAccess(ctx context.Context, log *database.Co
 }
 
 // ListAccessLogs 获取指定策略最近访问日志
-func (s *ConfigPolicyService) ListAccessLogs(ctx context.Context, policyID int, limit int) ([]*database.ConfigAccessLog, error) {
+func (s *ConfigPolicyService) ListAccessLogs(ctx context.Context, policyID int64, limit int) ([]*database.ConfigAccessLog, error) {
 	if _, err := s.policyRepo.GetByID(ctx, policyID); err != nil {
 		return nil, err
 	}

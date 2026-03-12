@@ -56,6 +56,7 @@ func main() {
 	var configPolicyService *services.ConfigPolicyService
 	var ruleSourceService *services.RuleSourceService
 	var nodeService *services.NodeService
+	var maintenanceService *services.MaintenanceService
 	var subscriptionSyncService *services.SubscriptionSyncService
 	var ruleSourceSyncService *services.RuleSourceSyncService
 	var subscriptionCache *cache.SubscriptionCache
@@ -82,6 +83,7 @@ func main() {
 
 	// 创建节点服务
 	nodeService = services.NewNodeService(nodeRepo)
+	maintenanceService = services.NewMaintenanceService(db)
 
 	// 创建订阅同步服务
 	subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo)
@@ -106,7 +108,7 @@ func main() {
 	logCleanupScheduler.Start(schedulerCtx)
 
 	// 创建 API 处理器
-	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache)
+	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, maintenanceService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache)
 
 	// 启动服务器
 	port := cfg.Port
@@ -219,6 +221,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	// API 路由（整体加鉴权）
 	r.With(api.APIAuthMiddleware(cfg.AdminPassword)).Route("/api", func(r chi.Router) {
 		r.Post("/cache/policies/clear", apiHandlers.ClearAllPolicyCache)
+		r.Post("/admin/migrate-snowflake-ids", apiHandlers.MigrateSnowflakeIDs)
 
 		// 订阅管理
 		r.Get("/subscriptions", apiHandlers.ListSubscriptions)

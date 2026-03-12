@@ -10,7 +10,7 @@ import (
 // ConfigAccessLog 订阅配置访问日志
 type ConfigAccessLog struct {
 	ID           int64     `json:"id"`
-	PolicyID     *int      `json:"policy_id,omitempty"`
+	PolicyID     *int64    `json:"policy_id,omitempty"`
 	PolicyName   string    `json:"policy_name,omitempty"`
 	Token        string    `json:"token,omitempty"`
 	ClientIP     *string   `json:"client_ip,omitempty"`
@@ -30,7 +30,7 @@ type ConfigAccessLogRepo struct {
 
 // ConfigAccessLogFilter 访问日志筛选条件
 type ConfigAccessLogFilter struct {
-	PolicyID *int
+	PolicyID *int64
 	Success  *bool
 	CacheHit *bool
 	Limit    int
@@ -43,10 +43,11 @@ func NewConfigAccessLogRepo(db *DB) *ConfigAccessLogRepo {
 
 // Create 写入访问日志
 func (r *ConfigAccessLogRepo) Create(ctx context.Context, log *ConfigAccessLog) error {
+	log.ID = NextID()
 	query := `
-		INSERT INTO config_access_logs (policy_id, token, client_ip, user_agent, status_code, success, cache_hit, node_count, error_message)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
-		RETURNING id, created_at
+		INSERT INTO config_access_logs (id, policy_id, token, client_ip, user_agent, status_code, success, cache_hit, node_count, error_message)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''))
+		RETURNING created_at
 	`
 
 	var clientIP any
@@ -57,6 +58,7 @@ func (r *ConfigAccessLogRepo) Create(ctx context.Context, log *ConfigAccessLog) 
 	}
 
 	err := r.db.Pool.QueryRow(ctx, query,
+		log.ID,
 		log.PolicyID,
 		log.Token,
 		clientIP,
@@ -66,7 +68,7 @@ func (r *ConfigAccessLogRepo) Create(ctx context.Context, log *ConfigAccessLog) 
 		log.CacheHit,
 		log.NodeCount,
 		log.ErrorMessage,
-	).Scan(&log.ID, &log.CreatedAt)
+	).Scan(&log.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("写入访问日志失败: %w", err)
 	}
@@ -75,7 +77,7 @@ func (r *ConfigAccessLogRepo) Create(ctx context.Context, log *ConfigAccessLog) 
 }
 
 // ListByPolicy 按策略查询最近访问日志
-func (r *ConfigAccessLogRepo) ListByPolicy(ctx context.Context, policyID int, limit int) ([]*ConfigAccessLog, error) {
+func (r *ConfigAccessLogRepo) ListByPolicy(ctx context.Context, policyID int64, limit int) ([]*ConfigAccessLog, error) {
 	return r.List(ctx, ConfigAccessLogFilter{
 		PolicyID: &policyID,
 		Limit:    limit,
@@ -93,7 +95,7 @@ func (r *ConfigAccessLogRepo) List(ctx context.Context, filter ConfigAccessLogFi
 		SELECT l.id, l.policy_id, COALESCE(p.name, ''), l.token, host(l.client_ip), l.user_agent, l.status_code, l.success, l.cache_hit, l.node_count, COALESCE(l.error_message, ''), l.created_at
 		FROM config_access_logs l
 		LEFT JOIN config_policies p ON p.id = l.policy_id
-		WHERE ($1::INTEGER IS NULL OR l.policy_id = $1)
+		WHERE ($1::BIGINT IS NULL OR l.policy_id = $1)
 		  AND ($2::BOOLEAN IS NULL OR l.success = $2)
 		  AND ($3::BOOLEAN IS NULL OR l.cache_hit = $3)
 		ORDER BY l.created_at DESC
@@ -109,7 +111,7 @@ func (r *ConfigAccessLogRepo) List(ctx context.Context, filter ConfigAccessLogFi
 	logs := make([]*ConfigAccessLog, 0)
 	for rows.Next() {
 		var log ConfigAccessLog
-		var policyIDValue *int
+		var policyIDValue *int64
 		var clientIP *string
 		err := rows.Scan(
 			&log.ID,

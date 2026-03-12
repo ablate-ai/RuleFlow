@@ -26,7 +26,7 @@ type UserInfo struct {
 
 // Subscription 订阅模型
 type Subscription struct {
-	ID              int                 `json:"id"`
+	ID              int64               `json:"id"`
 	Name            string              `json:"name"`
 	URL             *string             `json:"url"`
 	Enabled         bool                `json:"enabled"`
@@ -95,17 +95,18 @@ func (r *SubscriptionRepo) Create(ctx context.Context, sub *Subscription) error 
 	if err != nil {
 		return fmt.Errorf("序列化过滤规则失败: %w", err)
 	}
+	sub.ID = NextID()
 
 	query := `
-		INSERT INTO subscriptions (name, url, enabled, auto_refresh, refresh_interval, description, tags, filter_rules)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, created_at, updated_at
+		INSERT INTO subscriptions (id, name, url, enabled, auto_refresh, refresh_interval, description, tags, filter_rules)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING created_at, updated_at
 	`
 
 	err = r.db.Pool.QueryRow(ctx, query,
-		sub.Name, sub.URL, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval,
+		sub.ID, sub.Name, sub.URL, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval,
 		sub.Description, sub.Tags, filterRulesJSON,
-	).Scan(&sub.ID, &sub.CreatedAt, &sub.UpdatedAt)
+	).Scan(&sub.CreatedAt, &sub.UpdatedAt)
 
 	if err != nil {
 		return fmt.Errorf("创建订阅失败: %w", err)
@@ -128,7 +129,7 @@ func (r *SubscriptionRepo) GetByName(ctx context.Context, name string) (*Subscri
 }
 
 // GetByID 根据 ID 获取订阅
-func (r *SubscriptionRepo) GetByID(ctx context.Context, id int) (*Subscription, error) {
+func (r *SubscriptionRepo) GetByID(ctx context.Context, id int64) (*Subscription, error) {
 	query := selectSubFields + `WHERE id = $1`
 	sub, err := scanSubscription(r.db.Pool.QueryRow(ctx, query, id).Scan)
 	if err == pgx.ErrNoRows {
@@ -197,7 +198,7 @@ func (r *SubscriptionRepo) Update(ctx context.Context, sub *Subscription) error 
 }
 
 // DeleteByID 删除订阅
-func (r *SubscriptionRepo) DeleteByID(ctx context.Context, id int) error {
+func (r *SubscriptionRepo) DeleteByID(ctx context.Context, id int64) error {
 	query := `DELETE FROM subscriptions WHERE id = $1`
 
 	result, err := r.db.Pool.Exec(ctx, query, id)
@@ -237,7 +238,7 @@ func (r *SubscriptionRepo) UpdateFetchResult(ctx context.Context, name string, n
 }
 
 // UpdateFetchResultByID 更新订阅获取结果
-func (r *SubscriptionRepo) UpdateFetchResultByID(ctx context.Context, id int, nodeCount int, fetchErr error) error {
+func (r *SubscriptionRepo) UpdateFetchResultByID(ctx context.Context, id int64, nodeCount int, fetchErr error) error {
 	query := `
 		UPDATE subscriptions
 		SET last_fetched_at = CURRENT_TIMESTAMP,
@@ -261,7 +262,7 @@ func (r *SubscriptionRepo) UpdateFetchResultByID(ctx context.Context, id int, no
 }
 
 // UpdateUserInfoByID 更新订阅流量信息
-func (r *SubscriptionRepo) UpdateUserInfoByID(ctx context.Context, id int, info *UserInfo) error {
+func (r *SubscriptionRepo) UpdateUserInfoByID(ctx context.Context, id int64, info *UserInfo) error {
 	var userInfoJSON []byte
 	var err error
 	if info != nil {

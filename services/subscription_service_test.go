@@ -20,7 +20,7 @@ func NewMockSubscriptionRepo() *MockSubscriptionRepo {
 }
 
 func (m *MockSubscriptionRepo) Create(ctx context.Context, sub *database.Subscription) error {
-	sub.ID = len(m.subs) + 1
+	sub.ID = int64(len(m.subs) + 1)
 	sub.CreatedAt = time.Now()
 	sub.UpdatedAt = time.Now()
 	m.subs[sub.Name] = sub

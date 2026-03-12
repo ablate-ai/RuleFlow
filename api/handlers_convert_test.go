@@ -43,25 +43,22 @@ func TestResolveConfigTarget(t *testing.T) {
 	}
 }
 
-func TestParseTemplateLookup(t *testing.T) {
+func TestValidateConvertTemplateParams(t *testing.T) {
 	tests := []struct {
 		name      string
 		targetURL string
-		wantName  string
-		wantID    int
 		wantErr   bool
 	}{
-		{name: "template 名称", targetURL: "/convert?template=my-template", wantName: "my-template"},
-		{name: "template 数字视为 id", targetURL: "/convert?template=12", wantID: 12},
-		{name: "template_id 优先", targetURL: "/convert?template=my-template&template_id=8", wantID: 8},
-		{name: "template_name", targetURL: "/convert?template_name=tpl-a", wantName: "tpl-a"},
-		{name: "非法 template_id", targetURL: "/convert?template_id=abc", wantErr: true},
+		{name: "template 使用雪花id", targetURL: "/convert?template=154025419991939"},
+		{name: "template 非数字", targetURL: "/convert?template=my-template", wantErr: true},
+		{name: "不支持 template_id", targetURL: "/convert?template_id=8", wantErr: true},
+		{name: "不支持 template_name", targetURL: "/convert?template_name=tpl-a", wantErr: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.targetURL, nil)
-			gotName, gotID, err := parseTemplateLookup(req)
+			err := validateConvertTemplateParams(req)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("期望返回错误，实际成功")
@@ -69,10 +66,7 @@ func TestParseTemplateLookup(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("parseTemplateLookup() 返回错误: %v", err)
-			}
-			if gotName != tt.wantName || gotID != tt.wantID {
-				t.Fatalf("期望 name=%q id=%d，实际为 name=%q id=%d", tt.wantName, tt.wantID, gotName, gotID)
+				t.Fatalf("validateConvertTemplateParams() 返回错误: %v", err)
 			}
 		})
 	}
@@ -84,26 +78,31 @@ func TestParseConvertRequestParams(t *testing.T) {
 		targetURL      string
 		wantSubURL     string
 		wantTemplate   string
-		wantTemplateID int
+		wantTemplateID int64
 		wantTarget     string
 		wantErr        bool
 	}{
 		{
-			name:         "支持未编码订阅地址",
-			targetURL:    "/convert?url=https://example.com/sub?target=clash&filename=demo&emoji=true&url=https%3A%2F%2Forigin.example.com%2Fsub%3Ftoken%3Dabc&template=clash",
-			wantSubURL:   "https://example.com/sub?target=clash&filename=demo&emoji=true&url=https%3A%2F%2Forigin.example.com%2Fsub%3Ftoken%3Dabc",
-			wantTemplate: "clash",
+			name:           "支持未编码订阅地址",
+			targetURL:      "/convert?url=https://example.com/sub?target=clash&filename=demo&emoji=true&url=https%3A%2F%2Forigin.example.com%2Fsub%3Ftoken%3Dabc&template=154025419991939",
+			wantSubURL:     "https://example.com/sub?target=clash&filename=demo&emoji=true&url=https%3A%2F%2Forigin.example.com%2Fsub%3Ftoken%3Dabc",
+			wantTemplateID: 154025419991939,
 		},
 		{
 			name:           "支持编码订阅地址和 target",
-			targetURL:      "/convert?target=surge&url=https%3A%2F%2Fexample.com%2Fsub%3Fa%3D1%26b%3D2&template_id=9",
+			targetURL:      "/convert?target=surge&url=https%3A%2F%2Fexample.com%2Fsub%3Fa%3D1%26b%3D2&template=9",
 			wantSubURL:     "https://example.com/sub?a=1&b=2",
 			wantTemplateID: 9,
 			wantTarget:     "surge",
 		},
 		{
-			name:      "非法 template_id",
-			targetURL: "/convert?url=https://example.com/sub&template_id=abc",
+			name:      "非法 template",
+			targetURL: "/convert?url=https://example.com/sub&template=abc",
+			wantErr:   true,
+		},
+		{
+			name:      "不支持 template_id",
+			targetURL: "/convert?url=https://example.com/sub&template_id=9",
 			wantErr:   true,
 		},
 	}
@@ -121,10 +120,10 @@ func TestParseConvertRequestParams(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseConvertRequestParams() 返回错误: %v", err)
 			}
-			if got.subURL != tt.wantSubURL || got.templateRef != tt.wantTemplate || got.templateID != tt.wantTemplateID || got.target != tt.wantTarget {
-				t.Fatalf("期望 subURL=%q template=%q templateID=%d target=%q，实际为 subURL=%q template=%q templateID=%d target=%q",
-					tt.wantSubURL, tt.wantTemplate, tt.wantTemplateID, tt.wantTarget,
-					got.subURL, got.templateRef, got.templateID, got.target)
+			if got.subURL != tt.wantSubURL || got.templateID != tt.wantTemplateID || got.target != tt.wantTarget {
+				t.Fatalf("期望 subURL=%q templateID=%d target=%q，实际为 subURL=%q templateID=%d target=%q",
+					tt.wantSubURL, tt.wantTemplateID, tt.wantTarget,
+					got.subURL, got.templateID, got.target)
 			}
 		})
 	}
@@ -162,7 +161,7 @@ func TestBuildConvertLogToken(t *testing.T) {
 
 	t.Run("优先订阅地址", func(t *testing.T) {
 		want := "https://example.com/sub?token=abc"
-		if got := buildConvertLogToken(convertRequestParams{subURL: want, templateRef: "clash"}); got != want {
+		if got := buildConvertLogToken(convertRequestParams{subURL: want, templateID: 7}); got != want {
 			t.Fatalf("期望 token=%q，实际为 %q", want, got)
 		}
 	})

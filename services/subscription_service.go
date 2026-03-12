@@ -61,7 +61,7 @@ func (s *SubscriptionService) GetSubscription(ctx context.Context, name string) 
 }
 
 // GetSubscriptionByID 获取订阅信息
-func (s *SubscriptionService) GetSubscriptionByID(ctx context.Context, id int) (*database.Subscription, error) {
+func (s *SubscriptionService) GetSubscriptionByID(ctx context.Context, id int64) (*database.Subscription, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -110,7 +110,7 @@ func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *datab
 }
 
 // DeleteSubscriptionByID 删除订阅
-func (s *SubscriptionService) DeleteSubscriptionByID(ctx context.Context, id int) error {
+func (s *SubscriptionService) DeleteSubscriptionByID(ctx context.Context, id int64) error {
 	return s.repo.DeleteByID(ctx, id)
 }
 
