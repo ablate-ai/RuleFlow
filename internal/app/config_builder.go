@@ -103,6 +103,35 @@ func yamlValueToNode(v interface{}) (*yaml.Node, error) {
 	return &doc, nil
 }
 
+func flattenWireGuardProxyForStash(proxy Proxy) Proxy {
+	if proxy.Type != "wireguard" || len(proxy.Peers) == 0 {
+		return proxy
+	}
+
+	flattened := proxy
+	peer := proxy.Peers[0]
+	flattened.Server = peer.Server
+	flattened.Port = peer.Port
+	flattened.PublicKey = peer.PublicKey
+	flattened.PreSharedKey = peer.PreSharedKey
+	flattened.Reserved = append([]int(nil), peer.Reserved...)
+	flattened.PersistentKeepalive = peer.PersistentKeepalive
+	flattened.Peers = nil
+	return flattened
+}
+
+func proxyPayloadForTarget(proxies []Proxy, target string) interface{} {
+	if target != "stash" {
+		return proxies
+	}
+
+	adapted := make([]Proxy, 0, len(proxies))
+	for _, proxy := range proxies {
+		adapted = append(adapted, flattenWireGuardProxyForStash(proxy))
+	}
+	return adapted
+}
+
 // adaptConfigForTargetNode 根据目标客户端类型调整 yaml.Node 树中的配置
 // 使用 yaml.Node 操作，保留原始 YAML 格式（包括引号风格）
 func adaptConfigForTargetNode(mapping *yaml.Node, target string) {
@@ -318,7 +347,7 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 	adaptConfigForTargetNode(mapping, target)
 
 	proxies, nodeNames := buildProxies(nodes)
-	proxiesNode, err := yamlValueToNode(proxies)
+	proxiesNode, err := yamlValueToNode(proxyPayloadForTarget(proxies, target))
 	if err != nil {
 		return "", fmt.Errorf("生成 proxies 失败: %w", err)
 	}
@@ -339,7 +368,7 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 						proxies[i].DialerProxy = relay
 					}
 				}
-				proxiesNode, err = yamlValueToNode(proxies)
+				proxiesNode, err = yamlValueToNode(proxyPayloadForTarget(proxies, target))
 				if err != nil {
 					return "", fmt.Errorf("生成 proxies 失败: %w", err)
 				}
@@ -397,7 +426,7 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 	adaptConfigForTargetNode(mapping, target)
 
 	proxies, nodeNames := buildProxies(nodes)
-	proxiesNode, err := yamlValueToNode(proxies)
+	proxiesNode, err := yamlValueToNode(proxyPayloadForTarget(proxies, target))
 	if err != nil {
 		return "", fmt.Errorf("生成 proxies 失败: %w", err)
 	}
@@ -418,7 +447,7 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 						proxies[i].DialerProxy = relay
 					}
 				}
-				proxiesNode, err = yamlValueToNode(proxies)
+				proxiesNode, err = yamlValueToNode(proxyPayloadForTarget(proxies, target))
 				if err != nil {
 					return "", fmt.Errorf("生成 proxies 失败: %w", err)
 				}
@@ -465,7 +494,7 @@ func BuildYAMLFromDefaultTemplate(nodes []*ProxyNode, target string) (string, er
 	adaptConfigForTarget(cfg, target)
 
 	proxies, nodeNames := buildProxies(nodes)
-	cfg["proxies"] = proxies
+	cfg["proxies"] = proxyPayloadForTarget(proxies, target)
 	cfg["proxy-groups"] = []Group{
 		{
 			Name:    "🚀 节点选择",

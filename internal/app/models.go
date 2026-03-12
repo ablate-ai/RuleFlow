@@ -47,9 +47,13 @@ type Proxy struct {
 	IP                       string          `yaml:"ip,omitempty"`
 	IPv6                     string          `yaml:"ipv6,omitempty"`
 	PrivateKey               string          `yaml:"private-key,omitempty"`
+	PublicKey                string          `yaml:"public-key,omitempty"`
+	PreSharedKey             string          `yaml:"pre-shared-key,omitempty"`
 	DNS                      []string        `yaml:"dns,omitempty"`
 	MTU                      int             `yaml:"mtu,omitempty"`
 	RemoteDNSResolve         bool            `yaml:"remote-dns-resolve,omitempty"`
+	Reserved                 []int           `yaml:"reserved,omitempty"`
+	PersistentKeepalive      int             `yaml:"persistent-keepalive,omitempty"`
 	Peers                    []WireGuardPeer `yaml:"peers,omitempty"`
 	IdleSessionCheckInterval int             `yaml:"idle-session-check-interval,omitempty"`
 	IdleSessionTimeout       int             `yaml:"idle-session-timeout,omitempty"`
