@@ -294,12 +294,17 @@
                 ) : (
                   <div className="list-wrap">
                     <div className="list">
-                      {visibleLogs.map(log => (
+                      {visibleLogs.map(log => {
+                        const displayTitle = log.policy_name || log.token || '未知来源';
+                        const displaySub = log.policy_name
+                          ? `${formatDate(log.created_at)} · token: ${log.token || '-'}`
+                          : formatDate(log.created_at);
+                        return (
                         <div key={log.id} className="item">
                           <div className="item-top">
                             <div>
-                              <div className="item-title">{log.policy_name || '未知策略 / 无效 token'}</div>
-                              <div className="item-sub">{formatDate(log.created_at)} · token: {log.token || '-'}</div>
+                              <div className="item-title">{displayTitle}</div>
+                              <div className="item-sub">{displaySub}</div>
                             </div>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                               <ResultBadge success={log.success} />
@@ -314,7 +319,7 @@
                           </div>
                           {log.error_message && <div className="item-err">{log.error_message}</div>}
                         </div>
-                      ))}
+                      )})}
                     </div>
                   </div>
                 )}

@@ -154,21 +154,35 @@ func TestConfigResponseMetaForTarget(t *testing.T) {
 }
 
 func TestBuildConvertLogToken(t *testing.T) {
-	tests := []struct {
-		name   string
-		params convertRequestParams
-		want   string
-	}{
-		{name: "默认", params: convertRequestParams{}, want: "convert"},
-		{name: "按模板名", params: convertRequestParams{templateRef: "clash"}, want: "convert:template=clash"},
-		{name: "按模板ID", params: convertRequestParams{templateID: 7}, want: "convert:template_id=7"},
-	}
+	t.Run("默认", func(t *testing.T) {
+		if got := buildConvertLogToken(convertRequestParams{}); got != "convert" {
+			t.Fatalf("期望 token=%q，实际为 %q", "convert", got)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := buildConvertLogToken(tt.params); got != tt.want {
-				t.Fatalf("期望 token=%q，实际为 %q", tt.want, got)
-			}
+	t.Run("优先订阅地址", func(t *testing.T) {
+		want := "https://example.com/sub?token=abc"
+		if got := buildConvertLogToken(convertRequestParams{subURL: want, templateRef: "clash"}); got != want {
+			t.Fatalf("期望 token=%q，实际为 %q", want, got)
+		}
+	})
+
+	t.Run("按模板ID", func(t *testing.T) {
+		want := "convert:template_id=7"
+		if got := buildConvertLogToken(convertRequestParams{templateID: 7}); got != want {
+			t.Fatalf("期望 token=%q，实际为 %q", want, got)
+		}
+	})
+
+	t.Run("超长订阅地址截断", func(t *testing.T) {
+		got := buildConvertLogToken(convertRequestParams{
+			subURL: "https://example.com/sub?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 		})
-	}
+		if len(got) != 64 {
+			t.Fatalf("期望截断后长度为 64，实际为 %d: %q", len(got), got)
+		}
+		if got[len(got)-3:] != "..." {
+			t.Fatalf("期望截断后以省略号结尾，实际为 %q", got)
+		}
+	})
 }

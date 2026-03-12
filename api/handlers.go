@@ -1530,12 +1530,20 @@ func decodeQueryValue(value string) string {
 }
 
 func buildConvertLogToken(params convertRequestParams) string {
-	switch {
-	case params.templateID > 0:
-		return fmt.Sprintf("convert:template_id=%d", params.templateID)
-	case strings.TrimSpace(params.templateRef) != "":
-		return "convert:template=" + strings.TrimSpace(params.templateRef)
-	default:
-		return "convert"
+	rawURL := strings.TrimSpace(params.subURL)
+	if rawURL == "" {
+		switch {
+		case params.templateID > 0:
+			return fmt.Sprintf("convert:template_id=%d", params.templateID)
+		case strings.TrimSpace(params.templateRef) != "":
+			return "convert:template=" + strings.TrimSpace(params.templateRef)
+		default:
+			return "convert"
+		}
 	}
+
+	if len(rawURL) <= 64 {
+		return rawURL
+	}
+	return rawURL[:61] + "..."
 }
