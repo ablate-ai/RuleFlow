@@ -212,6 +212,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 
 	// 公开接口（无需鉴权）
 	r.Get("/subscribe", apiHandlers.GenerateConfig)
+	r.Get("/convert", apiHandlers.ConvertSubscription)
 	r.Get("/health", apiHandlers.Health)
 	r.Get("/rulesets/{name}", apiHandlers.ExportRuleSource)
 

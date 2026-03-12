@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,6 +41,18 @@ type manualNodeRequest struct {
 	Tags     []string               `json:"tags"`
 	Enabled  bool                   `json:"enabled"`
 	ShareURL string                 `json:"share_url"`
+}
+
+type configResponseMeta struct {
+	filename    string
+	contentType string
+}
+
+type convertRequestParams struct {
+	subURL      string
+	templateRef string
+	templateID  int
+	target      string
 }
 
 // Handlers API 处理器
@@ -1006,6 +1019,86 @@ func (h *Handlers) GetNodeStats(w http.ResponseWriter, r *http.Request) {
 	SendSuccess(w, stats)
 }
 
+// ConvertSubscription 在线转换订阅配置
+// 路由: GET /convert?url=https://example.com/sub&template=my-template
+func (h *Handlers) ConvertSubscription(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logToken := "convert"
+	params, err := parseConvertRequestParams(r)
+	if err != nil {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusBadRequest, false, nil, err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logToken = buildConvertLogToken(params)
+	if params.subURL == "" {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusBadRequest, false, nil, "缺少 url 参数")
+		http.Error(w, "缺少 url 参数", http.StatusBadRequest)
+		return
+	}
+
+	if h.templateService == nil {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusInternalServerError, false, nil, "模板服务不可用")
+		http.Error(w, "模板服务不可用", http.StatusInternalServerError)
+		return
+	}
+
+	content, _, err := app.FetchSubscriptionContent(ctx, params.subURL)
+	if err != nil {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusBadGateway, false, nil, "获取订阅失败: "+err.Error())
+		http.Error(w, "获取订阅失败: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	proxyNodes, err := app.ParseSubscription(content)
+	if err != nil {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusBadRequest, false, nil, "解析订阅失败: "+err.Error())
+		http.Error(w, "解析订阅失败: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(proxyNodes) == 0 {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusServiceUnavailable, false, nil, "订阅中没有可用节点")
+		http.Error(w, "订阅中没有可用节点", http.StatusServiceUnavailable)
+		return
+	}
+
+	templateContent := ""
+	targetFallback := "stash"
+	if params.templateRef != "" || params.templateID > 0 {
+		var tpl *database.Template
+		if params.templateID > 0 {
+			tpl, err = h.templateService.GetTemplateByID(ctx, params.templateID)
+		} else {
+			tpl, err = h.templateService.GetTemplateByName(ctx, params.templateRef)
+		}
+		if err != nil {
+			h.recordStandaloneConfigAccess(r, logToken, http.StatusNotFound, false, nil, err.Error())
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		templateContent = tpl.Content
+		targetFallback = tpl.Target
+	}
+
+	target, err := resolveConfigTarget(params.target, targetFallback)
+	if err != nil {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusBadRequest, false, nil, err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	configContent, err := buildConfigContent(r, proxyNodes, templateContent, target)
+	if err != nil {
+		h.recordStandaloneConfigAccess(r, logToken, http.StatusInternalServerError, false, nil, "生成配置失败: "+err.Error())
+		http.Error(w, "生成配置失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	nodeCount := len(proxyNodes)
+	h.recordStandaloneConfigAccess(r, logToken, http.StatusOK, true, &nodeCount, "")
+	writeConfigResponse(w, r, target, configContent, len(proxyNodes))
+}
+
 // GenerateConfig 根据配置策略 token 生成 YAML 配置（带 Redis 缓存）
 // 路由: GET /subscribe?token=xxx
 func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
@@ -1096,32 +1189,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	if target == "" {
 		target = "clash-meta"
 	}
-	var configContent string
-	if target == "surge" {
-		if templateContent != "" {
-			templateContent = replaceTemplateRuntimePlaceholders(r, templateContent)
-			configContent, err = app.BuildSurgeFromTemplateContent(proxyNodes, templateContent)
-		} else {
-			configContent, err = app.BuildSurgeFromDefaultTemplate(proxyNodes)
-			configContent = replaceTemplateRuntimePlaceholders(r, configContent)
-		}
-	} else if target == "sing-box" {
-		if templateContent != "" {
-			templateContent = replaceTemplateRuntimePlaceholders(r, templateContent)
-			configContent, err = app.BuildSingBoxFromTemplateContent(proxyNodes, templateContent)
-		} else {
-			configContent, err = app.BuildSingBoxFromDefaultTemplate(proxyNodes)
-			configContent = replaceTemplateRuntimePlaceholders(r, configContent)
-		}
-	} else {
-		if templateContent != "" {
-			templateContent = replaceTemplateRuntimePlaceholders(r, templateContent)
-			configContent, err = app.BuildYAMLFromTemplateContent(proxyNodes, templateContent, target)
-		} else {
-			configContent, err = app.BuildYAMLFromDefaultTemplate(proxyNodes, target)
-			configContent = replaceTemplateRuntimePlaceholders(r, configContent)
-		}
-	}
+	configContent, err := buildConfigContent(r, proxyNodes, templateContent, target)
 	if err != nil {
 		h.recordConfigAccess(r, policy, token, http.StatusInternalServerError, false, false, nil, "生成配置失败: "+err.Error())
 		http.Error(w, "生成配置失败: "+err.Error(), http.StatusInternalServerError)
@@ -1133,26 +1201,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		_ = h.policyCache.SetPolicyConfig(ctx, token, configContent)
 	}
 
-	var filename string
-	switch target {
-	case "stash":
-		filename = "stash_config.yaml"
-	case "surge":
-		filename = "surge_config.conf"
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	case "sing-box":
-		filename = "sing_box_config.json"
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	case "clash-meta":
-		filename = "clash_meta_config.yaml"
-	default:
-		filename = "clash_meta_config.yaml"
-	}
-	if target != "surge" && target != "sing-box" {
-		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-	}
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
-	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", len(proxyNodes)))
+	applyConfigResponseHeaders(w, target, len(proxyNodes))
 	w.Header().Set("X-Cache", "MISS")
 	nodeCount := len(proxyNodes)
 	h.recordConfigAccess(r, policy, token, http.StatusOK, true, false, &nodeCount, "")
@@ -1190,6 +1239,17 @@ func (h *Handlers) recordConfigAccess(
 		ErrorMessage: strings.TrimSpace(errorMessage),
 	}
 	_ = h.configPolicyService.RecordAccess(r.Context(), log)
+}
+
+func (h *Handlers) recordStandaloneConfigAccess(
+	r *http.Request,
+	token string,
+	statusCode int,
+	success bool,
+	nodeCount *int,
+	errorMessage string,
+) {
+	h.recordConfigAccess(r, nil, token, statusCode, success, false, nodeCount, errorMessage)
 }
 
 func extractClientIP(r *http.Request) *string {
@@ -1231,4 +1291,251 @@ func replaceTemplateRuntimePlaceholders(r *http.Request, content string) string 
 	return ruleSetPathPattern.ReplaceAllStringFunc(content, func(path string) string {
 		return baseURL + path
 	})
+}
+
+func buildConfigContent(r *http.Request, proxyNodes []*app.ProxyNode, templateContent, target string) (string, error) {
+	templateContent = strings.TrimSpace(templateContent)
+
+	switch target {
+	case "surge":
+		if templateContent != "" {
+			return app.BuildSurgeFromTemplateContent(proxyNodes, replaceTemplateRuntimePlaceholders(r, templateContent))
+		}
+		configContent, err := app.BuildSurgeFromDefaultTemplate(proxyNodes)
+		if err != nil {
+			return "", err
+		}
+		return replaceTemplateRuntimePlaceholders(r, configContent), nil
+	case "sing-box":
+		if templateContent != "" {
+			return app.BuildSingBoxFromTemplateContent(proxyNodes, replaceTemplateRuntimePlaceholders(r, templateContent))
+		}
+		configContent, err := app.BuildSingBoxFromDefaultTemplate(proxyNodes)
+		if err != nil {
+			return "", err
+		}
+		return replaceTemplateRuntimePlaceholders(r, configContent), nil
+	default:
+		if templateContent != "" {
+			return app.BuildYAMLFromTemplateContent(proxyNodes, replaceTemplateRuntimePlaceholders(r, templateContent), target)
+		}
+		configContent, err := app.BuildYAMLFromDefaultTemplate(proxyNodes, target)
+		if err != nil {
+			return "", err
+		}
+		return replaceTemplateRuntimePlaceholders(r, configContent), nil
+	}
+}
+
+func writeConfigResponse(w http.ResponseWriter, r *http.Request, target, configContent string, nodeCount int) {
+	applyConfigResponseHeaders(w, target, nodeCount)
+	fmt.Fprint(w, finalizeConfigContent(r, target, configContent))
+}
+
+func applyConfigResponseHeaders(w http.ResponseWriter, target string, nodeCount int) {
+	meta := configResponseMetaForTarget(target)
+	w.Header().Set("Content-Type", meta.contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, meta.filename))
+	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", nodeCount))
+}
+
+func configResponseMetaForTarget(target string) configResponseMeta {
+	switch target {
+	case "stash":
+		return configResponseMeta{filename: "stash_config.yaml", contentType: "text/yaml; charset=utf-8"}
+	case "surge":
+		return configResponseMeta{filename: "surge_config.conf", contentType: "text/plain; charset=utf-8"}
+	case "sing-box":
+		return configResponseMeta{filename: "sing_box_config.json", contentType: "application/json; charset=utf-8"}
+	default:
+		return configResponseMeta{filename: "clash_meta_config.yaml", contentType: "text/yaml; charset=utf-8"}
+	}
+}
+
+func resolveConfigTarget(rawTarget, fallback string) (string, error) {
+	candidate := strings.TrimSpace(rawTarget)
+	if candidate == "" {
+		candidate = fallback
+	}
+	if candidate == "" {
+		return "clash-meta", nil
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(candidate))
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+
+	switch normalized {
+	case "clash", "clash-meta":
+		return "clash-meta", nil
+	case "stash":
+		return "stash", nil
+	case "surge":
+		return "surge", nil
+	case "sing-box", "singbox":
+		return "sing-box", nil
+	default:
+		return "", fmt.Errorf("不支持的 target: %s", candidate)
+	}
+}
+
+func parseConvertRequestParams(r *http.Request) (convertRequestParams, error) {
+	if r == nil || r.URL == nil {
+		return convertRequestParams{}, nil
+	}
+
+	rawQuery := strings.TrimSpace(r.URL.RawQuery)
+	if rawQuery == "" {
+		templateRef, templateID, err := parseTemplateLookup(r)
+		if err != nil {
+			return convertRequestParams{}, err
+		}
+		return convertRequestParams{
+			subURL: strings.TrimSpace(firstNonEmpty(
+				r.URL.Query().Get("url"),
+				r.URL.Query().Get("subscription"),
+				r.URL.Query().Get("subscription_url"),
+			)),
+			templateRef: templateRef,
+			templateID:  templateID,
+			target:      strings.TrimSpace(r.URL.Query().Get("target")),
+		}, nil
+	}
+
+	params := convertRequestParams{}
+	segments := strings.Split(rawQuery, "&")
+	for i := 0; i < len(segments); i++ {
+		key, value, ok := strings.Cut(segments[i], "=")
+		if !ok {
+			continue
+		}
+
+		switch key {
+		case "url", "subscription", "subscription_url":
+			if isLikelyAbsoluteURL(value) {
+				collected := value
+				j := i + 1
+				for ; j < len(segments); j++ {
+					nextKey, _, nextOK := strings.Cut(segments[j], "=")
+					if nextOK && isConvertTemplateKey(nextKey) {
+						break
+					}
+					collected += "&" + segments[j]
+				}
+				params.subURL = strings.TrimSpace(collected)
+				i = j - 1
+				continue
+			}
+			params.subURL = decodeQueryValue(value)
+		case "template", "template_name":
+			if params.templateID == 0 {
+				decoded := decodeQueryValue(value)
+				if id, err := strconv.Atoi(decoded); err == nil && id > 0 {
+					params.templateID = id
+					params.templateRef = ""
+				} else {
+					params.templateRef = strings.TrimSpace(decoded)
+				}
+			}
+		case "template_id":
+			id, err := strconv.Atoi(strings.TrimSpace(decodeQueryValue(value)))
+			if err != nil || id <= 0 {
+				return convertRequestParams{}, fmt.Errorf("template_id 必须是正整数")
+			}
+			params.templateID = id
+			params.templateRef = ""
+		case "target":
+			params.target = strings.TrimSpace(decodeQueryValue(value))
+		}
+	}
+
+	if params.subURL == "" {
+		params.subURL = strings.TrimSpace(firstNonEmpty(
+			r.URL.Query().Get("url"),
+			r.URL.Query().Get("subscription"),
+			r.URL.Query().Get("subscription_url"),
+		))
+	}
+	if params.templateRef == "" && params.templateID == 0 {
+		templateRef, templateID, err := parseTemplateLookup(r)
+		if err != nil {
+			return convertRequestParams{}, err
+		}
+		params.templateRef = templateRef
+		params.templateID = templateID
+	}
+	if params.target == "" {
+		params.target = strings.TrimSpace(r.URL.Query().Get("target"))
+	}
+
+	return params, nil
+}
+
+func parseTemplateLookup(r *http.Request) (string, int, error) {
+	if r == nil || r.URL == nil {
+		return "", 0, nil
+	}
+
+	query := r.URL.Query()
+	if rawID := strings.TrimSpace(query.Get("template_id")); rawID != "" {
+		id, err := strconv.Atoi(rawID)
+		if err != nil || id <= 0 {
+			return "", 0, fmt.Errorf("template_id 必须是正整数")
+		}
+		return "", id, nil
+	}
+
+	templateRef := strings.TrimSpace(firstNonEmpty(
+		query.Get("template"),
+		query.Get("template_name"),
+	))
+	if templateRef == "" {
+		return "", 0, nil
+	}
+
+	if id, err := strconv.Atoi(templateRef); err == nil && id > 0 {
+		return "", id, nil
+	}
+
+	return templateRef, 0, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func isConvertTemplateKey(key string) bool {
+	switch key {
+	case "template", "template_name", "template_id":
+		return true
+	default:
+		return false
+	}
+}
+
+func isLikelyAbsoluteURL(value string) bool {
+	return strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
+}
+
+func decodeQueryValue(value string) string {
+	decoded, err := url.QueryUnescape(value)
+	if err != nil {
+		return value
+	}
+	return decoded
+}
+
+func buildConvertLogToken(params convertRequestParams) string {
+	switch {
+	case params.templateID > 0:
+		return fmt.Sprintf("convert:template_id=%d", params.templateID)
+	case strings.TrimSpace(params.templateRef) != "":
+		return "convert:template=" + strings.TrimSpace(params.templateRef)
+	default:
+		return "convert"
+	}
 }
