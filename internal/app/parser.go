@@ -85,22 +85,15 @@ func parseAnyTLSNode(nodeURL string) (*ProxyNode, error) {
 		return nil, fmt.Errorf("未找到服务器地址")
 	}
 
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			return nil, fmt.Errorf("无效端口: %w", err)
-		}
+	port, err := parsePortWithDefault(u.Port(), 443)
+	if err != nil {
+		return nil, fmt.Errorf("无效端口: %w", err)
 	}
 
 	query := u.Query()
 	name := query.Get("name")
-	if name == "" && u.Fragment != "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
-			name = decoded
-		} else {
-			name = u.Fragment
-		}
+	if name == "" {
+		name = decodeURLFragment(u)
 	}
 	if name == "" {
 		name = server
@@ -111,10 +104,7 @@ func parseAnyTLSNode(nodeURL string) (*ProxyNode, error) {
 		sni = server
 	}
 
-	insecure := query.Get("insecure") == "1" || strings.EqualFold(query.Get("insecure"), "true")
-	if !insecure {
-		insecure = query.Get("allowInsecure") == "1" || strings.EqualFold(query.Get("allowInsecure"), "true")
-	}
+	insecure := queryBool(query, "insecure", "allowInsecure")
 
 	opts := map[string]interface{}{
 		"password": password,
@@ -148,25 +138,15 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 	}
 
 	server := u.Hostname()
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			port = 443
-		}
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
 	name := query.Get("name")
 	if name == "" {
 		name = query.Get("hash")
 	}
-	if name == "" && u.Fragment != "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
-			name = decoded
-		} else {
-			name = u.Fragment
-		}
+	if name == "" {
+		name = decodeURLFragment(u)
 	}
 	if name == "" {
 		name = server
@@ -177,7 +157,7 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 		sni = server
 	}
 
-	skipCertVerify := query.Get("allowInsecure") == "1" || query.Get("allowInsecure") == "true"
+	skipCertVerify := queryBool(query, "allowInsecure")
 
 	opts := map[string]interface{}{
 		"password": password,
@@ -240,21 +220,10 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 
 	uuid := u.User.Username()
 	server := u.Hostname()
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			port = 443
-		}
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
-	name := u.Fragment
-	if name == "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil {
-			name = decoded
-		}
-	}
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
 	}
@@ -446,19 +415,13 @@ func parseHysteria2Node(nodeURL string) (*ProxyNode, error) {
 	}
 
 	server := u.Hostname()
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			port = 443
-		}
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
 	sni := query.Get("sni")
-	skipCertVerify := query.Get("allow_insecure") == "1" || query.Get("allow_insecure") == "true" || query.Get("insecure") == "1" || query.Get("insecure") == "true"
+	skipCertVerify := queryBool(query, "allow_insecure", "insecure")
 
-	name := u.Fragment
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
 	}
@@ -510,24 +473,13 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 		return nil, fmt.Errorf("未找到服务器地址")
 	}
 
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			port = 443
-		}
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
 	sni := query.Get("sni")
-	skipCertVerify := query.Get("allow_insecure") == "1" || query.Get("allow_insecure") == "true" || query.Get("insecure") == "1" || query.Get("insecure") == "true"
+	skipCertVerify := queryBool(query, "allow_insecure", "insecure")
 
-	name := u.Fragment
-	if name == "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
-			name = decoded
-		}
-	}
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
 	}
@@ -598,6 +550,36 @@ func parseVMessTransportOptions(network, path, host, serviceName string) map[str
 
 func parseALPN(query url.Values) []string {
 	return splitAndTrim(query.Get("alpn"))
+}
+
+func decodeURLFragment(u *url.URL) string {
+	if u == nil || u.Fragment == "" {
+		return ""
+	}
+	if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
+		return decoded
+	}
+	return u.Fragment
+}
+
+func parsePortWithDefault(portStr string, defaultPort int) (int, error) {
+	if portStr == "" {
+		return defaultPort, nil
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return defaultPort, err
+	}
+	return port, nil
+}
+
+func queryBool(query url.Values, keys ...string) bool {
+	for _, key := range keys {
+		if value := strings.TrimSpace(query.Get(key)); value != "" {
+			return value == "1" || strings.EqualFold(value, "true")
+		}
+	}
+	return false
 }
 
 func splitAndTrim(raw string) []string {
