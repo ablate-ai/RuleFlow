@@ -63,13 +63,13 @@ func TestParseTrojanNode(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "标准 Trojan 链接",
-			url:  "trojan://password@example.com:443?security=tls&sni=example.com#TestNode",
+			name:    "标准 Trojan 链接",
+			url:     "trojan://password@example.com:443?security=tls&sni=example.com#TestNode",
 			wantErr: false,
 		},
 		{
-			name: "带 skipCertVerify 的 Trojan 链接",
-			url:  "trojan://password@example.com?allowInsecure=1#InsecureNode",
+			name:    "带 skipCertVerify 的 Trojan 链接",
+			url:     "trojan://password@example.com?allowInsecure=1#InsecureNode",
 			wantErr: false,
 		},
 	}
@@ -104,18 +104,18 @@ func TestParseVLESSNode(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "标准 VLESS 链接",
-			url:  "vless://uuid@example.com:443?encryption=none&type=tcp&security=tls&sni=example.com#VLESSNode",
+			name:    "标准 VLESS 链接",
+			url:     "vless://uuid@example.com:443?encryption=none&type=tcp&security=tls&sni=example.com#VLESSNode",
 			wantErr: false,
 		},
 		{
-			name: "VLESS with REALITY",
-			url:  "vless://700229f2-3709-4fc5-8d8e-ae1af6ed8d58@154.31.116.16:45478?type=tcp&security=reality&pbk=Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM&fp=random&sni=music.apple.com&sid=0892831900b76d85&flow=xtls-rprx-vision#东京",
+			name:    "VLESS with REALITY",
+			url:     "vless://700229f2-3709-4fc5-8d8e-ae1af6ed8d58@154.31.116.16:45478?type=tcp&security=reality&pbk=Fnu3wR5hEeonakgRDrgG9yRG9XyM9KScbZlmPzrUXwM&fp=random&sni=music.apple.com&sid=0892831900b76d85&flow=xtls-rprx-vision#东京",
 			wantErr: false,
 		},
 		{
-			name: "VLESS with WebSocket",
-			url:  "vless://uuid@example.com:443?type=ws&path=/ws&host=cdn.example.com#VLESSWS",
+			name:    "VLESS with WebSocket",
+			url:     "vless://uuid@example.com:443?type=ws&path=/ws&host=cdn.example.com#VLESSWS",
 			wantErr: false,
 		},
 	}
@@ -176,6 +176,49 @@ func TestParseVLESSNodeWithGRPCTransport(t *testing.T) {
 	alpn, ok := tlsObj["alpn"].([]string)
 	if !ok || len(alpn) != 2 {
 		t.Fatalf("tls.alpn = %#v, want [h2 http/1.1]", tlsObj["alpn"])
+	}
+}
+
+func TestParseEncodedFragmentNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeURL  string
+		protocol string
+		wantName string
+	}{
+		{
+			name:     "VLESS 编码名称",
+			nodeURL:  "vless://uuid@example.com:443?security=tls#%E4%B8%9C%E4%BA%AC",
+			protocol: "vless",
+			wantName: "东京",
+		},
+		{
+			name:     "Hysteria2 编码名称",
+			nodeURL:  "hysteria2://pass@example.com:443#%E6%96%B0%E5%8A%A0%E5%9D%A1",
+			protocol: "hysteria2",
+			wantName: "新加坡",
+		},
+		{
+			name:     "TUIC 编码名称",
+			nodeURL:  "tuic://uuid:pass@example.com:443#%E9%A6%99%E6%B8%AF",
+			protocol: "tuic",
+			wantName: "香港",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseNodeURL(tt.nodeURL)
+			if err != nil {
+				t.Fatalf("parseNodeURL() error = %v", err)
+			}
+			if got.Protocol != tt.protocol {
+				t.Fatalf("parseNodeURL() protocol = %s, want %s", got.Protocol, tt.protocol)
+			}
+			if got.Name != tt.wantName {
+				t.Fatalf("parseNodeURL() name = %q, want %q", got.Name, tt.wantName)
+			}
+		})
 	}
 }
 
