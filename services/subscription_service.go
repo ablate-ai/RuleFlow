@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c.chen/ruleflow/cache"
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/cache"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 // SubscriptionService 订阅服务

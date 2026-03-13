@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c.chen/ruleflow/database"
-	"github.com/c.chen/ruleflow/internal/app"
+	"github.com/ablate-ai/RuleFlow/database"
+	"github.com/ablate-ai/RuleFlow/internal/app"
 )
 
 // SubscriptionSyncService 订阅同步服务

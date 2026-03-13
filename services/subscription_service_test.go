@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 // MockSubscriptionRepo 模拟订阅仓储

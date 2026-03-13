@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 // ConfigPolicyService 配置策略服务

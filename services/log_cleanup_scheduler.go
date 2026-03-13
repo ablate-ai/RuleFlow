@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 // LogCleanupScheduler 日志清理调度器

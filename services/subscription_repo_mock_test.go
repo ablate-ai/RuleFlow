@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 func TestMockSubscriptionRepoCRUD(t *testing.T) {

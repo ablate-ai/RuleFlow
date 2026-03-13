@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 // SubscriptionScheduler 订阅自动刷新调度器

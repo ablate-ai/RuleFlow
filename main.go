@@ -12,12 +12,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/c.chen/ruleflow/api"
-	"github.com/c.chen/ruleflow/cache"
-	"github.com/c.chen/ruleflow/config"
-	"github.com/c.chen/ruleflow/database"
-	"github.com/c.chen/ruleflow/internal/app"
-	"github.com/c.chen/ruleflow/services"
+	"github.com/ablate-ai/RuleFlow/api"
+	"github.com/ablate-ai/RuleFlow/cache"
+	"github.com/ablate-ai/RuleFlow/config"
+	"github.com/ablate-ai/RuleFlow/database"
+	"github.com/ablate-ai/RuleFlow/internal/app"
+	"github.com/ablate-ai/RuleFlow/services"
 )
 
 func main() {

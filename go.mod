@@ -1,4 +1,4 @@
-module github.com/c.chen/ruleflow
+module github.com/ablate-ai/RuleFlow
 
 go 1.24.0
 

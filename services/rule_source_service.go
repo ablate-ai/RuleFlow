@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 type RuleSourceService struct {

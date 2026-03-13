@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 type MaintenanceService struct {

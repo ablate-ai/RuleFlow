@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c.chen/ruleflow/internal/app"
+	"github.com/ablate-ai/RuleFlow/internal/app"
 	"github.com/jackc/pgx/v5"
 )
 

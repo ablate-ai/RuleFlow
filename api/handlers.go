@@ -14,9 +14,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/c.chen/ruleflow/database"
-	"github.com/c.chen/ruleflow/internal/app"
-	"github.com/c.chen/ruleflow/services"
+	"github.com/ablate-ai/RuleFlow/database"
+	"github.com/ablate-ai/RuleFlow/internal/app"
+	"github.com/ablate-ai/RuleFlow/services"
 )
 
 // urlParamInt64 从 chi 路由参数中提取整数 ID
