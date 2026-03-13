@@ -237,6 +237,7 @@
       const [form, setForm] = useState(defaultForm);
       const [saving, setSaving] = useState(false);
       const [deleting, setDeleting] = useState(false);
+      const [autoEditHandled, setAutoEditHandled] = useState(false);
 
       /* 编辑器内容独立维护，避免频繁 setForm 导致重渲染 */
       const [editorContent, setEditorContent] = useState('');
@@ -254,6 +255,25 @@
       };
 
       useEffect(() => { loadTemplates(); }, []);
+
+      useEffect(() => {
+        if (loading || autoEditHandled) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const editValue = params.get('edit');
+        if (!editValue) {
+          setAutoEditHandled(true);
+          return;
+        }
+
+        const tpl = templates.find(item => String(item.id) === editValue || item.name === editValue);
+        if (tpl) {
+          openEdit(tpl);
+        } else {
+          addToast(`未找到要编辑的模板：${editValue}`, 'err');
+        }
+        setAutoEditHandled(true);
+      }, [loading, autoEditHandled, templates]);
 
       /* 加载内置模板文件内容（新建时使用） */
       const builtinTemplateURL = (target) => {
@@ -312,6 +332,11 @@
         setEditItem(null);
         setForm(defaultForm);
         setEditorContent('');
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('edit')) {
+          url.searchParams.delete('edit');
+          window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        }
       };
 
       /* Monaco 内容变化回调 */

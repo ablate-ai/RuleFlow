@@ -73,6 +73,8 @@
     .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
     .item-mi { display: flex; align-items: center; gap: 3px; }
     .item-mi svg { width: 11px; height: 11px; }
+    .item-mi-btn { padding: 0; border: none; background: transparent; color: var(--blu); cursor: pointer; font: inherit; }
+    .item-mi-btn:hover { color: #1d4ed8; text-decoration: underline; }
     .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
     .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
     .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
@@ -177,6 +179,18 @@
         if (items.length <= 3) return items.join('、');
         return `${items.slice(0, 3).join('、')} 等 ${items.length} 个`;
       }, []);
+
+      const openTemplateEditor = useCallback((templateName) => {
+        if (!templateName) return;
+        const tpl = templates.find(item => item.name === templateName);
+        if (!tpl) {
+          addToast(`未找到模板：${templateName}`, 'err');
+          return;
+        }
+        const url = new URL('/templates', window.location.origin);
+        url.searchParams.set('edit', String(tpl.id));
+        window.location.href = url.toString();
+      }, [templates, addToast]);
 
       /* 打开新建 Modal */
       const openCreate = () => {
@@ -405,7 +419,21 @@
                         </span>
                         <span className="item-mi">
                           <IcoTag />
-                          模板：{policy.template_name || '默认'}
+                          {policy.template_name ? (
+                            <>
+                              模板：
+                              <button
+                                type="button"
+                                className="item-mi-btn"
+                                title={`编辑模板 ${policy.template_name}`}
+                                onClick={() => openTemplateEditor(policy.template_name)}
+                              >
+                                {policy.template_name}
+                              </button>
+                            </>
+                          ) : (
+                            '模板：默认'
+                          )}
                         </span>
                         <span className="item-mi">
                           <IcoClock />
