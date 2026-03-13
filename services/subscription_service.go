@@ -10,17 +10,24 @@ import (
 	"github.com/ablate-ai/RuleFlow/database"
 )
 
+// NodeDeleter 节点删除接口（用于解耦和测试）
+type NodeDeleter interface {
+	DeleteBySourceID(ctx context.Context, sourceID int64) (int64, error)
+}
+
 // SubscriptionService 订阅服务
 type SubscriptionService struct {
-	repo  *database.SubscriptionRepo
-	cache *cache.SubscriptionCache
+	repo      *database.SubscriptionRepo
+	cache     *cache.SubscriptionCache
+	nodeDeleter NodeDeleter
 }
 
 // NewSubscriptionService 创建订阅服务
-func NewSubscriptionService(repo *database.SubscriptionRepo, cache *cache.SubscriptionCache) *SubscriptionService {
+func NewSubscriptionService(repo *database.SubscriptionRepo, cache *cache.SubscriptionCache, nodeDeleter NodeDeleter) *SubscriptionService {
 	return &SubscriptionService{
-		repo:  repo,
-		cache: cache,
+		repo:        repo,
+		cache:       cache,
+		nodeDeleter: nodeDeleter,
 	}
 }
 
@@ -111,6 +118,14 @@ func (s *SubscriptionService) UpdateSubscription(ctx context.Context, sub *datab
 
 // DeleteSubscriptionByID 删除订阅
 func (s *SubscriptionService) DeleteSubscriptionByID(ctx context.Context, id int64) error {
+	// 先删除关联的节点
+	if s.nodeDeleter != nil {
+		_, err := s.nodeDeleter.DeleteBySourceID(ctx, id)
+		if err != nil {
+			return fmt.Errorf("删除关联节点失败: %w", err)
+		}
+	}
+
 	return s.repo.DeleteByID(ctx, id)
 }
 

@@ -64,7 +64,8 @@ func main() {
 		subscriptionCache = cache.NewSubscriptionCache(redisClient, time.Duration(cfg.CacheTTLSeconds)*time.Second)
 	}
 	subscriptionRepo := database.NewSubscriptionRepo(db)
-	subscriptionService = services.NewSubscriptionService(subscriptionRepo, subscriptionCache)
+	nodeRepo := database.NewNodeRepo(db)
+	subscriptionService = services.NewSubscriptionService(subscriptionRepo, subscriptionCache, nodeRepo)
 
 	// 创建模板服务
 	templateRepo := database.NewTemplateRepo(db)
@@ -73,7 +74,6 @@ func main() {
 	// 创建配置策略服务
 	configPolicyRepo := database.NewConfigPolicyRepo(db)
 	configAccessLogRepo := database.NewConfigAccessLogRepo(db)
-	nodeRepo := database.NewNodeRepo(db)
 	configPolicyService = services.NewConfigPolicyService(configPolicyRepo, configAccessLogRepo, subscriptionRepo, nodeRepo)
 
 	// 创建规则源服务
