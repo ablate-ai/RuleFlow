@@ -146,7 +146,6 @@ func adaptConfigForTargetNode(mapping *yaml.Node, target string) {
 	dnsNode := yamlFindInMapping(mapping, "dns")
 	if dnsNode != nil && dnsNode.Kind == yaml.MappingNode {
 		yamlDeleteFromMapping(dnsNode, "prefer-h3")
-		yamlDeleteFromMapping(dnsNode, "ipv6")
 		yamlDeleteFromMapping(dnsNode, "fake-ip-filter-mode")
 		if !yamlHasKey(dnsNode, "fake-ip-filter") {
 			filterNode, _ := yamlValueToNode([]string{"*.lan", "*.local"})
@@ -170,7 +169,6 @@ func adaptConfigForTarget(cfg map[string]interface{}, target string) {
 
 		if dns, ok := cfg["dns"].(map[string]interface{}); ok {
 			delete(dns, "prefer-h3")
-			delete(dns, "ipv6")
 			delete(dns, "fake-ip-filter-mode")
 			if _, hasFakeIP := dns["fake-ip-filter"]; !hasFakeIP {
 				dns["fake-ip-filter"] = []string{"*.lan", "*.local"}

@@ -261,6 +261,7 @@ func TestAdaptConfigForTarget(t *testing.T) {
 		},
 		"dns": map[string]interface{}{
 			"enable":              true,
+			"ipv6":                false,
 			"prefer-h3":           true,
 			"fake-ip-filter":      []string{"*"},
 			"fake-ip-filter-mode": "blacklist",
@@ -293,6 +294,9 @@ func TestAdaptConfigForTarget(t *testing.T) {
 
 	if _, exists := dns["prefer-h3"]; exists {
 		t.Error("Stash DNS 配置不应包含 prefer-h3 字段")
+	}
+	if ipv6, exists := dns["ipv6"]; !exists || ipv6 != false {
+		t.Error("Stash DNS 配置应保留 ipv6 字段")
 	}
 	if _, exists := dns["fake-ip-filter-mode"]; exists {
 		t.Error("Stash DNS 配置不应包含 fake-ip-filter-mode 字段")
