@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"net/netip"
 	"regexp"
 	"strings"
 
@@ -624,11 +625,11 @@ func surgeWireGuardSection(node *ProxyNode, name string) string {
 		fmt.Sprintf("private-key=%s", cfg.PrivateKey),
 	}
 	if len(cfg.LocalAddresses) > 0 {
-		lines = append(lines, fmt.Sprintf("self-ip=%s", cfg.LocalAddresses[0]))
+		lines = append(lines, fmt.Sprintf("self-ip=%s", surgeWireGuardSelfIP(cfg.LocalAddresses[0])))
 	}
 	for _, addr := range cfg.LocalAddresses {
 		if strings.Contains(addr, ":") {
-			lines = append(lines, fmt.Sprintf("self-ip-v6=%s", addr))
+			lines = append(lines, fmt.Sprintf("self-ip-v6=%s", surgeWireGuardSelfIP(addr)))
 			break
 		}
 	}
@@ -662,6 +663,17 @@ func surgeWireGuardSection(node *ProxyNode, name string) string {
 		lines = append(lines, fmt.Sprintf("peer=(%s)", strings.Join(parts, ", ")))
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+func surgeWireGuardSelfIP(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if prefix, err := netip.ParsePrefix(value); err == nil {
+		return prefix.Addr().String()
+	}
+	return value
 }
 
 // filterNodesByPattern 按正则模式过滤节点名列表，支持包含（policy-regex-filter）和排除（exclude-filter）

@@ -212,7 +212,8 @@ func TestBuildSurgeFromTemplateContentWireGuard(t *testing.T) {
 			Server:   "vpn.example.com",
 			Port:     51820,
 			Options: map[string]interface{}{
-				"ip":          "10.255.255.2",
+				"ip":          "10.255.255.2/32",
+				"ipv6":        "fd00::2/128",
 				"private-key": "private-key",
 				"dns":         []interface{}{"192.168.100.1"},
 				"test-url":    "http://192.168.100.1",
@@ -251,6 +252,12 @@ Proxy = select, __NODES__
 	}
 	if !strings.Contains(config, "dns-server=192.168.100.1") {
 		t.Fatalf("期望 dns-server 不带引号，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "self-ip=10.255.255.2") || strings.Contains(config, "self-ip=10.255.255.2/32") {
+		t.Fatalf("期望 self-ip 为纯 IPv4 地址，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "self-ip-v6=fd00::2") || strings.Contains(config, "self-ip-v6=fd00::2/128") {
+		t.Fatalf("期望 self-ip-v6 为纯 IPv6 地址，实际配置为:\n%s", config)
 	}
 	if !strings.Contains(config, "peer=(endpoint=vpn.example.com:51820, public-key=\"peer-public-key\", allowed-ips=\"192.168.100.0/24,10.255.0.0/24\", client-id=\"1/2/3\")\n\n[Proxy Group]") {
 		t.Fatalf("期望 WireGuard section 与下一个 section 之间保留空行，实际配置为:\n%s", config)
