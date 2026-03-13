@@ -171,6 +171,43 @@
     .quick-title { font-size: 14px; font-weight: 650; color: var(--t1); }
     .quick-desc { font-size: 12.5px; color: var(--t2); margin-top: 6px; }
 
+    .tool-links {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .tool-link-card {
+      display: block;
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      padding: 16px;
+      background: linear-gradient(180deg, #fff 0%, #fafafa 100%);
+      text-decoration: none;
+      color: inherit;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .tool-link-card:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--sh2);
+      border-color: #cbd5e1;
+    }
+    .tool-link-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .tool-link-title { font-size: 14px; font-weight: 650; color: var(--t1); }
+    .tool-link-desc { font-size: 12.5px; color: var(--t2); margin-top: 6px; }
+    .tool-link-url {
+      display: block;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--blu);
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .tool-link-url:hover { text-decoration: underline; }
     .empty {
       border: 1px dashed #d1d5db;
       border-radius: 12px;
@@ -195,12 +232,12 @@
     }
 
     @media (max-width: 1200px) {
-      .stats, .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stats, .quick-grid, .tool-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 900px) { .hero { flex-direction: column; } }
     @media (max-width: 720px) {
-      .stats, .quick-grid { grid-template-columns: 1fr; }
+      .stats, .quick-grid, .tool-links { grid-template-columns: 1fr; }
       .sub-row { grid-template-columns: 1fr; }
       .hero-title { font-size: 24px; }
     }
@@ -331,6 +368,19 @@
         <div className="break-count">{count}</div>
       </div>
     );
+
+    const TOOL_LINKS = [
+      {
+        name: 'IP 检测',
+        description: '快速确认当前出口 IP、地区和 ASN 信息。',
+        url: 'https://ip.skk.moe/',
+      },
+      {
+        name: 'DNS 泄漏检测',
+        description: '检查 DNS 请求是否按预期走代理或指定解析链路。',
+        url: 'https://browserleaks.com/dns',
+      },
+    ];
 
     /* ===== 主应用 ===== */
 
@@ -607,6 +657,33 @@
                       : sortedSubs.map(sub => <SubRow key={sub.id} sub={sub} />)
                     }
                   </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="card-h">
+                <div>
+                  <div className="card-ht">常用工具 URL</div>
+                  <div className="card-hs">保留常看的检测页面，减少来回找链接</div>
+                </div>
+              </div>
+              <div className="card-b">
+                <div className="tool-links">
+                  {TOOL_LINKS.map(item => (
+                    <a key={item.url} className="tool-link-card" href={item.url} target="_blank" rel="noreferrer">
+                      <div className="tool-link-head">
+                        <div>
+                          <div className="tool-link-title">{item.name}</div>
+                          <div className="tool-link-desc">{item.description}</div>
+                        </div>
+                        <span className="tag tag-ok">工具</span>
+                      </div>
+                      <div className="tool-link-url">
+                        {item.url}
+                      </div>
+                    </a>
+                  ))}
                 </div>
               </div>
             </section>
