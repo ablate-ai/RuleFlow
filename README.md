@@ -241,7 +241,7 @@ make migrate
 psql "$DATABASE_URL" -f migrations/init.sql
 ```
 
-当前仓库仅提供初始化脚本 `migrations/init.sql`。如后续引入增量迁移，会在该目录中补充并在发布说明中注明。
+数据库初始化使用 `migrations/init.sql`；如需升级已有库，请按发布内容执行对应的增量迁移脚本，例如 `migrations/20260315_drop_nodes_source.sql`。
 
 ---
 

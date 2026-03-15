@@ -157,7 +157,6 @@ CREATE TABLE nodes (
     server VARCHAR(255) NOT NULL,
     port INTEGER NOT NULL,
     config JSONB NOT NULL,
-    source VARCHAR(50) NOT NULL,
     source_id BIGINT,
     enabled BOOLEAN NOT NULL DEFAULT true,
     tags TEXT[] DEFAULT '{}',
@@ -165,17 +164,15 @@ CREATE TABLE nodes (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_synced_at TIMESTAMP,
     CONSTRAINT nodes_protocol_check
-        CHECK (protocol IN ('trojan', 'vmess', 'vless', 'ss', 'wireguard', 'anytls', 'hysteria2', 'tuic')),
-    CONSTRAINT nodes_source_check
-        CHECK (source ~ '^subscription:|^manual$'),
-    UNIQUE(source, name, server, port)
+        CHECK (protocol IN ('trojan', 'vmess', 'vless', 'ss', 'wireguard', 'anytls', 'hysteria2', 'tuic'))
 );
 
-CREATE INDEX idx_nodes_source ON nodes(source);
 CREATE INDEX idx_nodes_source_id ON nodes(source_id) WHERE source_id IS NOT NULL;
 CREATE INDEX idx_nodes_protocol ON nodes(protocol);
 CREATE INDEX idx_nodes_enabled ON nodes(enabled) WHERE enabled = true;
 CREATE INDEX idx_nodes_tags ON nodes USING GIN(tags);
+CREATE UNIQUE INDEX uq_nodes_manual_identity ON nodes(name, server, port) WHERE source_id IS NULL;
+CREATE UNIQUE INDEX uq_nodes_subscription_identity ON nodes(source_id, name, server, port) WHERE source_id IS NOT NULL;
 
 CREATE TRIGGER update_nodes_updated_at
     BEFORE UPDATE ON nodes
@@ -184,6 +181,5 @@ CREATE TRIGGER update_nodes_updated_at
 COMMENT ON TABLE nodes IS '节点表，存储订阅和手动添加的代理节点';
 COMMENT ON COLUMN nodes.protocol IS '协议类型：trojan, vmess, vless, ss, wireguard, anytls, hysteria2, tuic';
 COMMENT ON COLUMN nodes.config IS '协议特定配置（密码、UUID 等），JSON 格式';
-COMMENT ON COLUMN nodes.source IS '节点来源：subscription:{name} 或 manual';
-COMMENT ON COLUMN nodes.source_id IS '订阅 ID（用于订阅节点）';
+COMMENT ON COLUMN nodes.source_id IS '订阅 ID；为空表示手动添加节点';
 COMMENT ON COLUMN nodes.last_synced_at IS '最后同步时间（订阅节点）';

@@ -24,8 +24,7 @@ func (s *NodeService) AddManualNode(ctx context.Context, node *database.Node) er
 		return fmt.Errorf("不支持的协议类型: %s", node.Protocol)
 	}
 
-	// 设置来源为手动
-	node.Source = "manual"
+	// 手动节点不关联订阅
 	node.SourceID = nil
 
 	// 默认启用
@@ -64,7 +63,6 @@ func (s *NodeService) UpdateNode(ctx context.Context, id int64, node *database.N
 		return err
 	}
 
-	node.Source = existing.Source
 	node.SourceID = existing.SourceID
 	node.ID = id
 
@@ -87,18 +85,25 @@ func (s *NodeService) BatchEnable(ctx context.Context, ids []int64, enabled bool
 
 // GetNodesBySubscription 获取指定订阅的所有节点
 func (s *NodeService) GetNodesBySubscription(ctx context.Context, subscriptionName string) ([]database.Node, error) {
-	source := fmt.Sprintf("subscription:%s", subscriptionName)
-	filter := database.NodeFilter{
-		Source: source,
+	nodes, err := s.repo.List(ctx, database.NodeFilter{})
+	if err != nil {
+		return nil, err
 	}
 
-	return s.repo.List(ctx, filter)
+	result := make([]database.Node, 0)
+	for _, node := range nodes {
+		if node.SourceID != nil && node.SourceName == subscriptionName {
+			result = append(result, node)
+		}
+	}
+
+	return result, nil
 }
 
 // GetManualNodes 获取所有手动添加的节点
 func (s *NodeService) GetManualNodes(ctx context.Context) ([]database.Node, error) {
 	filter := database.NodeFilter{
-		Source: "manual",
+		ManualOnly: true,
 	}
 
 	return s.repo.List(ctx, filter)
@@ -198,7 +203,15 @@ func (s *NodeService) GetNodeStats(ctx context.Context) (map[string]interface{},
 	// 按来源统计
 	sourceCounts := make(map[string]int)
 	for _, node := range allNodes {
-		sourceCounts[node.Source]++
+		if node.SourceID == nil {
+			sourceCounts["manual"]++
+			continue
+		}
+		key := node.SourceName
+		if key == "" {
+			key = "subscription"
+		}
+		sourceCounts[key]++
 	}
 	stats["by_source"] = sourceCounts
 

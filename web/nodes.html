@@ -674,9 +674,9 @@
 
                       {/* 来源 */}
                       <td>
-                        {node.source === 'manual'
+                        {node.source_id == null
                           ? <span style={{fontSize: 13, color: 'var(--t2)'}}>手动添加</span>
-                          : <span style={{fontSize: 13, color: 'var(--t2)'}}>{node.source_name || node.source}</span>
+                          : <span style={{fontSize: 13, color: 'var(--t2)'}}>{node.source_name || '订阅节点'}</span>
                         }
                       </td>
 

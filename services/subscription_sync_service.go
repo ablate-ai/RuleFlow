@@ -75,8 +75,6 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	log.Printf("[sync] 解析完成，共 %d 个节点", len(nodes))
 
 	// 4. 开始事务处理
-	// 使用完全替换策略
-	source := fmt.Sprintf("subscription:%s", sub.Name)
 	namePrefix := fmt.Sprintf("%s-", strings.TrimSpace(sub.Name))
 
 	// 4.1 删除该订阅的旧节点。按 source_id 删除，避免订阅改名后旧 source 残留。
@@ -87,7 +85,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	log.Printf("[sync] 已删除旧节点: %d 个", deleted)
 
 	// 4.2 将解析的节点转换为数据库模型
-	dbNodes := s.convertToDBNodes(nodes, sub.ID, source, namePrefix)
+	dbNodes := s.convertToDBNodes(nodes, sub.ID, namePrefix)
 
 	// 4.3 批量插入新节点
 	if err := s.nodeRepo.BatchCreate(ctx, dbNodes); err != nil {
@@ -100,7 +98,7 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 	nodeCount := len(dbNodes)
 	_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, nodeCount, nil)
 
-	if err := s.updateNodesLastSyncedAt(ctx, source, now); err != nil {
+	if err := s.updateNodesLastSyncedAt(ctx, sub.ID, now); err != nil {
 		_ = err
 	}
 
@@ -166,7 +164,7 @@ func (s *SubscriptionSyncService) fetchSubscriptionContent(ctx context.Context, 
 }
 
 // convertToDBNodes 将解析的节点转换为数据库模型
-func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int64, source string, namePrefix string) []database.Node {
+func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int64, namePrefix string) []database.Node {
 	dbNodes := make([]database.Node, 0, len(nodes))
 
 	for _, node := range nodes {
@@ -180,7 +178,6 @@ func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourc
 			Server:   node.Server,
 			Port:     node.Port,
 			Config:   node.Options,
-			Source:   source,
 			SourceID: &sourceID,
 			Enabled:  true,
 			Tags:     []string{},
@@ -192,7 +189,7 @@ func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourc
 }
 
 // updateNodesLastSyncedAt 更新节点的最后同步时间
-func (s *SubscriptionSyncService) updateNodesLastSyncedAt(ctx context.Context, source string, syncTime time.Time) error {
+func (s *SubscriptionSyncService) updateNodesLastSyncedAt(ctx context.Context, sourceID int64, syncTime time.Time) error {
 	// 这个方法可以扩展为批量更新操作
 	// 目前在插入时已经设置了 created_at，这里可以添加一个专门的方法
 	// 暂时保留为空实现，因为 created_at 可以作为同步时间的参考

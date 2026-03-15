@@ -771,9 +771,21 @@ func (h *Handlers) ListNodes(w http.ResponseWriter, r *http.Request) {
 	// 构建筛选条件
 	filter := database.NodeFilter{}
 
-	// 按来源筛选
+	// 按来源筛选。兼容保留 source=manual，用 source_id IS NULL 实现。
 	if source := r.URL.Query().Get("source"); source != "" {
-		filter.Source = source
+		if source == "manual" {
+			filter.ManualOnly = true
+		}
+	}
+
+	// 按来源 ID 筛选
+	if sourceIDText := r.URL.Query().Get("source_id"); sourceIDText != "" {
+		sourceID, err := strconv.ParseInt(sourceIDText, 10, 64)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, "无效的来源 ID")
+			return
+		}
+		filter.SourceID = &sourceID
 	}
 
 	// 按协议筛选
