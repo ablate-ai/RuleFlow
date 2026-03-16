@@ -45,6 +45,31 @@ func TestBuildSingBoxFromTemplateContent(t *testing.T) {
 		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
 	}
 
+	dns, ok := cfg["dns"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 dns")
+	}
+	servers, ok := dns["servers"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 dns.servers")
+	}
+	foundDNSProxy := false
+	for _, item := range servers {
+		server, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if server["tag"] == "dns_proxy" {
+			foundDNSProxy = true
+			if server["domain_resolver"] != "dns_direct" {
+				t.Fatalf("期望 dns_proxy 配置 domain_resolver=dns_direct，实际为: %#v", server["domain_resolver"])
+			}
+		}
+	}
+	if !foundDNSProxy {
+		t.Fatalf("生成的 sing-box 配置缺少 dns_proxy 服务器")
+	}
+
 	outbounds, ok := cfg["outbounds"].([]interface{})
 	if !ok || len(outbounds) == 0 {
 		t.Fatalf("生成的 sing-box 配置缺少 outbounds")

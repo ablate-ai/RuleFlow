@@ -20,6 +20,7 @@
         "tag": "dns_proxy",
         "server": "cloudflare-dns.com",
         "path": "/dns-query",
+        "domain_resolver": "dns_direct",
         "detour": "🌐 Proxy"
       }
     ],
@@ -202,6 +203,7 @@
     {
       "type": "selector",
       "tag": "🤖 AI",
+      "filter": "qqpw",
       "outbounds": [
         "🇺🇸 AI-PRIMARY"
       ],
