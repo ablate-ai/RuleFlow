@@ -124,6 +124,7 @@
         "🇭🇰 HK",
         "🇺🇸 US",
         "🇯🇵 JP",
+        "🚪 Relay",
         "🇸🇬 SG",
         "DIRECT",
         "__NODES__"
@@ -171,7 +172,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "美国|US|USA|United States|🇺🇸",
+      "filter": "美国|United States|🇺🇸|(?i)(^|[^A-Z])(US|USA)([^A-Z]|$)",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -186,6 +187,15 @@
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
+    },
+    {
+      "type": "selector",
+      "tag": "🚪 Relay",
+      "outbounds": [
+        "__NODES__"
+      ],
+      "filter": "(?i)(?=.*nya)(?=.*(香港|HK|Hong Kong|🇭🇰|日本|JP|Japan|🇯🇵))",
+      "interrupt_exist_connections": true
     },
     {
       "type": "selector",

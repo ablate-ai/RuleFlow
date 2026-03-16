@@ -192,6 +192,86 @@ func TestBuildSingBoxSupportsFilterExpansion(t *testing.T) {
 	}
 }
 
+func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "nya HK Node 1",
+			Server:   "hk1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "hk1.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "nya JP Node 1",
+			Server:   "jp1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password456",
+				"sni":      "jp1.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "nya US Node 1",
+			Server:   "us1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password789",
+				"sni":      "us1.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "HK Node 2",
+			Server:   "hk2.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password321",
+				"sni":      "hk2.example.com",
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	outbounds, ok := cfg["outbounds"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 outbounds")
+	}
+
+	foundRelay := false
+	for _, item := range outbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok || outbound["tag"] != "🚪 Relay" {
+			continue
+		}
+		foundRelay = true
+		members, ok := outbound["outbounds"].([]interface{})
+		if !ok {
+			t.Fatalf("Relay 组缺少 outbounds，实际配置为:\n%s", config)
+		}
+		if len(members) != 2 || members[0] != "🇭🇰 nya HK Node 1" || members[1] != "🇯🇵 nya JP Node 1" {
+			t.Fatalf("期望 Relay 组只包含同时命中 nya 且属于香港、日本的节点，实际配置为:\n%s", config)
+		}
+	}
+
+	if !foundRelay {
+		t.Fatalf("未找到 Relay 组，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
