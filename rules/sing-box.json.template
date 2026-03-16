@@ -27,9 +27,16 @@
     "rules": [
       {
         "domain_suffix": [
+          "nioint.com",
+          "nio.com",
+          "nevint.com"
+        ],
+        "server": "dns_local"
+      },
+      {
+        "domain_suffix": [
           "internal.example",
           "private.example",
-          "nio.com",
           "dev.example",
           "juejin.cn",
           "bochk.com",
@@ -499,7 +506,9 @@
         "domain_suffix": [
           "cdn.wwm.app",
           "internal.example",
+          "nioint.com",
           "nio.com",
+          "nevint.com",
           "dev.example",
           "juejin.cn",
           "bochk.com",
@@ -510,6 +519,19 @@
           "intl.iqiyi.com"
         ],
         "outbound": "DIRECT"
+      },
+      {
+        "domain_suffix": [
+          "ooxo.cc"
+        ],
+        "outbound": "🏠 wireguard-home"
+      },
+      {
+        "ip_cidr": [
+          "192.168.100.0/24",
+          "10.0.10.0/24"
+        ],
+        "outbound": "🏠 wireguard-home"
       },
       {
         "domain": [
