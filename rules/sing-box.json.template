@@ -150,7 +150,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "新加坡|SG|Singapore|狮城|🇸🇬",
+      "filter": "(?i)(?=.*bage)(?=.*(新加坡|SG|Singapore|狮城|🇸🇬))",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -161,7 +161,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "香港|HK|Hong Kong|🇭🇰",
+      "filter": "(?i)(?=.*bage)(?=.*(香港|HK|Hong Kong|🇭🇰))",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -172,7 +172,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "美国|United States|🇺🇸|(?i)(^|[^A-Z])(US|USA)([^A-Z]|$)",
+      "filter": "(?i)(?=.*bage)(?=.*(美国|United States|🇺🇸|(^|[^A-Z])(US|USA)([^A-Z]|$)))",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -183,7 +183,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "日本|JP|Japan|🇯🇵",
+      "filter": "(?i)(?=.*bage)(?=.*(日本|JP|Japan|🇯🇵))",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -213,11 +213,21 @@
     {
       "type": "selector",
       "tag": "🤖 AI",
+      "detour-proxy": "🚪 Relay",
       "filter": "qqpw",
       "outbounds": [
         "🇺🇸 AI-PRIMARY"
       ],
       "default": "🇺🇸 AI-PRIMARY",
+      "interrupt_exist_connections": true
+    },
+    {
+      "type": "selector",
+      "tag": "🇺🇸 AI-PRIMARY",
+      "outbounds": [
+        "__NODES__"
+      ],
+      "filter": "qqpw",
       "interrupt_exist_connections": true
     },
     "__OUTBOUNDS__",

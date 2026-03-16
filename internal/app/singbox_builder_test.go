@@ -272,6 +272,79 @@ func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
 	}
 }
 
+func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "nya HK Relay",
+			Server:   "hk-relay.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "relay-password",
+				"sni":      "hk-relay.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "us.hnl.qqpw",
+			Server:   "us-ai.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "ai-password",
+				"sni":      "us-ai.example.com",
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	outbounds, ok := cfg["outbounds"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 outbounds")
+	}
+
+	foundAI := false
+	foundAIPrimary := false
+	foundDetourNode := false
+	for _, item := range outbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		switch outbound["tag"] {
+		case "🤖 AI":
+			foundAI = true
+			members, ok := outbound["outbounds"].([]interface{})
+			if !ok || len(members) != 1 || members[0] != "🇺🇸 us.hnl.qqpw via 🚪 Relay" {
+				t.Fatalf("期望 AI 组引用带 Relay 中转的节点副本，实际配置为:\n%s", config)
+			}
+		case "🇺🇸 AI-PRIMARY":
+			foundAIPrimary = true
+			members, ok := outbound["outbounds"].([]interface{})
+			if !ok || len(members) != 1 || members[0] != "🇺🇸 us.hnl.qqpw" {
+				t.Fatalf("期望 AI-PRIMARY 通过模板 filter 命中 qqpw 节点，实际配置为:\n%s", config)
+			}
+		case "🇺🇸 us.hnl.qqpw via 🚪 Relay":
+			foundDetourNode = true
+			if outbound["detour"] != "🚪 Relay" {
+				t.Fatalf("期望 AI 节点副本使用 Relay 作为 detour，实际配置为:\n%s", config)
+			}
+		}
+	}
+
+	if !foundAI || !foundAIPrimary || !foundDetourNode {
+		t.Fatalf("未找到期望的 AI 组、AI-PRIMARY 或带 detour 的节点副本，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 	nodes := []*ProxyNode{
 		{

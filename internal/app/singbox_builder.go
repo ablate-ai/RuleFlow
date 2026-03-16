@@ -30,18 +30,11 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 	hkNodes := fallbackSingBoxOutboundList(filterNodeNames(nodeNames, regionMatcher("香港", "HK", "Hong Kong", "🇭🇰")), allNodes)
 	usNodes := fallbackSingBoxOutboundList(filterNodeNames(nodeNames, regionMatcher("美国", "US", "USA", "United States", "🇺🇸")), allNodes)
 	jpNodes := fallbackSingBoxOutboundList(filterNodeNames(nodeNames, regionMatcher("日本", "JP", "Japan", "🇯🇵")), allNodes)
-	aiPrimaryNodes := fallbackSingBoxOutboundList(usNodes, allNodes)
 
-	extraOutbounds := make([]map[string]interface{}, 0, len(nodeOutbounds)+1)
-	extraOutbounds = append(extraOutbounds, map[string]interface{}{
-		"type":                        "selector",
-		"tag":                         "🇺🇸 AI-PRIMARY",
-		"outbounds":                   aiPrimaryNodes,
-		"default":                     aiPrimaryNodes[0],
-		"interrupt_exist_connections": true,
-	})
+	extraOutbounds := make([]map[string]interface{}, 0, len(nodeOutbounds))
 	extraOutbounds = append(extraOutbounds, nodeOutbounds...)
 
+	outboundsReplacement := joinSingBoxRawObjects(extraOutbounds)
 	replacer := strings.NewReplacer(
 		"\"__ENDPOINTS__\"", marshalSingBoxRawObjectArray(nodeEndpoints),
 		"__ENDPOINTS__", marshalSingBoxRawObjectArray(nodeEndpoints),
@@ -51,10 +44,14 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 		"\"__HK_NODES__\"", joinSingBoxStringLiterals(hkNodes),
 		"\"__US_NODES__\"", joinSingBoxStringLiterals(usNodes),
 		"\"__JP_NODES__\"", joinSingBoxStringLiterals(jpNodes),
-		"\"__OUTBOUNDS__\"", joinSingBoxRawObjects(extraOutbounds),
+		"\"__OUTBOUNDS__\"", outboundsReplacement,
 	)
 
 	content := replacer.Replace(templateContent)
+	if outboundsReplacement == "" {
+		content = strings.ReplaceAll(content, "    ,\n", "")
+		content = strings.ReplaceAll(content, ",\n    ,", ",\n")
+	}
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
@@ -69,6 +66,9 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 		"__US_NODES__":    usNodes,
 		"__JP_NODES__":    jpNodes,
 	}); err != nil {
+		return "", err
+	}
+	if err := applySingBoxDetourProxyGroups(parsed); err != nil {
 		return "", err
 	}
 
@@ -483,6 +483,133 @@ func expandSingBoxOutboundGroups(root map[string]interface{}, nodeNames []string
 
 	root["outbounds"] = rawOutbounds
 	return nil
+}
+
+func applySingBoxDetourProxyGroups(root map[string]interface{}) error {
+	rawOutbounds, ok := root["outbounds"].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	outboundByTag := make(map[string]map[string]interface{}, len(rawOutbounds))
+	for _, item := range rawOutbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if tag, _ := outbound["tag"].(string); tag != "" {
+			outboundByTag[tag] = outbound
+		}
+	}
+
+	cloneCache := make(map[string]string)
+	var resolveMembers func(tag string, visited map[string]struct{}) []string
+	resolveMembers = func(tag string, visited map[string]struct{}) []string {
+		if tag == "" {
+			return nil
+		}
+		if _, exists := visited[tag]; exists {
+			return nil
+		}
+		outbound, exists := outboundByTag[tag]
+		if !exists {
+			if builtInProxyName(tag) {
+				return []string{tag}
+			}
+			return nil
+		}
+		if !isSingBoxGroupType(fmt.Sprint(outbound["type"])) {
+			return []string{tag}
+		}
+
+		nextVisited := make(map[string]struct{}, len(visited)+1)
+		for k := range visited {
+			nextVisited[k] = struct{}{}
+		}
+		nextVisited[tag] = struct{}{}
+
+		rawMembers, _ := outbound["outbounds"].([]interface{})
+		resolved := make([]string, 0, len(rawMembers))
+		for _, member := range rawMembers {
+			memberTag, _ := member.(string)
+			resolved = append(resolved, resolveMembers(memberTag, nextVisited)...)
+		}
+		return dedupeStrings(resolved)
+	}
+
+	for _, item := range rawOutbounds {
+		outbound, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		detourTag, _ := outbound["detour-proxy"].(string)
+		delete(outbound, "detour-proxy")
+		if detourTag == "" {
+			continue
+		}
+
+		tag, _ := outbound["tag"].(string)
+		resolved := resolveMembers(tag, nil)
+		if len(resolved) == 0 {
+			continue
+		}
+
+		rewritten := make([]interface{}, 0, len(resolved))
+		for _, memberTag := range resolved {
+			memberOutbound, exists := outboundByTag[memberTag]
+			if !exists || builtInProxyName(memberTag) || isSingBoxGroupType(fmt.Sprint(memberOutbound["type"])) {
+				continue
+			}
+
+			cacheKey := memberTag + "\x00" + detourTag
+			clonedTag, exists := cloneCache[cacheKey]
+			if !exists {
+				cloned, err := cloneSingBoxOutbound(memberOutbound)
+				if err != nil {
+					return err
+				}
+				clonedTag = memberTag + " via " + detourTag
+				cloned["tag"] = clonedTag
+				cloned["detour"] = detourTag
+				rawOutbounds = append(rawOutbounds, cloned)
+				outboundByTag[clonedTag] = cloned
+				cloneCache[cacheKey] = clonedTag
+			}
+			rewritten = append(rewritten, clonedTag)
+		}
+
+		if len(rewritten) > 0 {
+			outbound["outbounds"] = rewritten
+			if _, hasDefault := outbound["default"]; hasDefault {
+				outbound["default"] = rewritten[0]
+			}
+		}
+	}
+
+	root["outbounds"] = rawOutbounds
+	return nil
+}
+
+func isSingBoxGroupType(outboundType string) bool {
+	switch strings.ToLower(strings.TrimSpace(outboundType)) {
+	case "selector", "urltest", "url-test", "fallback", "load_balance", "load-balance":
+		return true
+	default:
+		return false
+	}
+}
+
+func cloneSingBoxOutbound(outbound map[string]interface{}) (map[string]interface{}, error) {
+	data, err := json.Marshal(outbound)
+	if err != nil {
+		return nil, fmt.Errorf("复制 sing-box outbound 失败: %w", err)
+	}
+	var cloned map[string]interface{}
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil, fmt.Errorf("复制 sing-box outbound 失败: %w", err)
+	}
+	return cloned, nil
 }
 
 func filterNodeNames(values []string, match func(string) bool) []string {
