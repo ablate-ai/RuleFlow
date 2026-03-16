@@ -150,7 +150,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)(?=.*bage)(?=.*(新加坡|SG|Singapore|狮城|🇸🇬))",
+      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(新加坡|SG|Singapore|狮城|🇸🇬)",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -161,7 +161,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)(?=.*bage)(?=.*(香港|HK|Hong Kong|🇭🇰))",
+      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(香港|HK|Hong Kong|🇭🇰)",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -172,7 +172,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)(?=.*bage)(?=.*(美国|United States|🇺🇸|(^|[^A-Z])(US|USA)([^A-Z]|$)))",
+      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(美国|United States|🇺🇸|(^|[^A-Z])(US|USA)([^A-Z]|$))",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -183,7 +183,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)(?=.*bage)(?=.*(日本|JP|Japan|🇯🇵))",
+      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(日本|JP|Japan|🇯🇵)",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -194,7 +194,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)(?=.*nya)(?=.*(香港|HK|Hong Kong|🇭🇰|日本|JP|Japan|🇯🇵))",
+      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?nya-.*(香港|HK|Hong Kong|🇭🇰|日本|JP|Japan|🇯🇵)",
       "interrupt_exist_connections": true
     },
     {
