@@ -131,7 +131,6 @@
         "🇭🇰 HK",
         "🇺🇸 US",
         "🇯🇵 JP",
-        "🚪 Relay",
         "🇸🇬 SG",
         "DIRECT",
         "__NODES__"
@@ -221,12 +220,8 @@
       "type": "selector",
       "tag": "🤖 AI",
       "detour-proxy": "🚪 Relay",
-      "filter": "qqpw",
+      "filter": "qqpw|dmit",
       "outbounds": [
-        "🚪 Relay",
-        "🇺🇸 US",
-        "🇯🇵 JP",
-        "🇭🇰 HK",
         "__NODES__"
       ],
       "default": "🚪 Relay",
@@ -326,7 +321,7 @@
         "type": "remote",
         "tag": "ai_ai",
         "url": "/rulesets/ai_ai?target=sing-box",
-        "format": "source",
+        "format": "binary",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
       },

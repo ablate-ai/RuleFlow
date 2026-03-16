@@ -196,7 +196,7 @@ func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
 			Protocol: "trojan",
-			Name:     "nya HK Node 1",
+			Name:     "nya-hk Node 1",
 			Server:   "hk1.example.com",
 			Port:     443,
 			Options: map[string]interface{}{
@@ -206,7 +206,7 @@ func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
 		},
 		{
 			Protocol: "trojan",
-			Name:     "nya JP Node 1",
+			Name:     "nya-jp Node 1",
 			Server:   "jp1.example.com",
 			Port:     443,
 			Options: map[string]interface{}{
@@ -216,7 +216,7 @@ func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
 		},
 		{
 			Protocol: "trojan",
-			Name:     "nya US Node 1",
+			Name:     "nya-us Node 1",
 			Server:   "us1.example.com",
 			Port:     443,
 			Options: map[string]interface{}{
@@ -262,7 +262,7 @@ func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
 		if !ok {
 			t.Fatalf("Relay 组缺少 outbounds，实际配置为:\n%s", config)
 		}
-		if len(members) != 2 || members[0] != "🇭🇰 nya HK Node 1" || members[1] != "🇯🇵 nya JP Node 1" {
+		if len(members) != 2 || members[0] != "🇭🇰 nya-hk Node 1" || members[1] != "🇯🇵 nya-jp Node 1" {
 			t.Fatalf("期望 Relay 组只包含同时命中 nya 且属于香港、日本的节点，实际配置为:\n%s", config)
 		}
 	}
@@ -276,12 +276,22 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
 			Protocol: "trojan",
-			Name:     "nya HK Relay",
+			Name:     "nya-hk Relay",
 			Server:   "hk-relay.example.com",
 			Port:     443,
 			Options: map[string]interface{}{
 				"password": "relay-password",
 				"sni":      "hk-relay.example.com",
+			},
+		},
+		{
+			Protocol: "trojan",
+			Name:     "us.lax.dmit",
+			Server:   "us-dmit.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "dmit-password",
+				"sni":      "us-dmit.example.com",
 			},
 		},
 		{
@@ -312,7 +322,8 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 	}
 
 	foundAI := false
-	foundDetourNode := false
+	foundQQPWNode := false
+	foundDMITNode := false
 	for _, item := range outbounds {
 		outbound, ok := item.(map[string]interface{})
 		if !ok {
@@ -322,20 +333,59 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 		case "🤖 AI":
 			foundAI = true
 			members, ok := outbound["outbounds"].([]interface{})
-			if !ok || len(members) != 1 || members[0] != "🇺🇸 us.hnl.qqpw via 🚪 Relay" {
-				t.Fatalf("期望 AI 组引用带 Relay 中转的节点副本，实际配置为:\n%s", config)
+			if !ok || len(members) != 2 || members[0] != "🇺🇸 us.lax.dmit" || members[1] != "🇺🇸 us.hnl.qqpw" {
+				t.Fatalf("期望 AI 组引用命中 qqpw|dmit 的节点，实际配置为:\n%s", config)
 			}
-		case "🇺🇸 us.hnl.qqpw via 🚪 Relay":
-			foundDetourNode = true
+		case "🇺🇸 us.lax.dmit":
+			foundDMITNode = true
 			if outbound["detour"] != "🚪 Relay" {
-				t.Fatalf("期望 AI 节点副本使用 Relay 作为 detour，实际配置为:\n%s", config)
+				t.Fatalf("期望 dmit 节点使用 Relay 作为 detour，实际配置为:\n%s", config)
+			}
+		case "🇺🇸 us.hnl.qqpw":
+			foundQQPWNode = true
+			if outbound["detour"] != "🚪 Relay" {
+				t.Fatalf("期望 qqpw 节点使用 Relay 作为 detour，实际配置为:\n%s", config)
 			}
 		}
 	}
 
-	if !foundAI || !foundDetourNode {
-		t.Fatalf("未找到期望的 AI 组或带 detour 的节点副本，实际配置为:\n%s", config)
+	if !foundAI || !foundQQPWNode || !foundDMITNode {
+		t.Fatalf("未找到期望的 AI 组或带 detour 的节点，实际配置为:\n%s", config)
 	}
+}
+
+func TestBuildSingBoxDefaultTemplateUsesBinaryRemoteRuleSetForAIAI(t *testing.T) {
+	config, err := BuildSingBoxFromDefaultTemplate(nil)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	route, ok := cfg["route"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route")
+	}
+	ruleSets, ok := route["rule_set"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route.rule_set")
+	}
+
+	for _, item := range ruleSets {
+		ruleSet, ok := item.(map[string]interface{})
+		if !ok || ruleSet["tag"] != "ai_ai" {
+			continue
+		}
+		if ruleSet["format"] != "binary" {
+			t.Fatalf("期望 ai_ai 远程规则集使用 binary 格式，实际配置为:\n%s", config)
+		}
+		return
+	}
+
+	t.Fatalf("未找到 ai_ai 远程规则集，实际配置为:\n%s", config)
 }
 
 func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
