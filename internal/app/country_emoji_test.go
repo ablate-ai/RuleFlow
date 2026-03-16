@@ -19,6 +19,11 @@ func TestAddCountryEmoji(t *testing.T) {
 			want: "🇯🇵 东京-01",
 		},
 		{
+			name: "matches chinese keyword followed by latin suffix",
+			in:   "iku-日本W09",
+			want: "🇯🇵 iku-日本W09",
+		},
+		{
 			name: "matches case insensitive latin keyword",
 			in:   "SeAttle-01",
 			want: "🇺🇸 SeAttle-01",
@@ -84,6 +89,13 @@ func TestWordIndex(t *testing.T) {
 			name: "finds later valid occurrence after invalid one",
 			text: "hkg hk-01",
 			word: "hk",
+			idx:  4,
+			ok:   true,
+		},
+		{
+			name: "accepts chinese keyword before latin suffix",
+			text: "iku-日本w09",
+			word: "日本",
 			idx:  4,
 			ok:   true,
 		},

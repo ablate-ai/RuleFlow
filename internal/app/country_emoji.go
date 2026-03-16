@@ -96,6 +96,7 @@ func isEmojiRune(r rune) bool {
 // wordIndex 返回 text 中最靠左的合法关键词位置。
 // word 两侧不能紧跟字母（防止 "ru" 命中 "russia" 内部），但允许数字和符号。
 func wordIndex(text, word string) (int, bool) {
+	requireBoundary := asciiWordBoundaryRequired(word)
 	searchFrom := 0
 	for searchFrom <= len(text)-len(word) {
 		rel := strings.Index(text[searchFrom:], word)
@@ -103,7 +104,7 @@ func wordIndex(text, word string) (int, bool) {
 			return -1, false
 		}
 		idx := searchFrom + rel
-		if idx > 0 {
+		if requireBoundary && idx > 0 {
 			prev := rune(text[idx-1])
 			if unicode.IsLetter(prev) {
 				searchFrom = idx + len(word)
@@ -111,7 +112,7 @@ func wordIndex(text, word string) (int, bool) {
 			}
 		}
 		end := idx + len(word)
-		if end < len(text) {
+		if requireBoundary && end < len(text) {
 			next := rune(text[end])
 			if unicode.IsLetter(next) {
 				searchFrom = idx + len(word)
@@ -121,4 +122,13 @@ func wordIndex(text, word string) (int, bool) {
 		return idx, true
 	}
 	return -1, false
+}
+
+func asciiWordBoundaryRequired(word string) bool {
+	for _, r := range word {
+		if r > unicode.MaxASCII || !unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return word != ""
 }
