@@ -312,7 +312,6 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 	}
 
 	foundAI := false
-	foundAIPrimary := false
 	foundDetourNode := false
 	for _, item := range outbounds {
 		outbound, ok := item.(map[string]interface{})
@@ -326,12 +325,6 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 			if !ok || len(members) != 1 || members[0] != "🇺🇸 us.hnl.qqpw via 🚪 Relay" {
 				t.Fatalf("期望 AI 组引用带 Relay 中转的节点副本，实际配置为:\n%s", config)
 			}
-		case "🇺🇸 AI-PRIMARY":
-			foundAIPrimary = true
-			members, ok := outbound["outbounds"].([]interface{})
-			if !ok || len(members) != 1 || members[0] != "🇺🇸 us.hnl.qqpw" {
-				t.Fatalf("期望 AI-PRIMARY 通过模板 filter 命中 qqpw 节点，实际配置为:\n%s", config)
-			}
 		case "🇺🇸 us.hnl.qqpw via 🚪 Relay":
 			foundDetourNode = true
 			if outbound["detour"] != "🚪 Relay" {
@@ -340,8 +333,8 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 		}
 	}
 
-	if !foundAI || !foundAIPrimary || !foundDetourNode {
-		t.Fatalf("未找到期望的 AI 组、AI-PRIMARY 或带 detour 的节点副本，实际配置为:\n%s", config)
+	if !foundAI || !foundDetourNode {
+		t.Fatalf("未找到期望的 AI 组或带 detour 的节点副本，实际配置为:\n%s", config)
 	}
 }
 

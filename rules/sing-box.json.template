@@ -216,18 +216,8 @@
       "detour-proxy": "🚪 Relay",
       "filter": "qqpw",
       "outbounds": [
-        "🇺🇸 AI-PRIMARY"
-      ],
-      "default": "🇺🇸 AI-PRIMARY",
-      "interrupt_exist_connections": true
-    },
-    {
-      "type": "selector",
-      "tag": "🇺🇸 AI-PRIMARY",
-      "outbounds": [
         "__NODES__"
       ],
-      "filter": "qqpw",
       "interrupt_exist_connections": true
     },
     "__OUTBOUNDS__",
