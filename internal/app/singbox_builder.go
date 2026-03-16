@@ -502,7 +502,6 @@ func applySingBoxDetourProxyGroups(root map[string]interface{}) error {
 		}
 	}
 
-	cloneCache := make(map[string]string)
 	var resolveMembers func(tag string, visited map[string]struct{}) []string
 	resolveMembers = func(tag string, visited map[string]struct{}) []string {
 		if tag == "" {
@@ -586,18 +585,6 @@ func isSingBoxGroupType(outboundType string) bool {
 	default:
 		return false
 	}
-}
-
-func cloneSingBoxOutbound(outbound map[string]interface{}) (map[string]interface{}, error) {
-	data, err := json.Marshal(outbound)
-	if err != nil {
-		return nil, fmt.Errorf("复制 sing-box outbound 失败: %w", err)
-	}
-	var cloned map[string]interface{}
-	if err := json.Unmarshal(data, &cloned); err != nil {
-		return nil, fmt.Errorf("复制 sing-box outbound 失败: %w", err)
-	}
-	return cloned, nil
 }
 
 func filterNodeNames(values []string, match func(string) bool) []string {
