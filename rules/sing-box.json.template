@@ -4,6 +4,7 @@
     "timestamp": true
   },
   "dns": {
+    "reverse_mapping": true,
     "servers": [
       {
         "type": "local",
@@ -101,13 +102,17 @@
       "tag": "mixed-in",
       "listen": "0.0.0.0",
       "listen_port": 7890,
+      "sniff": true,
+      "sniff_override_destination": false,
       "set_system_proxy": false
     },
     {
       "type": "socks",
       "tag": "socks-in",
       "listen": "0.0.0.0",
-      "listen_port": 7891
+      "listen_port": 7891,
+      "sniff": true,
+      "sniff_override_destination": false
     },
     {
       "type": "tun",
@@ -118,7 +123,9 @@
       ],
       "auto_route": true,
       "strict_route": true,
-      "stack": "mixed"
+      "stack": "mixed",
+      "sniff": true,
+      "sniff_override_destination": false
     }
   ],
   "outbounds": [
@@ -321,7 +328,7 @@
         "type": "remote",
         "tag": "ai_ai",
         "url": "/rulesets/ai_ai?target=sing-box",
-        "format": "binary",
+        "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
       },
