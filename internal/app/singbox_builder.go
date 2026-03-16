@@ -301,7 +301,7 @@ func singBoxTransportObject(opts map[string]interface{}) map[string]interface{} 
 		if transport.Path != "" {
 			obj["path"] = transport.Path
 		}
-		if transport.Host != "" {
+		if transport.Host != "" && transport.Type != "ws" {
 			obj["host"] = transport.Host
 		}
 		if len(transport.Headers) > 0 {

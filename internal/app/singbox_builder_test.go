@@ -183,6 +183,10 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 				"transport": map[string]interface{}{
 					"type": "ws",
 					"path": "/ws",
+					"host": "edge.example.com",
+					"headers": map[string]interface{}{
+						"Host": "edge.example.com",
+					},
 				},
 			},
 		},
@@ -195,6 +199,40 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 
 	if !strings.Contains(config, "\"type\": \"ws\"") || !strings.Contains(config, "\"path\": \"/ws\"") {
 		t.Fatalf("期望生成 WebSocket transport，实际配置为:\n%s", config)
+	}
+	if strings.Contains(config, "\"host\": \"edge.example.com\"") {
+		t.Fatalf("期望 sing-box WebSocket transport 不输出 host 字段，实际配置为:\n%s", config)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &parsed); err != nil {
+		t.Fatalf("解析生成配置失败: %v", err)
+	}
+
+	outbounds, ok := parsed["outbounds"].([]interface{})
+	if !ok {
+		t.Fatalf("期望 outbounds 为数组，实际配置为:\n%s", config)
+	}
+
+	var transport map[string]interface{}
+	for _, outboundRaw := range outbounds {
+		outbound, ok := outboundRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if outbound["tag"] == "WS Node" {
+			transport, _ = outbound["transport"].(map[string]interface{})
+			break
+		}
+	}
+	if transport == nil {
+		t.Fatalf("未找到 WS Node 的 transport，实际配置为:\n%s", config)
+	}
+	if _, exists := transport["host"]; exists {
+		t.Fatalf("期望 sing-box WebSocket transport 不包含 host 字段，实际配置为:\n%s", config)
+	}
+	headers, ok := transport["headers"].(map[string]interface{})
+	if !ok || headers["Host"] != "edge.example.com" {
+		t.Fatalf("期望 sing-box WebSocket transport 保留 Host header，实际配置为:\n%s", config)
 	}
 }
 
