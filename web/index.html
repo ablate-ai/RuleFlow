@@ -396,10 +396,7 @@
       const { toasts, addToast }            = window.useToasts();
 
       const clearPolicyCache = useCallback(async () => {
-        await fetch('/api/cache/policies/clear', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }).catch(() => null);
+        await api.post('/api/cache/policies/clear', {});
       }, []);
 
       const loadDashboard = useCallback(async () => {
