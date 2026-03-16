@@ -179,7 +179,7 @@
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(美国|United States|🇺🇸|(^|[^A-Z])(US|USA)([^A-Z]|$))",
+      "filter": "(?i)(美国|United States|🇺🇸|\\bUS\\b|\\bUSA\\b)",
       "url": "https://www.gstatic.com/generate_204",
       "interval": "20m",
       "tolerance": 50
@@ -223,8 +223,13 @@
       "detour-proxy": "🚪 Relay",
       "filter": "qqpw",
       "outbounds": [
+        "🚪 Relay",
+        "🇺🇸 US",
+        "🇯🇵 JP",
+        "🇭🇰 HK",
         "__NODES__"
       ],
+      "default": "🚪 Relay",
       "interrupt_exist_connections": true
     },
     "__OUTBOUNDS__",
@@ -628,6 +633,13 @@
       },
       {
         "rule_set": [
+          "ai_non_ip",
+          "ai_ai"
+        ],
+        "outbound": "🤖 AI"
+      },
+      {
+        "rule_set": [
           "cdn_domainset"
         ],
         "outbound": "🛰 Auto"
@@ -638,13 +650,6 @@
           "stream_ip"
         ],
         "outbound": "🎬 Stream"
-      },
-      {
-        "rule_set": [
-          "ai_non_ip",
-          "ai_ai"
-        ],
-        "outbound": "🤖 AI"
       },
       {
         "rule_set": [

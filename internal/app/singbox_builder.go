@@ -562,21 +562,9 @@ func applySingBoxDetourProxyGroups(root map[string]interface{}) error {
 				continue
 			}
 
-			cacheKey := memberTag + "\x00" + detourTag
-			clonedTag, exists := cloneCache[cacheKey]
-			if !exists {
-				cloned, err := cloneSingBoxOutbound(memberOutbound)
-				if err != nil {
-					return err
-				}
-				clonedTag = memberTag + " via " + detourTag
-				cloned["tag"] = clonedTag
-				cloned["detour"] = detourTag
-				rawOutbounds = append(rawOutbounds, cloned)
-				outboundByTag[clonedTag] = cloned
-				cloneCache[cacheKey] = clonedTag
-			}
-			rewritten = append(rewritten, clonedTag)
+			// 直接在原节点上添加 detour 字段
+			memberOutbound["detour"] = detourTag
+			rewritten = append(rewritten, memberTag)
 		}
 
 		if len(rewritten) > 0 {
