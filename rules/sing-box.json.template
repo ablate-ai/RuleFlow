@@ -314,7 +314,7 @@
         "tag": "need_direct",
         "url": "/rulesets/need_direct?target=sing-box",
         "format": "source",
-        "download_detour": "🌐 Proxy",
+        "download_detour": "DIRECT",
         "update_interval": "12h"
       },
       {
