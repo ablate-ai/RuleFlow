@@ -354,7 +354,7 @@ func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
 	}
 }
 
-func TestBuildSingBoxDefaultTemplateUsesBinaryRemoteRuleSetForAIAI(t *testing.T) {
+func TestBuildSingBoxDefaultTemplateUsesSourceRemoteRuleSetForAIAI(t *testing.T) {
 	config, err := BuildSingBoxFromDefaultTemplate(nil)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
@@ -379,13 +379,112 @@ func TestBuildSingBoxDefaultTemplateUsesBinaryRemoteRuleSetForAIAI(t *testing.T)
 		if !ok || ruleSet["tag"] != "ai_ai" {
 			continue
 		}
-		if ruleSet["format"] != "binary" {
-			t.Fatalf("期望 ai_ai 远程规则集使用 binary 格式，实际配置为:\n%s", config)
+		if ruleSet["format"] != "source" {
+			t.Fatalf("期望 ai_ai 远程规则集使用 source 格式，实际配置为:\n%s", config)
 		}
 		return
 	}
 
 	t.Fatalf("未找到 ai_ai 远程规则集，实际配置为:\n%s", config)
+}
+
+func TestBuildSingBoxDefaultTemplateIncludesNeedDirectRuleSet(t *testing.T) {
+	config, err := BuildSingBoxFromDefaultTemplate(nil)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	dns, ok := cfg["dns"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 dns")
+	}
+	dnsRules, ok := dns["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 dns.rules")
+	}
+
+	foundDNSRule := false
+	for _, item := range dnsRules {
+		rule, ok := item.(map[string]interface{})
+		if !ok || rule["server"] != "dns_direct" {
+			continue
+		}
+		ruleSets, ok := rule["rule_set"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, tag := range ruleSets {
+			if tag == "need_direct" {
+				foundDNSRule = true
+				break
+			}
+		}
+		if foundDNSRule {
+			break
+		}
+	}
+	if !foundDNSRule {
+		t.Fatalf("期望 dns.rules 中包含 need_direct -> dns_direct，实际配置为:\n%s", config)
+	}
+
+	route, ok := cfg["route"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route")
+	}
+	ruleSets, ok := route["rule_set"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route.rule_set")
+	}
+
+	foundRemoteRuleSet := false
+	for _, item := range ruleSets {
+		ruleSet, ok := item.(map[string]interface{})
+		if !ok || ruleSet["tag"] != "need_direct" {
+			continue
+		}
+		if ruleSet["url"] != "/rulesets/need_direct?target=sing-box" {
+			t.Fatalf("期望 need_direct 远程规则集 URL 正确，实际配置为:\n%s", config)
+		}
+		foundRemoteRuleSet = true
+		break
+	}
+	if !foundRemoteRuleSet {
+		t.Fatalf("未找到 need_direct 远程规则集，实际配置为:\n%s", config)
+	}
+
+	routeRules, ok := route["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route.rules")
+	}
+
+	foundDirectRule := false
+	for _, item := range routeRules {
+		rule, ok := item.(map[string]interface{})
+		if !ok || rule["outbound"] != "DIRECT" {
+			continue
+		}
+		ruleSets, ok := rule["rule_set"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, tag := range ruleSets {
+			if tag == "need_direct" {
+				foundDirectRule = true
+				break
+			}
+		}
+		if foundDirectRule {
+			break
+		}
+	}
+	if !foundDirectRule {
+		t.Fatalf("期望 route.rules 中包含 need_direct -> DIRECT，实际配置为:\n%s", config)
+	}
 }
 
 func TestBuildSingBoxTrojanWebSocket(t *testing.T) {

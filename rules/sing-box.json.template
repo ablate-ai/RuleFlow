@@ -27,28 +27,8 @@
     ],
     "rules": [
       {
-        "domain_suffix": [
-          "nioint.com",
-          "nio.com",
-          "nevint.com"
-        ],
-        "server": "dns_local"
-      },
-      {
-        "domain_suffix": [
-          "juejin.cn",
-          "bochk.com",
-          "hf-mirror.com",
-          "lmstudio.ai",
-          "intl-subscription.iqiyi.com",
-          "intl-rcd.iqiyi.com",
-          "intl.iqiyi.com"
-        ],
-        "server": "dns_direct"
-      },
-      {
-        "domain": [
-          "cache.video.iqiyi.com"
+        "rule_set": [
+          "need_direct"
         ],
         "server": "dns_direct"
       },
@@ -325,6 +305,14 @@
         "type": "remote",
         "tag": "ai_ai",
         "url": "/rulesets/ai_ai?target=sing-box",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "need_direct",
+        "url": "/rulesets/need_direct?target=sing-box",
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
@@ -659,6 +647,7 @@
       },
       {
         "rule_set": [
+          "need_direct",
           "apple_cdn",
           "apple_services",
           "apple_cn_non_ip",
