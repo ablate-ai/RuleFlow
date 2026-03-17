@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -114,5 +115,50 @@ func TestStashWireGuardFlattensPeerFields(t *testing.T) {
 	}
 	if _, exists := proxy["peers"]; exists {
 		t.Fatalf("Stash wireguard 不应输出 peers 字段，实际为 %v", proxy["peers"])
+	}
+}
+
+func TestStashProxyGroupsUseBenchmarkURL(t *testing.T) {
+	templateContent := `proxy-groups:
+  - type: select
+    name: 📺 Stream
+    url: http://wifi.vivo.com.cn/generate_204
+    proxies: ["🚀 Proxy", "🇺🇸 US", "🇯🇵 JP", "🇭🇰 HK", "🇸🇬 SG"]
+  - type: select
+    dialer-proxy: "My_Relay"
+    name: 🤖 AI
+    url: http://wifi.vivo.com.cn/generate_204
+    proxies: ["🇺🇸 us.hnl.qqpw"]
+  - type: url-test
+    name: ⚡ Auto
+    url: http://wifi.vivo.com.cn/generate_204
+    proxies: ["__NODES__"]
+proxies: []
+rules: []
+`
+
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "us.hnl.qqpw",
+			Server:   "us.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "us.example.com",
+			},
+		},
+	}
+
+	stashConfig, err := BuildYAMLFromTemplateContent(nodes, templateContent, "stash")
+	if err != nil {
+		t.Fatalf("生成 Stash 配置失败: %v", err)
+	}
+
+	if strings.Contains(stashConfig, "\n    url: http://wifi.vivo.com.cn/generate_204") {
+		t.Fatalf("Stash proxy-groups 不应保留 url 字段，实际配置为:\n%s", stashConfig)
+	}
+	if !strings.Contains(stashConfig, "benchmark-url: http://wifi.vivo.com.cn/generate_204") {
+		t.Fatalf("Stash proxy-groups 应使用 benchmark-url 字段，实际配置为:\n%s", stashConfig)
 	}
 }

@@ -177,6 +177,23 @@ func adaptConfigForTarget(cfg map[string]interface{}, target string) {
 	}
 }
 
+func adaptProxyGroupsForTarget(groups []interface{}, target string) {
+	if target != "stash" {
+		return
+	}
+
+	for _, item := range groups {
+		groupMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if url, exists := groupMap["url"]; exists {
+			groupMap["benchmark-url"] = url
+			delete(groupMap, "url")
+		}
+	}
+}
+
 func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{}, map[string]string, error) {
 	groupList, ok := raw.([]interface{})
 	if !ok {
@@ -359,6 +376,7 @@ func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target s
 			if err != nil {
 				return "", err
 			}
+			adaptProxyGroupsForTarget(adaptedGroups, target)
 			// 将 dialer-proxy 注入到对应 proxies 条目
 			if len(dialerMap) > 0 {
 				for i := range proxies {
@@ -438,6 +456,7 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 			if err != nil {
 				return "", err
 			}
+			adaptProxyGroupsForTarget(adaptedGroups, target)
 			// 将 dialer-proxy 注入到对应 proxies 条目
 			if len(dialerMap) > 0 {
 				for i := range proxies {
