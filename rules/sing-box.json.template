@@ -36,9 +36,6 @@
       },
       {
         "domain_suffix": [
-          "internal.example",
-          "private.example",
-          "dev.example",
           "juejin.cn",
           "bochk.com",
           "hf-mirror.com",
