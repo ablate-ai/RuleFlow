@@ -58,6 +58,15 @@ type yamlRuleProvider struct {
 	Format string
 }
 
+type lintRuleSetOrderIssue struct {
+	blockedLine   int
+	blockedSource string
+	blockerLine   int
+	blockerSource string
+	count         int
+	sample        lintRule
+}
+
 func lintGeneratedTemplate(ctx context.Context, h *Handlers, target, configContent string) []string {
 	rules, refs, warnings := collectLintInputs(target, configContent)
 	expanded := []lintRule(nil)
@@ -151,6 +160,7 @@ func runLintChecks(templateRules, expandedRules []lintRule) []string {
 	warnings := make([]string, 0)
 	warnings = append(warnings, checkTerminalRules(templateRules)...)
 	warnings = append(warnings, checkRuleOrder(templateRules)...)
+	warnings = append(warnings, checkExpandedRuleSetOrder(expandedRules)...)
 	warnings = append(warnings, checkDuplicateRules(combinedRules)...)
 	warnings = append(warnings, checkRuleShadowing(combinedRules)...)
 	return dedupeStrings(warnings)
@@ -438,6 +448,62 @@ func checkRuleOrder(rules []lintRule) []string {
 	return warnings
 }
 
+func checkExpandedRuleSetOrder(rules []lintRule) []string {
+	if len(rules) == 0 {
+		return nil
+	}
+
+	var blocker *lintRule
+	issues := make(map[string]*lintRuleSetOrderIssue)
+
+	for i := range rules {
+		rule := rules[i]
+		priority := ruleOrderPriority(rule.Type)
+		if priority == 0 {
+			continue
+		}
+
+		if blocker != nil {
+			blockerPriority := ruleOrderPriority(blocker.Type)
+			if blockerPriority > 0 && priority < blockerPriority && !sameRuleSetRef(*blocker, rule) {
+				key := fmt.Sprintf("%d|%s|%d|%s", rule.Line, rule.Source, blocker.Line, blocker.Source)
+				issue := issues[key]
+				if issue == nil {
+					issue = &lintRuleSetOrderIssue{
+						blockedLine:   rule.Line,
+						blockedSource: rule.Source,
+						blockerLine:   blocker.Line,
+						blockerSource: blocker.Source,
+						sample:        rule,
+					}
+					issues[key] = issue
+				}
+				issue.count++
+			}
+		}
+
+		if blocker == nil || priority > ruleOrderPriority(blocker.Type) {
+			blocker = &rules[i]
+		}
+	}
+
+	if len(issues) == 0 {
+		return nil
+	}
+
+	warnings := make([]string, 0, len(issues))
+	for _, issue := range issues {
+		warnings = append(warnings, fmt.Sprintf(
+			"第 %d 条 ruleset（%s）应放到第 %d 条 ruleset（%s）之前：有 %d 条展开规则存在顺序风险，示例 %s,%s -> %s",
+			issue.blockedLine, issue.blockedSource,
+			issue.blockerLine, issue.blockerSource,
+			issue.count,
+			issue.sample.Type, issue.sample.Payload, issue.sample.Policy,
+		))
+	}
+	return warnings
+}
+
 func checkRuleShadowing(rules []lintRule) []string {
 	warnings := make([]string, 0)
 
@@ -531,6 +597,10 @@ func ruleSourceLabel(rule lintRule) string {
 		return fmt.Sprintf("模板第 %d 条", rule.Line)
 	}
 	return source
+}
+
+func sameRuleSetRef(left, right lintRule) bool {
+	return left.Line == right.Line && strings.EqualFold(strings.TrimSpace(left.Source), strings.TrimSpace(right.Source))
 }
 
 func ruleOrderPriority(ruleType string) int {

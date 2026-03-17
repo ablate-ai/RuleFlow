@@ -270,14 +270,21 @@
         }
       };
 
+      const getPolicyURL = (policy) => `${window.location.origin}/subscribe?token=${policy.token}`;
+
       /* 复制配置链接 */
       const handleCopyLink = async (policy) => {
-        const url = `${window.location.origin}/subscribe?token=${policy.token}`;
+        const url = getPolicyURL(policy);
         await window.copyText(url, {
           successMessage: '配置链接已复制到剪贴板',
           errorMessage: '复制失败，请手动复制',
           addToast
         });
+      };
+
+      /* 新标签页打开配置链接 */
+      const handleOpenLink = (policy) => {
+        window.open(getPolicyURL(policy), '_blank', 'noopener,noreferrer');
       };
 
       /* 清除策略生成配置缓存 */
@@ -449,6 +456,9 @@
                       </button>
                       <button className="btic green" title="复制配置链接" onClick={() => handleCopyLink(policy)}>
                         <IcoCopy />
+                      </button>
+                      <button className="btic blue" title="新标签页打开配置链接" onClick={() => handleOpenLink(policy)}>
+                        <IcoLink />
                       </button>
                       <button
                         className="btic"

@@ -186,3 +186,23 @@ func TestRunLintChecksDoesNotReportOrderForExpandedRulesAfterTerminal(t *testing
 		t.Fatalf("展开规则不应因为顶层兜底规则产生顺序风险，实际 warnings=%v", warnings)
 	}
 }
+
+func TestCheckExpandedRuleSetOrderAggregatesByRuleSet(t *testing.T) {
+	warnings := checkExpandedRuleSetOrder([]lintRule{
+		{Type: "IP-CIDR", Payload: "1.1.1.0/24", Policy: "Proxy", Line: 6, Source: "/rulesets/ip?target=surge"},
+		{Type: "IP-CIDR", Payload: "8.8.8.0/24", Policy: "Proxy", Line: 6, Source: "/rulesets/ip?target=surge"},
+		{Type: "DOMAIN-SUFFIX", Payload: "gpt.com", Policy: "🤖 AI", Line: 10, Source: "/rulesets/ai?target=surge"},
+		{Type: "DOMAIN", Payload: "openai.com", Policy: "🤖 AI", Line: 10, Source: "/rulesets/ai?target=surge"},
+	})
+
+	if len(warnings) != 1 {
+		t.Fatalf("期望按 ruleset 聚合为 1 条告警，实际为 %d: %v", len(warnings), warnings)
+	}
+	joined := strings.Join(warnings, "\n")
+	if !strings.Contains(joined, "第 10 条 ruleset（/rulesets/ai?target=surge）应放到第 6 条 ruleset（/rulesets/ip?target=surge）之前") {
+		t.Fatalf("期望包含 ruleset 聚合顺序告警，实际 warnings=%v", warnings)
+	}
+	if !strings.Contains(joined, "有 2 条展开规则存在顺序风险") {
+		t.Fatalf("期望包含聚合数量，实际 warnings=%v", warnings)
+	}
+}

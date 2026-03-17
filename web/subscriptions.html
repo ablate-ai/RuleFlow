@@ -119,7 +119,7 @@
       const [confirmDelete, setConfirmDelete] = useState(null);    // 待删除的订阅对象（显示确认框）
       const [deleting, setDeleting]       = useState(false);       // 删除中
       const { toasts, addToast }          = window.useToasts();           // Toast 列表
-      const [filterOpen, setFilterOpen]   = useState(false);       // 过滤规则折叠状态
+      const [filterOpen, setFilterOpen]   = useState(true);        // 过滤规则折叠状态
       const [kwInput, setKwInput]         = useState('');          // 关键词输入缓冲
 
       // 加载订阅列表
@@ -140,7 +140,7 @@
       const openCreate = () => {
         setForm(defaultForm);
         setEditItem(null);
-        setFilterOpen(false);
+        setFilterOpen(true);
         setKwInput('');
         setModal('create');
       };
@@ -162,7 +162,7 @@
           },
         });
         setEditItem(sub);
-        setFilterOpen(false);
+        setFilterOpen(true);
         setKwInput('');
         setModal('edit');
       };

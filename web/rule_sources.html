@@ -120,11 +120,11 @@
       const [deleting, setDeleting] = useState(false);
       const { toasts, addToast } = window.useToasts();
 
-      const loadItems = useCallback(async () => {
+      const loadItems = useCallback(async ({ silent = false } = {}) => {
         try {
           const data = await api.get('/api/rule-sources');
           setItems(data.data || []);
-          addToast('规则源列表已刷新');
+          if (!silent) addToast('规则源列表已刷新');
         } catch (err) {
           addToast('加载规则源失败：' + err.message, 'err');
         } finally {
@@ -132,7 +132,7 @@
         }
       }, [addToast]);
 
-      useEffect(() => { loadItems(); }, [loadItems]);
+      useEffect(() => { loadItems({ silent: true }); }, [loadItems]);
 
       const openCreate = () => {
         setEditItem(null);
@@ -244,7 +244,7 @@
                 <div className="ps">同步远程分流规则并导出为 Surge、Clash、sing-box 可用格式</div>
               </div>
               <div className="phr">
-                <button className="btn btn-s" onClick={loadItems}>刷新</button>
+                <button className="btn btn-s" onClick={() => loadItems()}>刷新</button>
                 <button className="btn btn-p" onClick={openCreate}>
                   <IcoPlus />新建规则源
                 </button>
