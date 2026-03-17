@@ -108,7 +108,7 @@ func main() {
 	logCleanupScheduler.Start(schedulerCtx)
 
 	// 创建 API 处理器
-	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, maintenanceService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache)
+	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, maintenanceService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache, redisClient)
 
 	// 启动服务器
 	port := cfg.Port

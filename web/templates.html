@@ -109,6 +109,20 @@
     .editor-form-group { margin-bottom: 0; display: flex; flex-direction: column; min-height: 0; flex: 1; }
     .editor-pane .monaco-wrap { min-height: 0; height: 100%; flex: 1; }
     .editor-pane .fhint { margin-top: 8px; }
+    .val-report { margin-top: 10px; border: 1px solid var(--bdr); border-radius: var(--rm); background: #fff; padding: 12px; }
+    .val-report.warn { border-color: #fed7aa; background: #fffaf3; }
+    .val-report.ok { border-color: #bbf7d0; background: #f0fdf4; }
+    .val-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+    .val-title { font-size: 13px; font-weight: 600; color: var(--t1); }
+    .val-msg { font-size: 12px; color: var(--t2); }
+    .val-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .val-chip { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--bdr); font-size: 11.5px; color: var(--t2); }
+    button.val-chip { cursor: pointer; transition: all .15s; }
+    button.val-chip:hover { border-color: var(--grn); color: var(--grn); }
+    button.val-chip.active { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .val-list { max-height: 220px; overflow: auto; border-top: 1px dashed var(--bdr); padding-top: 8px; }
+    .val-item { font-size: 12px; color: var(--t1); line-height: 1.55; padding: 2px 0; }
+    .val-more, .val-ok { font-size: 12px; color: var(--t2); }
     @media (max-width: 1180px) {
       .editor-toolbar-grid { grid-template-columns: 1fr 1fr; }
       .editor-actions { grid-column: 1 / -1; justify-content: flex-end; }
@@ -260,6 +274,8 @@
       const [deleting, setDeleting] = useState(false);
       const [autoEditHandled, setAutoEditHandled] = useState(false);
       const [showAdvanced, setShowAdvanced] = useState(false);
+      const [validationResult, setValidationResult] = useState(null);
+      const [validationFilter, setValidationFilter] = useState('');
 
       /* 编辑器内容独立维护，避免频繁 setForm 导致重渲染 */
       const [editorContent, setEditorContent] = useState('');
@@ -336,6 +352,8 @@
         const content = await loadDefaultContent(defaultForm.target);
         setForm({ ...defaultForm, content });
         setEditorContent(content);
+        setValidationResult(null);
+        setValidationFilter('');
         setShowModal(true);
       };
 
@@ -353,6 +371,8 @@
         };
         setForm(f);
         setEditorContent(f.content);
+        setValidationResult(null);
+        setValidationFilter('');
         setShowModal(true);
       };
 
@@ -370,6 +390,8 @@
         setForm(defaultForm);
         setEditorContent('');
         setShowAdvanced(false);
+        setValidationResult(null);
+        setValidationFilter('');
         if (url.searchParams.has('edit')) {
           url.searchParams.delete('edit');
           url.searchParams.delete('return_to');
@@ -414,13 +436,60 @@
             target: form.target,
             content: editorContent,
           });
-          addToast(res?.data?.message || '模板检查通过');
+          const data = res?.data || {};
+          setValidationResult(data);
+          setValidationFilter('');
+          if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+            addToast(`${data.message || '模板检查完成'}，请查看下方检查报告`, 'err');
+          } else {
+            addToast(data.message || '模板检查通过');
+          }
         } catch (err) {
+          setValidationResult(null);
+          setValidationFilter('');
           addToast('检查失败：' + err.message, 'err');
         } finally {
           setChecking(false);
         }
       };
+
+      const warningCategoryMeta = [
+        { key: 'terminal', label: '兜底问题' },
+        { key: 'duplicate', label: '重复规则' },
+        { key: 'order', label: '顺序风险' },
+        { key: 'shadowing', label: '覆盖风险' },
+        { key: 'ruleset', label: 'Ruleset 展开失败' },
+        { key: 'other', label: '其他' },
+      ];
+
+      const warningMatchesCategory = (warning, category) => {
+        switch (category) {
+          case 'terminal':
+            return warning.includes('兜底规则') || warning.includes('缺少兜底规则');
+          case 'duplicate':
+            return warning.includes('重复规则') || warning.includes('重复：');
+          case 'order':
+            return warning.includes('顺序风险');
+          case 'shadowing':
+            return warning.includes('覆盖');
+          case 'ruleset':
+            return warning.includes('ruleset 无法展开');
+          case 'other':
+            return !warningMatchesCategory(warning, 'terminal')
+              && !warningMatchesCategory(warning, 'duplicate')
+              && !warningMatchesCategory(warning, 'order')
+              && !warningMatchesCategory(warning, 'shadowing')
+              && !warningMatchesCategory(warning, 'ruleset');
+          default:
+            return true;
+        }
+      };
+
+      const filteredWarnings = (() => {
+        const warnings = Array.isArray(validationResult?.warnings) ? validationResult.warnings : [];
+        if (!validationFilter) return warnings;
+        return warnings.filter(item => warningMatchesCategory(item, validationFilter));
+      })();
 
       /* 打开删除确认 Modal */
       const openDelete = (tpl) => {
@@ -619,6 +688,52 @@
                         onChange={handleEditorChange}
                         height="100%"
                       />
+                      {validationResult && (
+                        <div className={`val-report${validationResult?.warnings?.length ? ' warn' : ' ok'}`}>
+                          <div className="val-head">
+                            <div className="val-title">检查报告</div>
+                            <div className="val-msg">{validationResult.message || '模板检查通过'}</div>
+                          </div>
+                          {validationResult.warning_summary && Object.keys(validationResult.warning_summary).length > 0 && (
+                            <div className="val-summary">
+                              {warningCategoryMeta.map(item => {
+                                const count = validationResult.warning_summary[item.key];
+                                if (!count) return null;
+                                const active = validationFilter === item.key;
+                                return (
+                                  <button
+                                    key={item.key}
+                                    type="button"
+                                    className={`val-chip${active ? ' active' : ''}`}
+                                    onClick={() => setValidationFilter(active ? '' : item.key)}
+                                    title={active ? '取消筛选' : `只看${item.label}`}
+                                  >
+                                    {item.label} {count}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {Array.isArray(validationResult.warnings) && validationResult.warnings.length > 0 ? (
+                            <div className="val-list">
+                              {filteredWarnings.slice(0, 50).map((item, idx) => (
+                                <div key={idx} className="val-item">{idx + 1}. {item}</div>
+                              ))}
+                              {validationFilter && (
+                                <div className="val-more">当前筛选：{warningCategoryMeta.find(item => item.key === validationFilter)?.label || validationFilter}</div>
+                              )}
+                              {filteredWarnings.length > 50 ? (
+                                <div className="val-more">其余 {filteredWarnings.length - 50} 条未展开显示</div>
+                              ) : null}
+                              {filteredWarnings.length === 0 ? (
+                                <div className="val-more">当前分类下没有可展示的告警。</div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <div className="val-ok">未发现规则问题。</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

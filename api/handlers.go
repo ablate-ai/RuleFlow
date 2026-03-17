@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/ablate-ai/RuleFlow/cache"
 	"github.com/ablate-ai/RuleFlow/database"
 	"github.com/ablate-ai/RuleFlow/internal/app"
 	"github.com/ablate-ai/RuleFlow/services"
@@ -70,6 +71,7 @@ type Handlers struct {
 	subscriptionSyncService *services.SubscriptionSyncService
 	ruleSourceSyncService   *services.RuleSourceSyncService
 	policyCache             policyConfigCache
+	redisClient             *cache.Client
 }
 
 // NewHandlers 创建 API 处理器
@@ -83,6 +85,7 @@ func NewHandlers(
 	subscriptionSyncService *services.SubscriptionSyncService,
 	ruleSourceSyncService *services.RuleSourceSyncService,
 	policyCache policyConfigCache,
+	redisClient *cache.Client,
 ) *Handlers {
 	return &Handlers{
 		subscriptionService:     subscriptionService,
@@ -94,6 +97,7 @@ func NewHandlers(
 		subscriptionSyncService: subscriptionSyncService,
 		ruleSourceSyncService:   ruleSourceSyncService,
 		policyCache:             policyCache,
+		redisClient:             redisClient,
 	}
 }
 
@@ -304,6 +308,7 @@ func (h *Handlers) ValidateTemplate(w http.ResponseWriter, r *http.Request) {
 	if len(warnings) > 0 {
 		result.Message = fmt.Sprintf("模板可生成，但发现 %d 个规则问题", len(warnings))
 		result.Warnings = warnings
+		result.WarningSummary = summarizeLintWarnings(warnings)
 	}
 
 	SendSuccess(w, result)
