@@ -29,16 +29,9 @@
       {
         "domain_suffix": [
           "nioint.com",
-          "nio.com",
           "nevint.com"
         ],
         "server": "dns_local"
-      },
-      {
-        "rule_set": [
-          "need_direct"
-        ],
-        "server": "dns_direct"
       },
       {
         "rule_set": [
@@ -466,6 +459,22 @@
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "need_proxy",
+        "url": "/rulesets/need_proxy?target=sing-box",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "ai_ai_ai",
+        "url": "/rulesets/ai_ai_ai?target=sing-box",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
       }
     ],
     "rules": [
@@ -485,19 +494,8 @@
         "outbound": "DIRECT"
       },
       {
-        "domain_suffix": [
-          "internal.example",
-          "nioint.com",
-          "nio.com",
-          "nevint.com",
-          "dev.example",
-          "juejin.cn",
-          "bochk.com",
-          "hf-mirror.com",
-          "lmstudio.ai",
-          "intl-subscription.iqiyi.com",
-          "intl-rcd.iqiyi.com",
-          "intl.iqiyi.com"
+        "rule_set": [
+          "need_direct"
         ],
         "outbound": "DIRECT"
       },
@@ -515,66 +513,16 @@
         "outbound": "🏠 wireguard-home"
       },
       {
-        "domain": [
-          "cache.video.iqiyi.com"
-        ],
-        "outbound": "DIRECT"
-      },
-      {
         "domain_suffix": [
           "polymarket.com"
         ],
         "outbound": "🇯🇵 JP"
       },
       {
-        "domain_suffix": [
-          "payment.example"
-        ],
-        "outbound": "🛰 Auto"
-      },
-      {
-        "domain_suffix": [
-          "claude.ai",
-          "usefathom.com",
-          "servd-anthropic-website.b-cdn.net",
-          "claudeusercontent.com",
-          "cdn.usefathom.com",
-          "anthropic.com"
-        ],
-        "outbound": "🤖 AI"
-      },
-      {
-        "domain_suffix": [
-          "huggingface.co",
-          "hf.co",
-          "brew.sh",
-          "npmjs.org",
-          "discordapp.net",
-          "cloudflarestorage.com",
-          "pypi.org",
-          "pythonhosted.org",
-          "golang.org",
-          "docker.com",
-          "alpinelinux.org",
-          "githubusercontent.com",
-          "github.com",
-          "amazonaws.com"
+        "rule_set": [
+          "need_proxy"
         ],
         "outbound": "🌐 Proxy"
-      },
-      {
-        "domain_suffix": [
-          "alpaca.markets"
-        ],
-        "outbound": "🇭🇰 HK"
-      },
-      {
-        "ip_cidr": [
-          "44.215.95.164/32",
-          "64.186.229.131/32",
-          "176.34.57.76/32"
-        ],
-        "outbound": "DIRECT"
       },
       {
         "network": [
@@ -610,7 +558,8 @@
       {
         "rule_set": [
           "ai_non_ip",
-          "ai_ai"
+          "ai_ai",
+          "ai_ai_ai"
         ],
         "outbound": "🤖 AI"
       },

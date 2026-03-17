@@ -487,7 +487,7 @@ func TestBuildSingBoxDefaultTemplateIncludesNeedDirectRuleSet(t *testing.T) {
 	}
 }
 
-func TestBuildSingBoxDefaultTemplateKeepsNioDomainsOnLocalDNS(t *testing.T) {
+func TestBuildSingBoxDefaultTemplateKeepsInternalDomainsOnLocalDNS(t *testing.T) {
 	config, err := BuildSingBoxFromDefaultTemplate(nil)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
@@ -518,26 +518,23 @@ func TestBuildSingBoxDefaultTemplateKeepsNioDomainsOnLocalDNS(t *testing.T) {
 			continue
 		}
 		hasNioint := false
-		hasNio := false
 		hasNevint := false
 		for _, domain := range domains {
 			switch domain {
 			case "nioint.com":
 				hasNioint = true
-			case "nio.com":
-				hasNio = true
 			case "nevint.com":
 				hasNevint = true
 			}
 		}
-		if hasNioint && hasNio && hasNevint {
+		if hasNioint && hasNevint {
 			foundLocalRule = true
 			break
 		}
 	}
 
 	if !foundLocalRule {
-		t.Fatalf("期望 NIO 域名继续使用 dns_local 解析，实际配置为:\n%s", config)
+		t.Fatalf("期望内部域名继续使用 dns_local 解析，实际配置为:\n%s", config)
 	}
 }
 
