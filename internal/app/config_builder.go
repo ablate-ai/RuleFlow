@@ -178,18 +178,23 @@ func adaptConfigForTarget(cfg map[string]interface{}, target string) {
 }
 
 func adaptProxyGroupsForTarget(groups []interface{}, target string) {
-	if target != "stash" {
-		return
-	}
-
 	for _, item := range groups {
 		groupMap, ok := item.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if url, exists := groupMap["url"]; exists {
-			groupMap["benchmark-url"] = url
-			delete(groupMap, "url")
+
+		switch target {
+		case "stash":
+			if url, exists := groupMap["url"]; exists {
+				groupMap["benchmark-url"] = url
+				delete(groupMap, "url")
+			}
+		case "clash-meta":
+			if benchmarkURL, exists := groupMap["benchmark-url"]; exists {
+				groupMap["url"] = benchmarkURL
+				delete(groupMap, "benchmark-url")
+			}
 		}
 	}
 }
