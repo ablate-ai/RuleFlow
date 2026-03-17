@@ -211,7 +211,10 @@ func dedupeRuleSetRules(rules []RuleSetRule) []RuleSetRule {
 	seen := make(map[string]struct{}, len(rules))
 	out := make([]RuleSetRule, 0, len(rules))
 	for _, rule := range rules {
-		key := fmt.Sprintf("%s|%s|%t", rule.Type, rule.Value, rule.NoResolve)
+		key := fmt.Sprintf("%s|%s", rule.Type, rule.Value)
+		if rule.Type == "ip_cidr" {
+			key = fmt.Sprintf("%s|%s|%t", rule.Type, rule.Value, rule.NoResolve)
+		}
 		if _, ok := seen[key]; ok {
 			continue
 		}

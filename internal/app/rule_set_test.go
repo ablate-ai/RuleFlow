@@ -39,3 +39,35 @@ func TestExportRuleSetSingBox(t *testing.T) {
 		t.Fatalf("unexpected sing-box export: %s", content)
 	}
 }
+
+func TestDedupeRuleSetRulesIgnoreNoResolveForNonIP(t *testing.T) {
+	rules := []RuleSetRule{
+		{Type: "domain", Value: "example.com"},
+		{Type: "domain", Value: "example.com", NoResolve: true},
+		{Type: "ip_cidr", Value: "1.1.1.1/32"},
+		{Type: "ip_cidr", Value: "1.1.1.1/32", NoResolve: true},
+	}
+
+	got := dedupeRuleSetRules(rules)
+	if len(got) != 3 {
+		t.Fatalf("dedupeRuleSetRules() len = %d, want 3; rules=%+v", len(got), got)
+	}
+
+	domainCount := 0
+	ipCount := 0
+	for _, rule := range got {
+		switch rule.Type {
+		case "domain":
+			domainCount++
+		case "ip_cidr":
+			ipCount++
+		}
+	}
+
+	if domainCount != 1 {
+		t.Fatalf("domain rules count = %d, want 1; rules=%+v", domainCount, got)
+	}
+	if ipCount != 2 {
+		t.Fatalf("ip rules count = %d, want 2; rules=%+v", ipCount, got)
+	}
+}
