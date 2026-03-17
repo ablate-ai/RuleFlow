@@ -109,7 +109,8 @@
         setPolicies(res.data || []);
       }, []);
 
-      const loadLogs = useCallback(async (nextFilters = filters, silent = false) => {
+      const loadLogs = useCallback(async (nextFilters, silent = false) => {
+        const activeFilters = nextFilters || defaultFilters;
         if (silent) {
           setRefreshing(true);
         } else {
@@ -117,10 +118,10 @@
         }
         try {
           const params = new URLSearchParams();
-          if (nextFilters.policy_id) params.set('policy_id', nextFilters.policy_id);
-          if (nextFilters.success) params.set('success', nextFilters.success);
-          if (nextFilters.cache_hit) params.set('cache_hit', nextFilters.cache_hit);
-          if (nextFilters.limit) params.set('limit', nextFilters.limit);
+          if (activeFilters.policy_id) params.set('policy_id', activeFilters.policy_id);
+          if (activeFilters.success) params.set('success', activeFilters.success);
+          if (activeFilters.cache_hit) params.set('cache_hit', activeFilters.cache_hit);
+          if (activeFilters.limit) params.set('limit', activeFilters.limit);
           const res = await api.get(`/api/config-access-logs?${params.toString()}`);
           setLogs(res.data || []);
         } catch (err) {
@@ -129,7 +130,7 @@
           setLoading(false);
           setRefreshing(false);
         }
-      }, [addToast, filters]);
+      }, [addToast]);
 
       useEffect(() => {
         Promise.all([loadPolicies(), loadLogs(defaultFilters)]).catch(err => {
@@ -167,6 +168,12 @@
         addToast('访问日志已刷新');
       };
 
+      const updateServerFilters = async (patch) => {
+        const nextFilters = { ...filters, ...patch };
+        setFilters(nextFilters);
+        await loadLogs(nextFilters, true);
+      };
+
       const resetFilters = async () => {
         setFilters(defaultFilters);
         await loadLogs(defaultFilters, true);
@@ -179,7 +186,7 @@
             <div className="ph">
               <div>
                 <div className="pt">访问日志</div>
-                <div className="ps">集中查看生成订阅的请求记录，支持按策略、成功状态、缓存命中和关键词筛选。</div>
+                <div className="ps">集中查看生成订阅的请求记录。策略、结果、缓存和条数会自动刷新，关键词只在当前结果里本地筛选。</div>
               </div>
               <div className="phr">
                 <a className="btn btn-s" href="/configs"><IcoSettings />查看策略</a>
@@ -194,7 +201,7 @@
               <div className="card-h">
                 <div>
                   <div className="card-ht">筛选条件</div>
-                  <div className="card-hs">服务端先过滤策略、成功状态与缓存命中，关键词在当前结果里做本地搜索。</div>
+                  <div className="card-hs">服务端筛选项修改后立即生效，关键词在当前结果里做本地搜索。</div>
                 </div>
                 <button className="btn btn-s" onClick={resetFilters}>重置</button>
               </div>
@@ -202,7 +209,7 @@
                 <div className="filters">
                   <div className="fg">
                     <label className="fl">策略</label>
-                    <select className="fc" value={filters.policy_id} onChange={e => setFilters(f => ({ ...f, policy_id: e.target.value }))}>
+                    <select className="fc" value={filters.policy_id} onChange={e => updateServerFilters({ policy_id: e.target.value })}>
                       <option value="">全部策略</option>
                       {policies.map(policy => (
                         <option key={policy.id} value={policy.id}>{policy.name}</option>
@@ -211,7 +218,7 @@
                   </div>
                   <div className="fg">
                     <label className="fl">结果</label>
-                    <select className="fc" value={filters.success} onChange={e => setFilters(f => ({ ...f, success: e.target.value }))}>
+                    <select className="fc" value={filters.success} onChange={e => updateServerFilters({ success: e.target.value })}>
                       <option value="">全部</option>
                       <option value="true">仅成功</option>
                       <option value="false">仅失败</option>
@@ -219,7 +226,7 @@
                   </div>
                   <div className="fg">
                     <label className="fl">缓存</label>
-                    <select className="fc" value={filters.cache_hit} onChange={e => setFilters(f => ({ ...f, cache_hit: e.target.value }))}>
+                    <select className="fc" value={filters.cache_hit} onChange={e => updateServerFilters({ cache_hit: e.target.value })}>
                       <option value="">全部</option>
                       <option value="true">仅缓存命中</option>
                       <option value="false">仅实时生成</option>
@@ -227,7 +234,7 @@
                   </div>
                   <div className="fg">
                     <label className="fl">条数</label>
-                    <select className="fc" value={filters.limit} onChange={e => setFilters(f => ({ ...f, limit: e.target.value }))}>
+                    <select className="fc" value={filters.limit} onChange={e => updateServerFilters({ limit: e.target.value })}>
                       <option value="50">50</option>
                       <option value="100">100</option>
                       <option value="200">200</option>
