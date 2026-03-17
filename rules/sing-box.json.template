@@ -27,6 +27,14 @@
     ],
     "rules": [
       {
+        "domain_suffix": [
+          "nioint.com",
+          "nio.com",
+          "nevint.com"
+        ],
+        "server": "dns_local"
+      },
+      {
         "rule_set": [
           "need_direct"
         ],

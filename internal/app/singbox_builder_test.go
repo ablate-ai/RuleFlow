@@ -487,6 +487,60 @@ func TestBuildSingBoxDefaultTemplateIncludesNeedDirectRuleSet(t *testing.T) {
 	}
 }
 
+func TestBuildSingBoxDefaultTemplateKeepsNioDomainsOnLocalDNS(t *testing.T) {
+	config, err := BuildSingBoxFromDefaultTemplate(nil)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	dns, ok := cfg["dns"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 dns")
+	}
+	dnsRules, ok := dns["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 dns.rules")
+	}
+
+	foundLocalRule := false
+	for _, item := range dnsRules {
+		rule, ok := item.(map[string]interface{})
+		if !ok || rule["server"] != "dns_local" {
+			continue
+		}
+		domains, ok := rule["domain_suffix"].([]interface{})
+		if !ok {
+			continue
+		}
+		hasNioint := false
+		hasNio := false
+		hasNevint := false
+		for _, domain := range domains {
+			switch domain {
+			case "nioint.com":
+				hasNioint = true
+			case "nio.com":
+				hasNio = true
+			case "nevint.com":
+				hasNevint = true
+			}
+		}
+		if hasNioint && hasNio && hasNevint {
+			foundLocalRule = true
+			break
+		}
+	}
+
+	if !foundLocalRule {
+		t.Fatalf("期望 NIO 域名继续使用 dns_local 解析，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
