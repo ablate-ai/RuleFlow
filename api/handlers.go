@@ -291,12 +291,22 @@ func (h *Handlers) ValidateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := buildConfigContent(r, templateValidationNodes(), req.Content, target); err != nil {
+	configContent, err := buildConfigContent(r, templateValidationNodes(), req.Content, target)
+	if err != nil {
 		SendError(w, http.StatusBadRequest, "模板检查失败: "+err.Error())
 		return
 	}
 
-	SendSuccess(w, map[string]string{"message": "模板检查通过"})
+	warnings := lintGeneratedTemplate(r.Context(), h, target, configContent)
+	result := templateValidationResult{
+		Message: "模板检查通过",
+	}
+	if len(warnings) > 0 {
+		result.Message = fmt.Sprintf("模板可生成，但发现 %d 个规则问题", len(warnings))
+		result.Warnings = warnings
+	}
+
+	SendSuccess(w, result)
 }
 
 // UpdateTemplate 更新模板
