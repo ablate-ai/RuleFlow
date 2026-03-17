@@ -131,7 +131,7 @@ Surge 客户端会自动识别响应中的 `#!MANAGED-CONFIG` 头，支持远程
 
 在 `proxy-groups` 中支持两个扩展字段，生成配置时自动处理并从输出中删除：
 
-`url` 字段在 Clash Meta 输出中保持为 `url`，在 Stash 输出中会自动转换为 `benchmark-url`。
+`url` 和 `benchmark-url` 可混写；生成时会按目标客户端自动规范化：Clash Meta 输出 `url`，Stash 输出 `benchmark-url`。
 
 #### `filter` — 节点过滤
 

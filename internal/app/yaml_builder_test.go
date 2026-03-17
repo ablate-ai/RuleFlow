@@ -66,6 +66,46 @@ rules: []
 	}
 }
 
+func TestClashMetaProxyGroupsUseURL(t *testing.T) {
+	templateContent := `proxy-groups:
+  - type: select
+    name: 📺 Stream
+    benchmark-url: http://wifi.vivo.com.cn/generate_204
+    proxies: ["🚀 Proxy", "🇺🇸 US", "🇯🇵 JP", "🇭🇰 HK", "🇸🇬 SG"]
+  - type: url-test
+    name: ⚡ Auto
+    benchmark-url: http://wifi.vivo.com.cn/generate_204
+    proxies: ["__NODES__"]
+proxies: []
+rules: []
+`
+
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "us.hnl.qqpw",
+			Server:   "us.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "us.example.com",
+			},
+		},
+	}
+
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-meta")
+	if err != nil {
+		t.Fatalf("生成 Clash Meta 配置失败: %v", err)
+	}
+
+	if strings.Contains(config, "benchmark-url: http://wifi.vivo.com.cn/generate_204") {
+		t.Fatalf("Clash Meta proxy-groups 不应保留 benchmark-url 字段，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "url: http://wifi.vivo.com.cn/generate_204") {
+		t.Fatalf("Clash Meta proxy-groups 应使用 url 字段，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildYAMLConfigForTargets(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
