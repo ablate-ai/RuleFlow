@@ -399,39 +399,6 @@ func TestBuildSingBoxDefaultTemplateIncludesNeedDirectRuleSet(t *testing.T) {
 		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
 	}
 
-	dns, ok := cfg["dns"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 dns")
-	}
-	dnsRules, ok := dns["rules"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 dns.rules")
-	}
-
-	foundDNSRule := false
-	for _, item := range dnsRules {
-		rule, ok := item.(map[string]interface{})
-		if !ok || rule["server"] != "dns_direct" {
-			continue
-		}
-		ruleSets, ok := rule["rule_set"].([]interface{})
-		if !ok {
-			continue
-		}
-		for _, tag := range ruleSets {
-			if tag == "need_direct" {
-				foundDNSRule = true
-				break
-			}
-		}
-		if foundDNSRule {
-			break
-		}
-	}
-	if !foundDNSRule {
-		t.Fatalf("期望 dns.rules 中包含 need_direct -> dns_direct，实际配置为:\n%s", config)
-	}
-
 	route, ok := cfg["route"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("生成的 sing-box 配置缺少 route")

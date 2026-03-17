@@ -57,6 +57,7 @@
           "stream_ip",
           "ai_non_ip",
           "ai_ai",
+          "ai_ai_ai",
           "telegram_non_ip",
           "telegram_ip",
           "telegram_asn_ip",
@@ -490,12 +491,6 @@
         "wifi_ssid": [
           "YOUR_WIFI_SSID",
           "YOUR_WIFI_SSID_5G"
-        ],
-        "outbound": "DIRECT"
-      },
-      {
-        "rule_set": [
-          "need_direct"
         ],
         "outbound": "DIRECT"
       },
