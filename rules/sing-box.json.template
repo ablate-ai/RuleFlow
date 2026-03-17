@@ -39,8 +39,6 @@
           "apple_cn_non_ip",
           "microsoft_cdn_non_ip",
           "microsoft_non_ip",
-          "neteasemusic_non_ip",
-          "neteasemusic_ip",
           "download_domainset",
           "download_non_ip",
           "lan_non_ip",
@@ -367,14 +365,6 @@
       },
       {
         "type": "remote",
-        "tag": "neteasemusic_non_ip",
-        "url": "https://ruleset.skk.moe/sing-box/non_ip/neteasemusic.json",
-        "format": "source",
-        "download_detour": "🌐 Proxy",
-        "update_interval": "12h"
-      },
-      {
-        "type": "remote",
         "tag": "download_domainset",
         "url": "https://ruleset.skk.moe/sing-box/domainset/download.json",
         "format": "source",
@@ -441,14 +431,6 @@
         "type": "remote",
         "tag": "telegram_asn_ip",
         "url": "https://ruleset.skk.moe/sing-box/ip/telegram_asn.json",
-        "format": "source",
-        "download_detour": "🌐 Proxy",
-        "update_interval": "12h"
-      },
-      {
-        "type": "remote",
-        "tag": "neteasemusic_ip",
-        "url": "https://ruleset.skk.moe/sing-box/ip/neteasemusic.json",
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
@@ -653,8 +635,6 @@
           "apple_cn_non_ip",
           "microsoft_cdn_non_ip",
           "microsoft_non_ip",
-          "neteasemusic_non_ip",
-          "neteasemusic_ip",
           "download_domainset",
           "download_non_ip",
           "lan_non_ip",
