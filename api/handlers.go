@@ -54,6 +54,11 @@ type convertRequestParams struct {
 	target     string
 }
 
+type validateTemplateRequest struct {
+	Content string `json:"content"`
+	Target  string `json:"target"`
+}
+
 // Handlers API 处理器
 type Handlers struct {
 	subscriptionService     *services.SubscriptionService
@@ -265,6 +270,33 @@ func (h *Handlers) ListTemplates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendSuccess(w, tpls)
+}
+
+// ValidateTemplate 校验模板内容
+func (h *Handlers) ValidateTemplate(w http.ResponseWriter, r *http.Request) {
+	var req validateTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "无效的请求体")
+		return
+	}
+
+	if strings.TrimSpace(req.Content) == "" {
+		SendError(w, http.StatusBadRequest, "模板内容不能为空")
+		return
+	}
+
+	target, err := resolveConfigTarget(req.Target, "")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if _, err := buildConfigContent(r, templateValidationNodes(), req.Content, target); err != nil {
+		SendError(w, http.StatusBadRequest, "模板检查失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(w, map[string]string{"message": "模板检查通过"})
 }
 
 // UpdateTemplate 更新模板
@@ -1401,6 +1433,22 @@ func resolveConfigTarget(rawTarget, fallback string) (string, error) {
 		return "sing-box", nil
 	default:
 		return "", fmt.Errorf("不支持的 target: %s", candidate)
+	}
+}
+
+func templateValidationNodes() []*app.ProxyNode {
+	return []*app.ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "示例节点",
+			Server:   "example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password":         "ruleflow-check",
+				"sni":              "example.com",
+				"skip-cert-verify": true,
+			},
+		},
 	}
 }
 

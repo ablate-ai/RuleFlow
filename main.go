@@ -238,6 +238,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 		// 模板管理
 		r.Get("/templates", apiHandlers.ListTemplates)
 		r.Post("/templates", apiHandlers.CreateTemplate)
+		r.Post("/templates/validate", apiHandlers.ValidateTemplate)
 		r.Route("/templates/{id}", func(r chi.Router) {
 			r.Get("/", apiHandlers.GetTemplate)
 			r.Put("/", apiHandlers.UpdateTemplate)

@@ -189,6 +189,7 @@
         }
         const url = new URL('/templates', window.location.origin);
         url.searchParams.set('edit', String(tpl.id));
+        url.searchParams.set('return_to', window.location.pathname + window.location.search + window.location.hash);
         window.location.href = url.toString();
       }, [templates, addToast]);
 
