@@ -203,12 +203,14 @@
 
       /* 打开编辑 Modal */
       const openEdit = (policy) => {
+        const validSubIDs = new Set(subscriptions.map(item => Number(item.id)));
+        const validNodeIDs = new Set(manualNodes.map(item => Number(item.id)));
         setEditItem(policy);
         setForm({
           name: policy.name,
           target: policy.target,
-          subscription_ids: (policy.subscription_ids || []).map(Number),
-          node_ids: (policy.node_ids || []).map(Number),
+          subscription_ids: (policy.subscription_ids || []).map(Number).filter(id => validSubIDs.has(id)),
+          node_ids: (policy.node_ids || []).map(Number).filter(id => validNodeIDs.has(id)),
           template_name: policy.template_name || '',
           description: policy.description || '',
           enabled: policy.enabled,

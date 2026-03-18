@@ -34,11 +34,9 @@ func NewConfigPolicyService(
 
 // Create 创建配置策略
 func (s *ConfigPolicyService) Create(ctx context.Context, policy *database.ConfigPolicy) error {
-	// 验证订阅源是否存在
-	for _, subID := range policy.SubscriptionIDs {
-		if _, err := s.subRepo.GetByID(ctx, subID); err != nil {
-			return fmt.Errorf("订阅源不存在: %d", subID)
-		}
+	s.sanitizePolicyReferences(ctx, policy)
+	if err := s.ValidateConfig(policy); err != nil {
+		return err
 	}
 
 	// 验证目标类型
@@ -71,11 +69,9 @@ func (s *ConfigPolicyService) List(ctx context.Context) ([]*database.ConfigPolic
 
 // Update 更新配置策略
 func (s *ConfigPolicyService) Update(ctx context.Context, policy *database.ConfigPolicy) error {
-	// 验证订阅源是否存在
-	for _, subID := range policy.SubscriptionIDs {
-		if _, err := s.subRepo.GetByID(ctx, subID); err != nil {
-			return fmt.Errorf("订阅源不存在: %d", subID)
-		}
+	s.sanitizePolicyReferences(ctx, policy)
+	if err := s.ValidateConfig(policy); err != nil {
+		return err
 	}
 
 	// 验证目标类型
@@ -153,6 +149,43 @@ func (s *ConfigPolicyService) ValidateConfig(policy *database.ConfigPolicy) erro
 	}
 
 	return nil
+}
+
+func (s *ConfigPolicyService) sanitizePolicyReferences(ctx context.Context, policy *database.ConfigPolicy) {
+	policy.SubscriptionIDs = sanitizeExistingIDs(policy.SubscriptionIDs, func(id int64) bool {
+		if s.subRepo == nil {
+			return true
+		}
+		_, err := s.subRepo.GetByID(ctx, id)
+		return err == nil
+	})
+	policy.NodeIDs = sanitizeExistingIDs(policy.NodeIDs, func(id int64) bool {
+		if s.nodeRepo == nil {
+			return true
+		}
+		_, err := s.nodeRepo.GetByID(ctx, id)
+		return err == nil
+	})
+}
+
+func sanitizeExistingIDs(ids []int64, exists func(int64) bool) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	out := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		if exists != nil && !exists(id) {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
 }
 
 // GetNodesForPolicy 获取策略对应的节点
