@@ -660,7 +660,7 @@ func stringSliceOption(opts map[string]interface{}, keys ...string) ([]string, b
 
 func builtInProxyName(name string) bool {
 	switch name {
-	case "DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE":
+	case "DIRECT", "REJECT", "REJECT-DROP", "REJECT-NO-DROP", "PASS", "COMPATIBLE":
 		return true
 	default:
 		return false
