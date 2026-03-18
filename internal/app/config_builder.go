@@ -500,6 +500,7 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 		}
 		yamlSetInMapping(mapping, "rules", rulesNode)
 	}
+	pruneYAMLRulesWithMissingPolicies(mapping)
 
 	yamlData, err := yaml.Marshal(&doc)
 	if err != nil {
@@ -530,12 +531,125 @@ func BuildYAMLFromDefaultTemplate(nodes []*ProxyNode, target string) (string, er
 		},
 	}
 	cfg["rules"] = cloneRules(defaultRules)
+	pruneYAMLRuleStrings(cfg)
 
 	yamlData, err := yaml.Marshal(cfg)
 	if err != nil {
 		return "", fmt.Errorf("生成配置失败")
 	}
 	return string(yamlData), nil
+}
+
+func pruneYAMLRulesWithMissingPolicies(mapping *yaml.Node) {
+	validPolicies := yamlKnownPolicyNames(mapping)
+	if len(validPolicies) == 0 {
+		return
+	}
+
+	rulesNode := yamlFindInMapping(mapping, "rules")
+	if rulesNode == nil {
+		return
+	}
+
+	var rules []string
+	if err := rulesNode.Decode(&rules); err != nil {
+		return
+	}
+
+	pruned := pruneYAMLRuleStringsWithPolicies(rules, validPolicies)
+	newRulesNode, err := yamlValueToNode(pruned)
+	if err != nil {
+		return
+	}
+	yamlSetInMapping(mapping, "rules", newRulesNode)
+}
+
+func pruneYAMLRuleStrings(cfg map[string]interface{}) {
+	validPolicies := make(map[string]struct{})
+
+	if proxies, ok := cfg["proxies"].([]Proxy); ok {
+		for _, proxy := range proxies {
+			if proxy.Name != "" {
+				validPolicies[proxy.Name] = struct{}{}
+			}
+		}
+	}
+	if groups, ok := cfg["proxy-groups"].([]Group); ok {
+		for _, group := range groups {
+			if group.Name != "" {
+				validPolicies[group.Name] = struct{}{}
+			}
+		}
+	}
+	if len(validPolicies) == 0 {
+		return
+	}
+
+	rules, ok := cfg["rules"].([]string)
+	if !ok {
+		return
+	}
+	cfg["rules"] = pruneYAMLRuleStringsWithPolicies(rules, validPolicies)
+}
+
+func pruneYAMLRuleStringsWithPolicies(rules []string, validPolicies map[string]struct{}) []string {
+	pruned := make([]string, 0, len(rules))
+	for _, rule := range rules {
+		policy := yamlRulePolicy(rule)
+		if policy == "" || builtInProxyName(policy) {
+			pruned = append(pruned, rule)
+			continue
+		}
+		if _, exists := validPolicies[policy]; exists {
+			pruned = append(pruned, rule)
+		}
+	}
+	return pruned
+}
+
+func yamlKnownPolicyNames(mapping *yaml.Node) map[string]struct{} {
+	known := make(map[string]struct{})
+
+	proxiesNode := yamlFindInMapping(mapping, "proxies")
+	if proxiesNode != nil {
+		var proxies []map[string]interface{}
+		if err := proxiesNode.Decode(&proxies); err == nil {
+			for _, proxy := range proxies {
+				if name, _ := proxy["name"].(string); name != "" {
+					known[name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	groupsNode := yamlFindInMapping(mapping, "proxy-groups")
+	if groupsNode != nil {
+		var groups []map[string]interface{}
+		if err := groupsNode.Decode(&groups); err == nil {
+			for _, group := range groups {
+				if name, _ := group["name"].(string); name != "" {
+					known[name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return known
+}
+
+func yamlRulePolicy(rule string) string {
+	parts := strings.Split(rule, ",")
+	if len(parts) < 2 {
+		return ""
+	}
+
+	ruleType := strings.ToUpper(strings.TrimSpace(parts[0]))
+	switch ruleType {
+	case "MATCH":
+		return strings.TrimSpace(parts[1])
+	default:
+		return strings.TrimSpace(parts[len(parts)-1])
+	}
 }
 
 // buildYAMLFromSourceTemplateWithTrojan 从 Trojan 节点构建配置（向后兼容）

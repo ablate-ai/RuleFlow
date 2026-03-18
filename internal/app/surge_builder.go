@@ -124,6 +124,7 @@ func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (
 		wireGuardSectionsInserted = true
 	}
 
+	out = pruneSurgeRulesWithMissingPolicies(out)
 	return strings.Join(out, "\n"), nil
 }
 
@@ -259,6 +260,82 @@ func surgePolicyName(line string) (string, bool) {
 		return "", false
 	}
 	return name, true
+}
+
+func pruneSurgeRulesWithMissingPolicies(lines []string) []string {
+	validPolicies := collectSurgeKnownPolicies(lines)
+	if len(validPolicies) == 0 {
+		return lines
+	}
+
+	out := make([]string, 0, len(lines))
+	section := ""
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			section = trimmed
+			out = append(out, line)
+			continue
+		}
+
+		if section == "[Rule]" {
+			if policy, ok := surgeRulePolicy(line); ok {
+				if !builtInProxyName(policy) {
+					if _, exists := validPolicies[policy]; !exists {
+						continue
+					}
+				}
+			}
+		}
+
+		out = append(out, line)
+	}
+
+	return out
+}
+
+func collectSurgeKnownPolicies(lines []string) map[string]struct{} {
+	known := make(map[string]struct{})
+	section := ""
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(strings.TrimRight(line, "\r"))
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			section = trimmed
+			continue
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, ";") {
+			continue
+		}
+
+		switch section {
+		case "[Proxy]", "[Proxy Group]":
+			if name, ok := surgePolicyName(line); ok {
+				known[name] = struct{}{}
+			}
+		}
+	}
+	return known
+}
+
+func surgeRulePolicy(line string) (string, bool) {
+	trimmed := strings.TrimSpace(strings.TrimRight(line, "\r"))
+	if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, ";") {
+		return "", false
+	}
+
+	parts := strings.Split(trimmed, ",")
+	if len(parts) < 2 {
+		return "", false
+	}
+	if strings.EqualFold(strings.TrimSpace(parts[0]), "FINAL") {
+		return "", false
+	}
+
+	policy := strings.TrimSpace(parts[2-1])
+	if len(parts) >= 3 {
+		policy = strings.TrimSpace(parts[2])
+	}
+	return policy, policy != ""
 }
 
 func surgePolicyRightPart(line string) (string, bool) {

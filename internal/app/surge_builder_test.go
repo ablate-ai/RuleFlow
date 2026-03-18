@@ -332,6 +332,88 @@ SG = select, __NODES__, policy-regex-filter=^((?!v2).)*$
 	}
 }
 
+func TestBuildSurgePrunesRulesForMissingPolicy(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "US Node 1",
+			Server:   "us1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "us1.example.com",
+			},
+		},
+	}
+
+	templateContent := `[General]
+loglevel = notify
+
+[Proxy]
+__NODES__
+
+[Proxy Group]
+🌐 Proxy = select, __NODES__
+
+[Rule]
+RULE-SET,/rulesets/wireguard-home?target=surge,🏠 wireguard-home
+RULE-SET,/rulesets/need_direct?target=surge,DIRECT
+FINAL,🌐 Proxy
+`
+
+	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("生成 Surge 配置失败: %v", err)
+	}
+
+	if strings.Contains(config, "RULE-SET,/rulesets/wireguard-home?target=surge,🏠 wireguard-home") {
+		t.Fatalf("未生成对应 policy 时，不应保留规则，实际配置为:\n%s", config)
+	}
+	if !strings.Contains(config, "RULE-SET,/rulesets/need_direct?target=surge,DIRECT") {
+		t.Fatalf("内置 policy 规则不应被裁掉，实际配置为:\n%s", config)
+	}
+}
+
+func TestBuildSurgeKeepsRulesForExistingPolicy(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "🏠 wireguard-home",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.0.10.3/32",
+				"private-key": "private-key",
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"0.0.0.0/0"},
+			},
+		},
+	}
+
+	templateContent := `[General]
+loglevel = notify
+
+[Proxy]
+__NODES__
+
+[Proxy Group]
+🌐 Proxy = select, __NODES__
+
+[Rule]
+RULE-SET,/rulesets/wireguard-home?target=surge,🏠 wireguard-home
+FINAL,🌐 Proxy
+`
+
+	config, err := BuildSurgeFromTemplateContent(nodes, templateContent)
+	if err != nil {
+		t.Fatalf("生成 Surge 配置失败: %v", err)
+	}
+
+	if !strings.Contains(config, "RULE-SET,/rulesets/wireguard-home?target=surge,🏠 wireguard-home") {
+		t.Fatalf("已存在对应 policy 时，应保留规则，实际配置为:\n%s", config)
+	}
+}
+
 func TestSurgeProxyLineSupportsAnyTLS(t *testing.T) {
 	node := &ProxyNode{
 		Protocol: "anytls",

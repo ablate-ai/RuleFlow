@@ -106,6 +106,104 @@ rules: []
 	}
 }
 
+func TestBuildYAMLPrunesRulesForMissingPolicy(t *testing.T) {
+	templateContent := `proxy-groups:
+  - type: select
+    name: 🚀 Proxy
+    proxies: ["DIRECT", "__NODES__"]
+proxies: []
+rules:
+  - RULE-SET,wireguard-home,🏠 Home
+  - RULE-SET,need_direct,DIRECT
+`
+
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "US Node 1",
+			Server:   "us1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "us1.example.com",
+			},
+		},
+	}
+
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-meta")
+	if err != nil {
+		t.Fatalf("生成 Clash Meta 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := yaml.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 YAML 不是合法配置: %v", err)
+	}
+	rules, ok := cfg["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 YAML 缺少 rules")
+	}
+
+	for _, item := range rules {
+		rule, _ := item.(string)
+		if strings.Contains(rule, "wireguard-home") || strings.Contains(rule, "🏠 Home") {
+			t.Fatalf("未生成对应 policy 时，不应保留规则，实际配置为:\n%s", config)
+		}
+	}
+}
+
+func TestBuildYAMLKeepsRulesForExistingPolicy(t *testing.T) {
+	templateContent := `proxy-groups:
+  - type: select
+    name: 🏠 Home
+    proxies: ["DIRECT", "__NODES__"]
+proxies: []
+rules:
+  - RULE-SET,wireguard-home,🏠 Home
+  - RULE-SET,need_direct,DIRECT
+`
+
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "🏠 wireguard-home",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.0.10.3/32",
+				"private-key": "private-key",
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"0.0.0.0/0"},
+			},
+		},
+	}
+
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "stash")
+	if err != nil {
+		t.Fatalf("生成 Stash 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := yaml.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 YAML 不是合法配置: %v", err)
+	}
+	rules, ok := cfg["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 YAML 缺少 rules")
+	}
+
+	found := false
+	for _, item := range rules {
+		rule, _ := item.(string)
+		if strings.Contains(rule, "RULE-SET,wireguard-home,🏠 Home") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("已存在对应 policy 时，应保留规则，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildYAMLConfigForTargets(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
