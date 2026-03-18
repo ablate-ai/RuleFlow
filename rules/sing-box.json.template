@@ -22,7 +22,7 @@
         "server": "cloudflare-dns.com",
         "path": "/dns-query",
         "domain_resolver": "dns_direct",
-        "detour": "🌐 Proxy"
+        "detour": "🚪 Relay"
       }
     ],
     "rules": [
@@ -148,7 +148,7 @@
         "__NODES__"
       ],
       "detour-proxy": "🚪 Relay",
-      "filter": "(?i)(美国|United States|🇺🇸|\\bUS\\b|\\bUSA\\b)",
+      "filter": "🇺🇸.*(bage)",
       "url": "http://latency-test.skk.moe/endpoint",
       "interval": "20m",
       "tolerance": 50
@@ -166,7 +166,7 @@
       "tolerance": 50
     },
     {
-      "type": "selector",
+      "type": "urltest",
       "tag": "🚪 Relay",
       "outbounds": [
         "__NODES__"
@@ -177,6 +177,7 @@
     {
       "type": "selector",
       "tag": "🎬 Stream",
+      "detour-proxy": "🚪 Relay",
       "outbounds": [
         "🤖 AI",
         "🇺🇸 US",
@@ -191,11 +192,11 @@
       "type": "selector",
       "tag": "🤖 AI",
       "detour-proxy": "🚪 Relay",
-      "filter": "qqpw|dmit",
+      "filter": "qqpw|dmit|vmiss|rn",
       "outbounds": [
         "__NODES__"
       ],
-      "default": "🚪 Relay",
+      "default": "🇺🇸 us.lax.dmit",
       "interrupt_exist_connections": true
     },
     "__OUTBOUNDS__",
@@ -447,6 +448,14 @@
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
+      },
+      {
+        "type": "remote",
+        "tag": "wireguard_home",
+        "url": "/rulesets/wireguard_home?target=sing-box",
+        "format": "source",
+        "download_detour": "🌐 Proxy",
+        "update_interval": "12h"
       }
     ],
     "rules": [
@@ -459,15 +468,8 @@
         "action": "hijack-dns"
       },
       {
-        "domain_suffix": [
-          "ooxo.cc"
-        ],
-        "outbound": "🏠 wireguard-home"
-      },
-      {
-        "ip_cidr": [
-          "192.168.100.0/24",
-          "10.0.10.0/24"
+        "rule_set": [
+          "wireguard_home"
         ],
         "outbound": "🏠 wireguard-home"
       },
