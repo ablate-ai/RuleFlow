@@ -57,7 +57,7 @@
           "stream_ip",
           "ai_non_ip",
           "ai_ai",
-          "ai_ai_ai",
+          "non_ip_ai",
           "telegram_non_ip",
           "telegram_ip",
           "telegram_asn_ip",
@@ -74,23 +74,6 @@
   },
   "endpoints": __ENDPOINTS__,
   "inbounds": [
-    {
-      "type": "mixed",
-      "tag": "mixed-in",
-      "listen": "0.0.0.0",
-      "listen_port": 7890,
-      "sniff": true,
-      "sniff_override_destination": false,
-      "set_system_proxy": false
-    },
-    {
-      "type": "socks",
-      "tag": "socks-in",
-      "listen": "0.0.0.0",
-      "listen_port": 7891,
-      "sniff": true,
-      "sniff_override_destination": false
-    },
     {
       "type": "tun",
       "tag": "tun-in",
@@ -129,7 +112,7 @@
         "__NODES__"
       ],
       "filter": "^((?!v2).)*$",
-      "url": "https://www.gstatic.com/generate_204",
+      "url": "http://latency-test.skk.moe/endpoint",
       "interval": "20m",
       "tolerance": 50,
       "interrupt_exist_connections": false
@@ -140,8 +123,9 @@
       "outbounds": [
         "__NODES__"
       ],
+      "detour-proxy": "🚪 Relay",
       "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(新加坡|SG|Singapore|狮城|🇸🇬)",
-      "url": "https://www.gstatic.com/generate_204",
+       "url": "http://latency-test.skk.moe/endpoint",
       "interval": "20m",
       "tolerance": 50
     },
@@ -151,8 +135,9 @@
       "outbounds": [
         "__NODES__"
       ],
+      "detour-proxy": "🚪 Relay",
       "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(香港|HK|Hong Kong|🇭🇰)",
-      "url": "https://www.gstatic.com/generate_204",
+      "url": "http://latency-test.skk.moe/endpoint",
       "interval": "20m",
       "tolerance": 50
     },
@@ -162,8 +147,9 @@
       "outbounds": [
         "__NODES__"
       ],
+      "detour-proxy": "🚪 Relay",
       "filter": "(?i)(美国|United States|🇺🇸|\\bUS\\b|\\bUSA\\b)",
-      "url": "https://www.gstatic.com/generate_204",
+      "url": "http://latency-test.skk.moe/endpoint",
       "interval": "20m",
       "tolerance": 50
     },
@@ -173,8 +159,9 @@
       "outbounds": [
         "__NODES__"
       ],
+      "detour-proxy": "🚪 Relay",
       "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(日本|JP|Japan|🇯🇵)",
-      "url": "https://www.gstatic.com/generate_204",
+      "url": "http://latency-test.skk.moe/endpoint",
       "interval": "20m",
       "tolerance": 50
     },
@@ -471,8 +458,8 @@
       },
       {
         "type": "remote",
-        "tag": "ai_ai_ai",
-        "url": "/rulesets/ai_ai_ai?target=sing-box",
+        "tag": "non_ip_ai",
+        "url": "/rulesets/non_ip_ai?target=sing-box",
         "format": "source",
         "download_detour": "🌐 Proxy",
         "update_interval": "12h"
@@ -486,13 +473,6 @@
         ],
         "port": 53,
         "action": "hijack-dns"
-      },
-      {
-        "wifi_ssid": [
-          "YOUR_WIFI_SSID",
-          "YOUR_WIFI_SSID_5G"
-        ],
-        "outbound": "DIRECT"
       },
       {
         "domain_suffix": [
@@ -520,15 +500,6 @@
         "outbound": "🌐 Proxy"
       },
       {
-        "network": [
-          "udp"
-        ],
-        "port": [
-          443
-        ],
-        "action": "reject"
-      },
-      {
         "rule_set": [
           "reject_non_ip_drop"
         ],
@@ -554,7 +525,7 @@
         "rule_set": [
           "ai_non_ip",
           "ai_ai",
-          "ai_ai_ai"
+          "non_ip_ai"
         ],
         "outbound": "🤖 AI"
       },
