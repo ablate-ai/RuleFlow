@@ -242,22 +242,6 @@
       },
       {
         "type": "remote",
-        "tag": "reject_domainset",
-        "url": "https://ruleset.skk.moe/sing-box/domainset/reject.json",
-        "format": "source",
-        "download_detour": "🌐 Proxy",
-        "update_interval": "12h"
-      },
-      {
-        "type": "remote",
-        "tag": "reject_extra_domainset",
-        "url": "https://ruleset.skk.moe/sing-box/domainset/reject_extra.json",
-        "format": "source",
-        "download_detour": "🌐 Proxy",
-        "update_interval": "12h"
-      },
-      {
-        "type": "remote",
         "tag": "cdn_domainset",
         "url": "https://ruleset.skk.moe/sing-box/domainset/cdn.json",
         "format": "source",
@@ -508,8 +492,6 @@
       },
       {
         "rule_set": [
-          "reject_domainset",
-          "reject_extra_domainset",
           "reject_non_ip"
         ],
         "action": "reject"
