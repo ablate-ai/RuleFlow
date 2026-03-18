@@ -71,6 +71,7 @@ func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string)
 	if err := applySingBoxDetourProxyGroups(parsed); err != nil {
 		return "", err
 	}
+	pruneSingBoxRouteRulesWithMissingOutbounds(parsed)
 
 	formatted, err := json.MarshalIndent(parsed, "", "  ")
 	if err != nil {
@@ -576,6 +577,79 @@ func applySingBoxDetourProxyGroups(root map[string]interface{}) error {
 
 	root["outbounds"] = rawOutbounds
 	return nil
+}
+
+func pruneSingBoxRouteRulesWithMissingOutbounds(root map[string]interface{}) {
+	validOutbounds := singBoxKnownOutboundTags(root)
+	if len(validOutbounds) == 0 {
+		return
+	}
+
+	route, ok := root["route"].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	rawRules, ok := route["rules"].([]interface{})
+	if !ok {
+		return
+	}
+
+	prunedRules := make([]interface{}, 0, len(rawRules))
+	for _, item := range rawRules {
+		rule, ok := item.(map[string]interface{})
+		if !ok {
+			prunedRules = append(prunedRules, item)
+			continue
+		}
+
+		outbound, hasOutbound := rule["outbound"].(string)
+		if !hasOutbound || outbound == "" {
+			prunedRules = append(prunedRules, item)
+			continue
+		}
+
+		if _, exists := validOutbounds[outbound]; exists || builtInProxyName(outbound) {
+			prunedRules = append(prunedRules, item)
+		}
+	}
+
+	route["rules"] = prunedRules
+	root["route"] = route
+}
+
+func singBoxKnownOutboundTags(root map[string]interface{}) map[string]struct{} {
+	known := make(map[string]struct{})
+
+	rawOutbounds, ok := root["outbounds"].([]interface{})
+	if ok {
+		for _, item := range rawOutbounds {
+			outbound, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			tag, _ := outbound["tag"].(string)
+			if tag != "" {
+				known[tag] = struct{}{}
+			}
+		}
+	}
+
+	rawEndpoints, ok := root["endpoints"].([]interface{})
+	if ok {
+		for _, item := range rawEndpoints {
+			endpoint, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			tag, _ := endpoint["tag"].(string)
+			if tag != "" {
+				known[tag] = struct{}{}
+			}
+		}
+	}
+
+	return known
 }
 
 func isSingBoxGroupType(outboundType string) bool {

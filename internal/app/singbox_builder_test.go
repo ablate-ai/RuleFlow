@@ -454,6 +454,98 @@ func TestBuildSingBoxDefaultTemplateIncludesNeedDirectRuleSet(t *testing.T) {
 	}
 }
 
+func TestBuildSingBoxDefaultTemplatePrunesRulesForMissingOutbound(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "trojan",
+			Name:     "US Node 1",
+			Server:   "us1.example.com",
+			Port:     443,
+			Options: map[string]interface{}{
+				"password": "password123",
+				"sni":      "us1.example.com",
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	route, ok := cfg["route"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route")
+	}
+	rules, ok := route["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route.rules")
+	}
+
+	for _, item := range rules {
+		rule, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if rule["outbound"] == "🏠 wireguard-home" {
+			t.Fatalf("未选择 wireguard-home 节点时，不应保留引用它的规则，实际配置为:\n%s", config)
+		}
+	}
+}
+
+func TestBuildSingBoxDefaultTemplateKeepsRulesForExistingOutbound(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "wireguard",
+			Name:     "🏠 wireguard-home",
+			Server:   "vpn.example.com",
+			Port:     51820,
+			Options: map[string]interface{}{
+				"ip":          "10.0.10.3/32",
+				"private-key": "private-key",
+				"public-key":  "peer-public-key",
+				"allowed-ips": []interface{}{"0.0.0.0/0"},
+			},
+		},
+	}
+
+	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
+	}
+
+	route, ok := cfg["route"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route")
+	}
+	rules, ok := route["rules"].([]interface{})
+	if !ok {
+		t.Fatalf("生成的 sing-box 配置缺少 route.rules")
+	}
+
+	found := false
+	for _, item := range rules {
+		rule, ok := item.(map[string]interface{})
+		if !ok || rule["outbound"] != "🏠 wireguard-home" {
+			continue
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("已存在 wireguard-home 出站时，应保留相关规则，实际配置为:\n%s", config)
+	}
+}
+
 func TestBuildSingBoxDefaultTemplateKeepsInternalDomainsOnLocalDNS(t *testing.T) {
 	config, err := BuildSingBoxFromDefaultTemplate(nil)
 	if err != nil {
