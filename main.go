@@ -86,7 +86,7 @@ func main() {
 	maintenanceService = services.NewMaintenanceService(db)
 
 	// 创建订阅同步服务
-	subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo)
+	subscriptionSyncService = services.NewSubscriptionSyncService(subscriptionRepo, nodeRepo, configPolicyRepo, subscriptionCache)
 
 	// 启动自动刷新调度器
 	schedulerCtx, cancelScheduler := context.WithCancel(context.Background())

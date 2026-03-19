@@ -8,24 +8,35 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ablate-ai/RuleFlow/cache"
 	"github.com/ablate-ai/RuleFlow/database"
 	"github.com/ablate-ai/RuleFlow/internal/app"
 )
 
+type policyCacheInvalidator interface {
+	DeletePolicyConfig(ctx context.Context, token string) error
+}
+
 // SubscriptionSyncService 订阅同步服务
 type SubscriptionSyncService struct {
-	subRepo  *database.SubscriptionRepo
-	nodeRepo *database.NodeRepo
+	subRepo     *database.SubscriptionRepo
+	nodeRepo    *database.NodeRepo
+	policyRepo  *database.ConfigPolicyRepo
+	policyCache policyCacheInvalidator
 }
 
 // NewSubscriptionSyncService 创建订阅同步服务
 func NewSubscriptionSyncService(
 	subRepo *database.SubscriptionRepo,
 	nodeRepo *database.NodeRepo,
+	policyRepo *database.ConfigPolicyRepo,
+	policyCache *cache.SubscriptionCache,
 ) *SubscriptionSyncService {
 	return &SubscriptionSyncService{
-		subRepo:  subRepo,
-		nodeRepo: nodeRepo,
+		subRepo:     subRepo,
+		nodeRepo:    nodeRepo,
+		policyRepo:  policyRepo,
+		policyCache: policyCache,
 	}
 }
 
@@ -113,8 +124,53 @@ func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscrip
 		log.Printf("[sync] 流量信息已保存: upload=%d download=%d total=%d", userInfo.Upload, userInfo.Download, userInfo.Total)
 	}
 
+	s.invalidateRelatedPolicyCaches(ctx, sub.ID)
 	log.Printf("[sync] 同步完成: %s，节点数: %d", sub.Name, nodeCount)
 	return nodeCount, nil
+}
+
+func (s *SubscriptionSyncService) invalidateRelatedPolicyCaches(ctx context.Context, subscriptionID int64) {
+	if s.policyRepo == nil || s.policyCache == nil {
+		return
+	}
+
+	policies, err := s.policyRepo.List(ctx)
+	if err != nil {
+		log.Printf("[sync] 查询关联配置策略失败: subscription_id=%d err=%v", subscriptionID, err)
+		return
+	}
+
+	invalidated := 0
+	for _, policy := range policies {
+		if !policyReferencesSubscription(policy, subscriptionID) {
+			continue
+		}
+		token := strings.TrimSpace(policy.Token)
+		if token == "" {
+			continue
+		}
+		if err := s.policyCache.DeletePolicyConfig(ctx, token); err != nil {
+			log.Printf("[sync] 清理配置缓存失败: subscription_id=%d policy_id=%d token=%s err=%v", subscriptionID, policy.ID, token, err)
+			continue
+		}
+		invalidated++
+	}
+
+	if invalidated > 0 {
+		log.Printf("[sync] 已清理关联配置缓存: subscription_id=%d count=%d", subscriptionID, invalidated)
+	}
+}
+
+func policyReferencesSubscription(policy *database.ConfigPolicy, subscriptionID int64) bool {
+	if policy == nil {
+		return false
+	}
+	for _, id := range policy.SubscriptionIDs {
+		if id == subscriptionID {
+			return true
+		}
+	}
+	return false
 }
 
 // parseUserInfo 解析 Subscription-Userinfo 响应头
