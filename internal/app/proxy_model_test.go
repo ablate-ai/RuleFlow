@@ -132,6 +132,42 @@ func TestAddTrojanFieldsWithNestedTransportHost(t *testing.T) {
 	}
 }
 
+func TestAddTrojanFieldsWithClashStyleWebSocketOptions(t *testing.T) {
+	proxy := &Proxy{Name: "JP WS", Type: "trojan", Server: "89.121189.xyz", Port: 443, UDP: true}
+	opts := map[string]interface{}{
+		"password": "test-password",
+		"tls":      true,
+		"sni":      "89.121189.xyz",
+		"alpn":     []interface{}{"h3"},
+		"network":  "ws",
+		"ws-opts": map[string]interface{}{
+			"path": "/",
+			"headers": map[string]interface{}{
+				"Host":       "89.121189.xyz",
+				"User-Agent": "Safari",
+			},
+		},
+	}
+
+	addTrojanFields(proxy, opts)
+
+	if proxy.Network != "ws" {
+		t.Fatalf("期望 trojan network=ws，实际为 %q", proxy.Network)
+	}
+	if proxy.WSOpts == nil {
+		t.Fatal("期望 trojan 生成 ws-opts，实际为 nil")
+	}
+	if proxy.WSOpts.Path != "/" {
+		t.Fatalf("期望 ws path 为 /，实际为 %q", proxy.WSOpts.Path)
+	}
+	if proxy.WSOpts.Headers["Host"] != "89.121189.xyz" {
+		t.Fatalf("期望 ws host 为 89.121189.xyz，实际为 %#v", proxy.WSOpts.Headers)
+	}
+	if len(proxy.Alpn) != 1 || proxy.Alpn[0] != "h3" {
+		t.Fatalf("期望读取平铺 alpn，实际为 %#v", proxy.Alpn)
+	}
+}
+
 func TestAddVLESSFieldsWithNestedGRPCTransport(t *testing.T) {
 	proxy := &Proxy{Name: "东京", Type: "vless", Server: "154.31.116.16", Port: 45478, UDP: true}
 	opts := map[string]interface{}{

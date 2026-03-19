@@ -564,44 +564,101 @@ func mergeFlatTLSFields(tlsObj *TLSOptions, opts map[string]interface{}) {
 
 func extractTransportOptions(opts map[string]interface{}) (*TransportOptions, bool) {
 	raw, exists := opts["transport"]
-	if !exists || raw == nil {
-		return nil, false
+	if exists && raw != nil {
+		switch value := raw.(type) {
+		case *TransportOptions:
+			return value, true
+		case map[string]interface{}:
+			transport := &TransportOptions{}
+			transport.Type, _ = stringOption(value, "type")
+			transport.Path, _ = stringOption(value, "path")
+			transport.Host, _ = stringOption(value, "host")
+			transport.ServiceName, _ = stringOption(value, "service_name")
+			if headers := stringMapOption(value, "headers"); len(headers) > 0 {
+				transport.Headers = headers
+			}
+			return transport, true
+		default:
+			return nil, false
+		}
 	}
 
-	switch value := raw.(type) {
-	case *TransportOptions:
-		return value, true
-	case map[string]interface{}:
-		transport := &TransportOptions{}
-		transport.Type, _ = stringOption(value, "type")
-		transport.Path, _ = stringOption(value, "path")
-		transport.Host, _ = stringOption(value, "host")
-		transport.ServiceName, _ = stringOption(value, "service_name")
-		if headersRaw, ok := value["headers"].(map[string]interface{}); ok {
-			headers := make(map[string]string, len(headersRaw))
-			for k, v := range headersRaw {
-				if s, ok := v.(string); ok && s != "" {
-					headers[k] = s
-				}
-			}
-			if len(headers) > 0 {
+	transport := &TransportOptions{}
+	transport.Type, _ = stringOption(opts, "network")
+	switch transport.Type {
+	case "ws":
+		if wsOpts, ok := nestedMapOption(opts, "ws-opts", "ws_opts"); ok {
+			transport.Path, _ = stringOption(wsOpts, "path")
+			if headers := stringMapOption(wsOpts, "headers"); len(headers) > 0 {
 				transport.Headers = headers
-			}
-		} else if headersRaw, ok := value["headers"].(map[string]string); ok && len(headersRaw) > 0 {
-			headers := make(map[string]string, len(headersRaw))
-			for k, v := range headersRaw {
-				if v != "" {
-					headers[k] = v
+				if host, ok := headers["Host"]; ok && host != "" {
+					transport.Host = host
 				}
-			}
-			if len(headers) > 0 {
-				transport.Headers = headers
 			}
 		}
-		return transport, true
-	default:
+	case "http", "httpupgrade":
+		if httpOpts, ok := nestedMapOption(opts, "http-opts", "http_opts"); ok {
+			transport.Path, _ = stringOption(httpOpts, "path")
+			if headers := stringMapOption(httpOpts, "headers"); len(headers) > 0 {
+				transport.Headers = headers
+				if host, ok := headers["Host"]; ok && host != "" {
+					transport.Host = host
+				}
+			}
+		}
+	case "grpc":
+		if grpcOpts, ok := nestedMapOption(opts, "grpc-opts", "grpc_opts"); ok {
+			transport.ServiceName, _ = stringOption(grpcOpts, "grpc-service-name", "grpc_service_name", "service_name")
+		}
+	}
+
+	if transport.Type == "" {
 		return nil, false
 	}
+	return transport, true
+}
+
+func nestedMapOption(opts map[string]interface{}, keys ...string) (map[string]interface{}, bool) {
+	for _, key := range keys {
+		if raw, ok := opts[key]; ok {
+			if value, ok := raw.(map[string]interface{}); ok {
+				return value, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func stringMapOption(opts map[string]interface{}, keys ...string) map[string]string {
+	for _, key := range keys {
+		raw, ok := opts[key]
+		if !ok || raw == nil {
+			continue
+		}
+		switch value := raw.(type) {
+		case map[string]string:
+			out := make(map[string]string, len(value))
+			for k, v := range value {
+				if v != "" {
+					out[k] = v
+				}
+			}
+			if len(out) > 0 {
+				return out
+			}
+		case map[string]interface{}:
+			out := make(map[string]string, len(value))
+			for k, v := range value {
+				if s, ok := v.(string); ok && s != "" {
+					out[k] = s
+				}
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+	}
+	return nil
 }
 
 func stringOption(opts map[string]interface{}, keys ...string) (string, bool) {

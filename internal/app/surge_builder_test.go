@@ -558,6 +558,40 @@ func TestSurgeProxyLineSupportsNestedTransportAndTLS(t *testing.T) {
 	}
 }
 
+func TestSurgeProxyLineSupportsClashStyleTrojanWebSocket(t *testing.T) {
+	node := &ProxyNode{
+		Protocol: "trojan",
+		Name:     "NIO-沪日-JP-trojan",
+		Server:   "89.121189.xyz",
+		Port:     443,
+		Options: map[string]interface{}{
+			"password": "HYqoQNlRC0ewOZ6SSb0jIw",
+			"tls":      true,
+			"sni":      "89.121189.xyz",
+			"alpn":     []interface{}{"h3"},
+			"network":  "ws",
+			"ws-opts": map[string]interface{}{
+				"path": "/",
+				"headers": map[string]interface{}{
+					"Host":       "89.121189.xyz",
+					"User-Agent": "Mozilla/5.0",
+				},
+			},
+		},
+	}
+
+	line := surgeProxyLine(node, "🇯🇵 NIO-沪日-JP-trojan")
+	if !strings.Contains(line, "ws=true") {
+		t.Fatalf("期望输出 ws=true，实际为: %s", line)
+	}
+	if !strings.Contains(line, "ws-path=/") {
+		t.Fatalf("期望输出 ws-path=/，实际为: %s", line)
+	}
+	if !strings.Contains(line, "ws-headers=Host:89.121189.xyz") {
+		t.Fatalf("期望输出 ws Host，实际为: %s", line)
+	}
+}
+
 func TestSurgeProxyLineSupportsGRPCAndALPN(t *testing.T) {
 	node := &ProxyNode{
 		Protocol: "tuic",
