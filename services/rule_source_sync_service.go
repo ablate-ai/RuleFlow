@@ -37,22 +37,17 @@ func (s *RuleSourceSyncService) SyncRuleSource(ctx context.Context, id int64) (i
 		}
 
 		log.Printf("[rule-sync] 解析手动规则源内容: id=%d name=%s", source.ID, source.Name)
-		rules, err := app.ParseRuleSet(source.RawContent, source.SourceFormat)
+		parsed, ruleCount, err := database.ParseRuleSourceContent(source.RawContent, source.SourceFormat)
 		if err != nil {
 			_ = s.repo.UpdateSyncResult(ctx, id, source.RawContent, json.RawMessage("[]"), 0, err)
 			return 0, fmt.Errorf("解析规则源失败: %w", err)
 		}
 
-		parsed, err := json.Marshal(rules)
-		if err != nil {
-			return 0, fmt.Errorf("序列化规则失败: %w", err)
-		}
-
-		if err := s.repo.UpdateSyncResult(ctx, id, source.RawContent, parsed, len(rules), nil); err != nil {
+		if err := s.repo.UpdateSyncResult(ctx, id, source.RawContent, parsed, ruleCount, nil); err != nil {
 			return 0, err
 		}
 
-		return len(rules), nil
+		return ruleCount, nil
 	}
 
 	// 远程规则源同步逻辑
@@ -62,22 +57,17 @@ func (s *RuleSourceSyncService) SyncRuleSource(ctx context.Context, id int64) (i
 		return 0, fmt.Errorf("拉取规则源失败: %w", err)
 	}
 
-	rules, err := app.ParseRuleSet(content, source.SourceFormat)
+	parsed, ruleCount, err := database.ParseRuleSourceContent(content, source.SourceFormat)
 	if err != nil {
 		_ = s.repo.UpdateSyncResult(ctx, id, content, json.RawMessage("[]"), 0, err)
 		return 0, fmt.Errorf("解析规则源失败: %w", err)
 	}
 
-	parsed, err := json.Marshal(rules)
-	if err != nil {
-		return 0, fmt.Errorf("序列化规则失败: %w", err)
-	}
-
-	if err := s.repo.UpdateSyncResult(ctx, id, content, parsed, len(rules), nil); err != nil {
+	if err := s.repo.UpdateSyncResult(ctx, id, content, parsed, ruleCount, nil); err != nil {
 		return 0, err
 	}
 
-	return len(rules), nil
+	return ruleCount, nil
 }
 
 func (s *RuleSourceSyncService) ExportRuleSource(ctx context.Context, name string, target string) (string, error) {

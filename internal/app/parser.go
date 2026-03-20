@@ -952,7 +952,7 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 	}
 
 	// 去重
-	allURLs = dedupeStrings(allURLs)
+	allURLs = DedupeStrings(allURLs)
 
 	if len(allURLs) == 0 {
 		lines := strings.Split(originalContent, "\n")

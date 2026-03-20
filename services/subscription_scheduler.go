@@ -27,26 +27,8 @@ func NewSubscriptionScheduler(subRepo *database.SubscriptionRepo, syncService *S
 
 // Start 在后台启动调度循环，ctx 取消时退出
 func (s *SubscriptionScheduler) Start(ctx context.Context) {
-	go s.loop(ctx)
+	runPeriodicTask(ctx, s.checkInterval, true, s.run)
 	log.Println("[scheduler] 订阅自动刷新调度器已启动")
-}
-
-func (s *SubscriptionScheduler) loop(ctx context.Context) {
-	// 启动时立即执行一次，避免等待第一个 tick
-	s.run(ctx)
-
-	ticker := time.NewTicker(s.checkInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("[scheduler] 调度器已停止")
-			return
-		case <-ticker.C:
-			s.run(ctx)
-		}
-	}
 }
 
 // run 检查所有需要刷新的订阅并触发同步

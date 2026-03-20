@@ -56,7 +56,7 @@ func ParseRuleSet(content string, sourceFormat string) ([]RuleSetRule, error) {
 }
 
 func parseClassicalRule(line string) (RuleSetRule, bool) {
-	parts := splitCSVLine(line)
+	parts := SplitCSVLine(line)
 	if len(parts) < 2 {
 		return RuleSetRule{}, false
 	}
@@ -154,7 +154,7 @@ func ExportRuleSet(rules []RuleSetRule, target string) (string, error) {
 				lines = append(lines, rule.Value)
 			}
 		}
-		return strings.Join(dedupeStrings(lines), "\n"), nil
+		return strings.Join(DedupeStrings(lines), "\n"), nil
 	case "clash-ipcidr":
 		lines := make([]string, 0, len(rules))
 		for _, rule := range rules {
@@ -162,7 +162,7 @@ func ExportRuleSet(rules []RuleSetRule, target string) (string, error) {
 				lines = append(lines, rule.Value)
 			}
 		}
-		return strings.Join(dedupeStrings(lines), "\n"), nil
+		return strings.Join(DedupeStrings(lines), "\n"), nil
 	case "sing-box":
 		payload := map[string]interface{}{
 			"version": 1,
@@ -187,22 +187,13 @@ func buildSingBoxRuleSetSource(rules []RuleSetRule) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(grouped))
 	order := []string{"domain_suffix", "domain_keyword", "domain", "ip_cidr"}
 	for _, key := range order {
-		values := dedupeStrings(grouped[key])
+		values := DedupeStrings(grouped[key])
 		if len(values) == 0 {
 			continue
 		}
 		out = append(out, map[string]interface{}{
 			key: values,
 		})
-	}
-	return out
-}
-
-func splitCSVLine(line string) []string {
-	parts := strings.Split(line, ",")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		out = append(out, strings.TrimSpace(part))
 	}
 	return out
 }

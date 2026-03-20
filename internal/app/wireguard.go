@@ -33,7 +33,7 @@ func extractWireGuardConfig(node *ProxyNode) wireGuardConfig {
 	}
 
 	cfg := wireGuardConfig{
-		LocalAddresses: normalizeWireGuardPrefixes(dedupeStrings(appendStringSlice(
+		LocalAddresses: normalizeWireGuardPrefixes(DedupeStrings(appendStringSlice(
 			flexibleStringSliceOption(opts, "local-address"),
 			stringValueOption(opts, "ip", "self-ip"),
 			stringValueOption(opts, "ipv6", "self-ip-v6"),

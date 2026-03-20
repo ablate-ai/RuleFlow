@@ -31,27 +31,11 @@ func ResolveProjectPath(path string) string {
 // --- yaml.Node 操作辅助函数 ---
 
 // yamlMappingNode 从文档节点取出顶层 MappingNode
-func yamlMappingNode(doc *yaml.Node) *yaml.Node {
-	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
-		return doc.Content[0]
-	}
-	if doc.Kind == yaml.MappingNode {
-		return doc
-	}
-	return nil
-}
+func yamlMappingNode(doc *yaml.Node) *yaml.Node { return YAMLRootMappingNode(doc) }
 
 // yamlFindInMapping 在 MappingNode 中查找 key，返回 value 节点（未找到返回 nil）
 func yamlFindInMapping(mapping *yaml.Node, key string) *yaml.Node {
-	if mapping == nil || mapping.Kind != yaml.MappingNode {
-		return nil
-	}
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == key {
-			return mapping.Content[i+1]
-		}
-	}
-	return nil
+	return YAMLLookupMappingValue(mapping, key)
 }
 
 // yamlHasKey 检查 MappingNode 中是否存在某个 key
@@ -319,7 +303,7 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 			}
 		}
 
-		filtered = dedupeStrings(filtered)
+		filtered = DedupeStrings(filtered)
 
 		// 收集 dialer-proxy 映射：该 group 内的节点 -> 中转节点
 		if relayName != "" {

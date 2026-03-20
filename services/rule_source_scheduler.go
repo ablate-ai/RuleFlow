@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"log"
 	"time"
 )
 
@@ -18,17 +19,6 @@ func NewRuleSourceScheduler(syncService *RuleSourceSyncService) *RuleSourceSched
 }
 
 func (s *RuleSourceScheduler) Start(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(s.checkInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				s.syncService.SyncDueSources(ctx)
-			}
-		}
-	}()
+	runPeriodicTask(ctx, s.checkInterval, false, s.syncService.SyncDueSources)
+	log.Println("[rule-sync] 规则源调度器已启动")
 }

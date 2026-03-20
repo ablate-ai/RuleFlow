@@ -1,8 +1,8 @@
 package api
 
 import (
-	"crypto/sha256"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -163,7 +163,7 @@ func runLintChecks(templateRules, expandedRules []lintRule) []string {
 	warnings = append(warnings, checkExpandedRuleSetOrder(expandedRules)...)
 	warnings = append(warnings, checkDuplicateRules(combinedRules)...)
 	warnings = append(warnings, checkRuleShadowing(combinedRules)...)
-	return dedupeStrings(warnings)
+	return app.DedupeTrimmedNonEmptyStrings(warnings)
 }
 
 func expandRuleSetReferences(ctx context.Context, h *Handlers, refs []ruleSetReference) ([]lintRule, []string) {
@@ -323,7 +323,7 @@ func parseRulesToLintRules(lines []string) []lintRule {
 }
 
 func parseRuleLine(line string, lineNo int) (lintRule, bool) {
-	parts := splitCSVLine(line)
+	parts := app.SplitCSVLine(line)
 	if len(parts) < 2 {
 		return lintRule{}, false
 	}
@@ -626,12 +626,12 @@ func extractYAMLRules(content string) ([]string, error) {
 		return nil, err
 	}
 
-	mapping := yamlRootMappingNode(&doc)
+	mapping := app.YAMLRootMappingNode(&doc)
 	if mapping == nil {
 		return nil, fmt.Errorf("根节点不是映射")
 	}
 
-	rulesNode := yamlLookupMappingValue(mapping, "rules")
+	rulesNode := app.YAMLLookupMappingValue(mapping, "rules")
 	if rulesNode == nil {
 		return nil, nil
 	}
@@ -658,12 +658,12 @@ func extractYAMLRuleProviders(content string) (map[string]yamlRuleProvider, erro
 		return nil, err
 	}
 
-	mapping := yamlRootMappingNode(&doc)
+	mapping := app.YAMLRootMappingNode(&doc)
 	if mapping == nil {
 		return nil, fmt.Errorf("根节点不是映射")
 	}
 
-	providersNode := yamlLookupMappingValue(mapping, "rule-providers")
+	providersNode := app.YAMLLookupMappingValue(mapping, "rule-providers")
 	if providersNode == nil || providersNode.Kind != yaml.MappingNode {
 		return map[string]yamlRuleProvider{}, nil
 	}
@@ -675,8 +675,8 @@ func extractYAMLRuleProviders(content string) (map[string]yamlRuleProvider, erro
 		if name == "" || valueNode.Kind != yaml.MappingNode {
 			continue
 		}
-		urlNode := yamlLookupMappingValue(valueNode, "url")
-		behaviorNode := yamlLookupMappingValue(valueNode, "behavior")
+		urlNode := app.YAMLLookupMappingValue(valueNode, "url")
+		behaviorNode := app.YAMLLookupMappingValue(valueNode, "behavior")
 		providers[name] = yamlRuleProvider{
 			URL:    scalarNodeValue(urlNode),
 			Format: providerBehaviorToFormat(scalarNodeValue(behaviorNode)),
@@ -709,7 +709,7 @@ func extractSurgeRules(content string) []string {
 func buildYAMLRuleSetRefs(rules []string, providers map[string]yamlRuleProvider) []ruleSetReference {
 	refs := make([]ruleSetReference, 0)
 	for i, rule := range rules {
-		parts := splitCSVLine(rule)
+		parts := app.SplitCSVLine(rule)
 		if len(parts) < 3 || !strings.EqualFold(strings.TrimSpace(parts[0]), "RULE-SET") {
 			continue
 		}
@@ -736,7 +736,7 @@ func buildYAMLRuleSetRefs(rules []string, providers map[string]yamlRuleProvider)
 func buildSurgeRuleSetRefs(rules []string) []ruleSetReference {
 	refs := make([]ruleSetReference, 0)
 	for i, rule := range rules {
-		parts := splitCSVLine(rule)
+		parts := app.SplitCSVLine(rule)
 		if len(parts) < 3 {
 			continue
 		}
@@ -820,57 +820,6 @@ func joinRuleIndexes(indexes []int) string {
 		values = append(values, fmt.Sprintf("%d", idx))
 	}
 	return strings.Join(values, "、")
-}
-
-func yamlRootMappingNode(doc *yaml.Node) *yaml.Node {
-	if doc == nil {
-		return nil
-	}
-	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
-		return yamlRootMappingNode(doc.Content[0])
-	}
-	if doc.Kind == yaml.MappingNode {
-		return doc
-	}
-	return nil
-}
-
-func yamlLookupMappingValue(mapping *yaml.Node, key string) *yaml.Node {
-	if mapping == nil || mapping.Kind != yaml.MappingNode {
-		return nil
-	}
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == key {
-			return mapping.Content[i+1]
-		}
-	}
-	return nil
-}
-
-func dedupeStrings(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	return out
-}
-
-func splitCSVLine(line string) []string {
-	parts := strings.Split(line, ",")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		out = append(out, strings.TrimSpace(part))
-	}
-	return out
 }
 
 func loadRemoteRuleSetRulesFromCache(ctx context.Context, h *Handlers, ref ruleSetReference) ([]app.RuleSetRule, error) {

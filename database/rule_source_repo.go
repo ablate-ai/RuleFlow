@@ -227,20 +227,29 @@ func (r *RuleSourceRepo) UpdateSyncResult(ctx context.Context, id int64, rawCont
 	return nil
 }
 
+func ParseRuleSourceContent(rawContent string, sourceFormat string) (json.RawMessage, int, error) {
+	rules, err := app.ParseRuleSet(rawContent, sourceFormat)
+	if err != nil {
+		return json.RawMessage("[]"), 0, err
+	}
+
+	parsed, err := json.Marshal(rules)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return parsed, len(rules), nil
+}
+
 func (r *RuleSourceRepo) syncManualRuleSource(ctx context.Context, source *RuleSource) {
 	if source.URL != "" || source.RawContent == "" {
 		return
 	}
 
-	rules, err := app.ParseRuleSet(source.RawContent, source.SourceFormat)
+	parsed, ruleCount, err := ParseRuleSourceContent(source.RawContent, source.SourceFormat)
 	if err != nil {
 		return
 	}
 
-	parsed, err := json.Marshal(rules)
-	if err != nil {
-		return
-	}
-
-	_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, len(rules), nil)
+	_ = r.UpdateSyncResult(ctx, source.ID, source.RawContent, parsed, ruleCount, nil)
 }

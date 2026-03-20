@@ -234,7 +234,7 @@ func surgeGroupNodeMembers(line string, nodeNames []string, nodeNameSet map[stri
 
 	right, ok := surgePolicyRightPart(line)
 	if !ok {
-		return dedupeStrings(filterExistingNodeNames(members, nodeNameSet))
+		return DedupeStrings(filterExistingNodeNames(members, nodeNameSet))
 	}
 	parts := strings.Split(right, ",")
 	for i, part := range parts {
@@ -247,7 +247,7 @@ func surgeGroupNodeMembers(line string, nodeNames []string, nodeNameSet map[stri
 		}
 	}
 
-	return dedupeStrings(filterExistingNodeNames(members, nodeNameSet))
+	return DedupeStrings(filterExistingNodeNames(members, nodeNameSet))
 }
 
 func surgePolicyName(line string) (string, bool) {

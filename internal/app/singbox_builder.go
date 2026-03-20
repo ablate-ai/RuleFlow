@@ -385,7 +385,7 @@ func marshalSingBoxRawObjectArray(values []map[string]interface{}) string {
 }
 
 func fallbackSingBoxOutboundList(values []string, fallback []string) []string {
-	values = dedupeStrings(values)
+	values = DedupeStrings(values)
 	if len(values) == 0 {
 		return append([]string(nil), fallback...)
 	}
@@ -473,7 +473,7 @@ func expandSingBoxOutboundGroups(root map[string]interface{}, nodeNames []string
 			}
 		}
 
-		expanded = dedupeStrings(expanded)
+		expanded = DedupeStrings(expanded)
 		converted := make([]interface{}, 0, len(expanded))
 		for _, name := range expanded {
 			converted = append(converted, name)
@@ -534,7 +534,7 @@ func applySingBoxDetourProxyGroups(root map[string]interface{}) error {
 			memberTag, _ := member.(string)
 			resolved = append(resolved, resolveMembers(memberTag, nextVisited)...)
 		}
-		return dedupeStrings(resolved)
+		return DedupeStrings(resolved)
 	}
 
 	for _, item := range rawOutbounds {

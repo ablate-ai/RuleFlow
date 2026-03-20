@@ -59,26 +59,8 @@ func NewLogCleanupScheduler(accessLogRepo *database.ConfigAccessLogRepo, opts ..
 
 // Start 在后台启动调度循环，ctx 取消时退出
 func (s *LogCleanupScheduler) Start(ctx context.Context) {
-	go s.loop(ctx)
+	runPeriodicTask(ctx, s.checkInterval, true, s.run)
 	log.Printf("[log-cleanup] 日志清理调度器已启动（保留 %d 天 / %d 条）", s.keepDays, s.maxRecords)
-}
-
-func (s *LogCleanupScheduler) loop(ctx context.Context) {
-	// 启动时立即执行一次
-	s.run(ctx)
-
-	ticker := time.NewTicker(s.checkInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("[log-cleanup] 调度器已停止")
-			return
-		case <-ticker.C:
-			s.run(ctx)
-		}
-	}
 }
 
 // run 执行日志清理
