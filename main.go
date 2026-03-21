@@ -45,6 +45,7 @@ func main() {
 		redisClient, err = cache.New(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 		if err != nil {
 			log.Printf("⚠️ Redis 连接失败（将使用无缓存模式）: %v\n", err)
+			redisClient = nil // 确保 redisClient 为 nil，避免后续空指针引用
 		} else {
 			log.Printf("✅ Redis 连接成功\n")
 			defer redisClient.Close()
@@ -199,13 +200,23 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 			http.ServeFile(w, r, app.ResolveProjectPath(file))
 		}
 	}
-	r.With(webAuth).Get("/dashboard", servePage("web/index.html"))
-	r.With(webAuth).Get("/subscriptions", servePage("web/subscriptions.html"))
-	r.With(webAuth).Get("/nodes", servePage("web/nodes.html"))
-	r.With(webAuth).Get("/rule-sources", servePage("web/rule_sources.html"))
-	r.With(webAuth).Get("/templates", servePage("web/templates.html"))
-	r.With(webAuth).Get("/configs", servePage("web/configs.html"))
-	r.With(webAuth).Get("/config-access-logs", servePage("web/config_access_logs.html"))
+	serveShell := servePage("web/app_shell.html")
+	r.With(webAuth).Get("/dashboard", serveShell)
+	r.With(webAuth).Get("/subscriptions", serveShell)
+	r.With(webAuth).Get("/nodes", serveShell)
+	r.With(webAuth).Get("/rule-sources", serveShell)
+	r.With(webAuth).Get("/templates", serveShell)
+	r.With(webAuth).Get("/configs", serveShell)
+	r.With(webAuth).Get("/config-access-logs", serveShell)
+	r.With(webAuth).Route("/app-fragments", func(r chi.Router) {
+		r.Get("/dashboard", serveFragment("web/index.html"))
+		r.Get("/subscriptions", serveFragment("web/subscriptions.html"))
+		r.Get("/nodes", serveFragment("web/nodes.html"))
+		r.Get("/rule-sources", serveFragment("web/rule_sources.html"))
+		r.Get("/templates", serveFragment("web/templates.html"))
+		r.Get("/configs", serveFragment("web/configs.html"))
+		r.Get("/config-access-logs", serveFragment("web/config_access_logs.html"))
+	})
 
 	// 根路径重定向到仪表盘
 	r.With(webAuth).Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +237,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 		// 订阅管理
 		r.Get("/subscriptions", apiHandlers.ListSubscriptions)
 		r.Post("/subscriptions", apiHandlers.CreateSubscription)
+		r.Post("/subscriptions/sync", apiHandlers.SyncAllSubscriptions)
 		r.Route("/subscriptions/{id}", func(r chi.Router) {
 			r.Get("/", apiHandlers.GetSubscription)
 			r.Put("/", apiHandlers.UpdateSubscription)
@@ -286,4 +298,17 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	})
 
 	return r
+}
+
+func serveFragment(file string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		content, err := os.ReadFile(app.ResolveProjectPath(file))
+		if err != nil {
+			http.Error(w, "页面不存在", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(content)
+	}
 }

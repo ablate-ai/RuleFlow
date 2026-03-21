@@ -28,6 +28,11 @@ const (
 
 // DeleteAllByPattern 按模式删除所有缓存
 func (c *SubscriptionCache) DeleteAllByPattern(ctx context.Context, pattern string) error {
+	// 检查客户端是否为 nil
+	if c == nil || c.client == nil || c.client.Client == nil {
+		return nil // 如果没有 Redis 连接，直接返回成功
+	}
+
 	// 使用 Keys 命令查找匹配的键
 	keys, err := c.client.Client.Keys(ctx, pattern).Result()
 	if err != nil {
