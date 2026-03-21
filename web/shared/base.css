@@ -72,10 +72,20 @@ body {
 }
 .main { margin-left: var(--sw); flex: 1; padding: 28px 32px; min-width: 0; }
 .sb-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--sbd); }
-.sb-logo { width: 30px; height: 30px; background: var(--grn); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.sb-logo svg { color: #fff; }
+.sb-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.sb-logo img { width: 100%; height: 100%; display: block; }
 .sb-name { font-size: 16px; font-weight: 700; color: #fff; }
 .sb-nav { padding: 12px 8px; flex: 1; }
+.sb-actions { padding: 0 8px 12px; border-top: 1px solid var(--sbd); }
 .sb-sec { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px 8px; }
 .nav-lnk { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; color: var(--st); text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: all .15s; }
 .nav-lnk:hover { background: var(--sho); color: #fff; }

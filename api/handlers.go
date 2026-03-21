@@ -1060,6 +1060,16 @@ func (h *Handlers) SyncSubscription(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// SyncAllSubscriptions 同步全部可用订阅节点
+func (h *Handlers) SyncAllSubscriptions(w http.ResponseWriter, r *http.Request) {
+	result, err := h.subscriptionSyncService.SyncAllSubscriptions(r.Context())
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	SendSuccess(w, result)
+}
+
 // GetSubscriptionSyncStatus 获取订阅同步状态
 func (h *Handlers) GetSubscriptionSyncStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := urlParamInt64(r, "id")

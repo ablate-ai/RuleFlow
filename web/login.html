@@ -4,196 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 · RuleFlow</title>
-  <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --grn: #18c865; --grnd: #15b25a; --grnbg: rgba(24,200,101,0.1);
-      --bg: #f3f4f6; --card: #fff; --bdr: #e5e7eb;
-      --t1: #111827; --t2: #6b7280; --t3: #9ca3af;
-      --red: #ef4444; --redbg: #fef2f2; --redt: #991b1b;
-      --sh2: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.04);
-      --sh3: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .wrap {
-      width: 100%;
-      max-width: 380px;
-      padding: 0 16px;
-      animation: su .25s ease;
-    }
-
-    @keyframes su {
-      from { transform: translateY(14px); opacity: 0; }
-      to   { transform: translateY(0);    opacity: 1; }
-    }
-
-    .brand {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 28px;
-      gap: 10px;
-    }
-
-    .logo {
-      width: 44px;
-      height: 44px;
-      background: var(--grn);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .logo svg { color: #fff; }
-
-    .brand-name {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--t1);
-      letter-spacing: -.4px;
-    }
-
-    .brand-sub {
-      font-size: 13px;
-      color: var(--t2);
-      margin-top: -4px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--bdr);
-      border-radius: 16px;
-      box-shadow: var(--sh3);
-      padding: 28px;
-    }
-
-    .card-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--t1);
-      margin-bottom: 20px;
-    }
-
-    .error-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--redbg);
-      border: 1px solid #fecaca;
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 16px;
-      font-size: 13px;
-      color: var(--redt);
-    }
-
-    .error-bar svg { flex-shrink: 0; }
-
-    .field { margin-bottom: 16px; }
-
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--t1);
-      margin-bottom: 6px;
-    }
-
-    .input-wrap {
-      position: relative;
-    }
-
-    input[type="password"],
-    input[type="text"] {
-      width: 100%;
-      padding: 9px 40px 9px 12px;
-      border: 1px solid var(--bdr);
-      border-radius: 8px;
-      font-size: 14px;
-      color: var(--t1);
-      background: #fff;
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
-      line-height: 1.5;
-    }
-
-    input:focus {
-      border-color: var(--grn);
-      box-shadow: 0 0 0 3px var(--grnbg);
-    }
-
-    .toggle-eye {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--t3);
-      padding: 2px;
-      display: flex;
-      align-items: center;
-      transition: color .15s;
-    }
-
-    .toggle-eye:hover { color: var(--t2); }
-
-    .btn-submit {
-      width: 100%;
-      padding: 10px;
-      background: var(--grn);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, transform .1s;
-      margin-top: 4px;
-    }
-
-    .btn-submit:hover  { background: var(--grnd); }
-    .btn-submit:active { transform: scale(.98); }
-
-    .footer {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 12px;
-      color: var(--t3);
-    }
-  </style>
+  <link rel="icon" type="image/svg+xml" href="/web/favicon.svg?v=7">
+  <script src="/web/shared/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<div class="wrap">
-  <div class="brand">
-    <div class="logo">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 3h18v18H3z"/><path d="M9 9h6v6H9z"/><path d="M9 3v6M15 3v6M9 15v6M15 15v6M3 9h6M15 9h6M3 15h6M15 15h6"/>
-      </svg>
+<body class="min-h-screen bg-slate-100 text-slate-900">
+<div class="flex min-h-screen items-center justify-center px-4">
+<div class="w-full max-w-[380px] animate-slide-up-fade">
+  <div class="mb-7 flex flex-col items-center gap-2.5">
+    <div class="h-11 w-11 overflow-hidden rounded-rf-lg shadow-rf2">
+      <img src="/web/favicon.svg?v=7" alt="" aria-hidden="true" class="block h-full w-full">
     </div>
-    <div>
-      <div class="brand-name">RuleFlow</div>
-      <div class="brand-sub">订阅转换控制台</div>
+    <div class="text-center">
+      <div class="text-xl font-bold tracking-[-0.4px] text-rf-text">RuleFlow</div>
+      <div class="mt-[-4px] text-[13px] text-rf-muted">订阅转换控制台</div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">输入管理密码</div>
+  <div class="rounded-rf-xl border border-rf-border bg-white p-7 shadow-rf3">
+    <div class="mb-5 text-[15px] font-semibold text-rf-text">输入管理密码</div>
 
-    <div id="error-bar" class="error-bar" style="display:none">
+    <div id="error-bar" class="mb-4 hidden items-center gap-2 rounded-rf border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
@@ -202,23 +33,42 @@
 
     <form method="POST" action="/login" id="form">
       <input type="hidden" name="next" id="next-input">
-      <div class="field">
-        <label for="password">密码</label>
-        <div class="input-wrap">
-          <input type="password" id="password" name="password" placeholder="请输入管理密码" autofocus autocomplete="current-password">
-          <button type="button" class="toggle-eye" onclick="togglePwd()" title="显示/隐藏密码">
+      <div class="mb-4">
+        <label for="password" class="mb-1.5 block text-[13px] font-medium text-rf-text">密码</label>
+        <div class="relative">
+          <input
+            class="w-full rounded-rf border border-rf-border bg-white px-3 py-2.5 pr-10 text-sm leading-6 text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-emerald-500/10"
+            type="password"
+            id="password"
+            name="password"
+            placeholder="请输入管理密码"
+            autofocus
+            autocomplete="current-password"
+          >
+          <button
+            type="button"
+            class="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center border-none bg-transparent p-0.5 text-rf-subtle transition hover:text-rf-muted"
+            onclick="togglePwd()"
+            title="显示/隐藏密码"
+          >
             <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
             </svg>
           </button>
         </div>
       </div>
-      <button type="submit" class="btn-submit">登录</button>
+      <button
+        type="submit"
+        class="mt-1 inline-flex w-full items-center justify-center rounded-rf border border-[#18c865] bg-[#18c865] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-[#15b25a] hover:bg-[#15b25a] active:scale-[0.98]"
+      >
+        登录
+      </button>
     </form>
   </div>
 
-  <div class="footer">RuleFlow &copy; <span id="yr"></span></div>
+  <div class="mt-5 text-center text-xs text-rf-subtle">RuleFlow &copy; <span id="yr"></span></div>
   <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</div>
 </div>
 
 <script>
@@ -226,7 +76,8 @@
   const params = new URLSearchParams(location.search);
   document.getElementById('next-input').value = params.get('next') || '';
   if (params.get('error') === '1') {
-    document.getElementById('error-bar').style.display = 'flex';
+    document.getElementById('error-bar').classList.remove('hidden');
+    document.getElementById('error-bar').classList.add('flex');
   }
 
   function togglePwd() {

@@ -1,728 +1,656 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RuleFlow - 订阅配置</title>
-  <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
-  <link rel="stylesheet" href="/web/shared/base.css">
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    :root {}
-    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
-    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
-    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
-    .phr { display: flex; gap: 8px; align-items: center; }
-    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
-    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; }
-    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
-    .card-b { padding: 18px; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .btn svg { width: 14px; height: 14px; }
-    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
-    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
-    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
-    .btn-s:hover:not(:disabled) { background: #f9fafb; }
-    .btn-d { background: #fff; color: var(--red); border-color: #fecaca; }
-    .btn-d:hover:not(:disabled) { background: var(--redbg); }
-    .btn-g { background: transparent; color: var(--t2); border-color: transparent; }
-    .btn-g:hover:not(:disabled) { background: #f3f4f6; color: var(--t1); }
-    .btn-sm { padding: 5px 10px; font-size: 12.5px; }
-    .btn-sm svg { width: 13px; height: 13px; }
-    .btic { padding: 6px; border-radius: var(--rs); background: transparent; border: none; color: var(--t2); cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
-    .btic:hover { background: #f3f4f6; color: var(--t1); }
-    .btic.red:hover { background: var(--redbg); color: var(--red); }
-    .btic.blue:hover { background: var(--blubg); color: var(--blu); }
-    .btic.green:hover { background: var(--grnbg); color: var(--grn); }
-    .btic svg { width: 15px; height: 15px; }
-    .fg { margin-bottom: 14px; }
-    .fl { display: block; font-size: 12.5px; font-weight: 500; color: var(--t1); margin-bottom: 5px; }
-    .flo { font-weight: 400; color: var(--t2); font-size: 11px; margin-left: 4px; }
-    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
-    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
-    .fc:disabled { background: #f9fafb; color: var(--t2); }
-    .fc::placeholder { color: var(--t3); }
-    textarea.fc { resize: vertical; min-height: 72px; line-height: 1.5; }
-    select.fc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px; cursor: pointer; }
-    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .fhint { font-size: 11.5px; color: var(--t2); margin-top: 4px; }
-    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
-    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
-    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
-    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
-    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
-    .bdg-p { background: #ede9fe; color: #7c3aed; } .bdg-p .bdg-dot { background: #8b5cf6; }
-    .bdg-c { background: #cffafe; color: #0e7490; } .bdg-c .bdg-dot { background: #06b6d4; }
-    .bdg-pk { background: #fce7f3; color: #be185d; } .bdg-pk .bdg-dot { background: #ec4899; }
-    .bdg-gray { background: #f3f4f6; color: #4b5563; }
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
-    .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
-    .modal-sm { max-width: 420px; } .modal-md { max-width: 540px; } .modal-lg { max-width: 680px; } .modal-xl { max-width: 860px; }
-    .mh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
-    .mht { font-size: 16px; font-weight: 600; color: var(--t1); }
-    .mb { padding: 22px; }
-    .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--bdr); background: #f9fafb; border-radius: 0 0 var(--rxl) var(--rxl); }
-    .item { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; box-shadow: var(--sh1); transition: box-shadow .15s; }
-    .item:hover { box-shadow: var(--sh2); }
-    .item-l { flex: 1; min-width: 0; }
-    .item-name { font-size: 14.5px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .item-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; line-height: 1.5; }
-    .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
-    .item-mi { display: flex; align-items: center; gap: 3px; }
-    .item-mi svg { width: 11px; height: 11px; }
-    .item-mi-btn { padding: 0; border: none; background: transparent; color: var(--blu); cursor: pointer; font: inherit; }
-    .item-mi-btn:hover { color: #1d4ed8; text-decoration: underline; }
-    .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
-    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
-    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
-    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
-    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
-    .empty-d { font-size: 13px; color: var(--t2); max-width: 280px; line-height: 1.6; }
-    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
-    /* 订阅源复选框网格 */
-    .sub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .sub-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--bdr); border-radius: var(--rm); cursor: pointer; transition: all .15s; user-select: none; }
-    .sub-item:hover { background: #f9fafb; }
-    .sub-item.checked { background: rgba(24,200,101,.06); border-color: var(--grn); }
-    .sub-check { width: 15px; height: 15px; border: 2px solid var(--bdr); border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
-    .sub-item.checked .sub-check { background: var(--grn); border-color: var(--grn); }
-    .sub-label { font-size: 13px; color: var(--t1); font-weight: 500; }
-    .log-list { display: flex; flex-direction: column; gap: 10px; }
-    .log-item { border: 1px solid var(--bdr); border-radius: var(--rm); padding: 12px 14px; background: #fff; }
-    .log-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-    .log-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--t2); }
-    .log-err { margin-top: 6px; font-size: 12px; color: var(--red); line-height: 1.5; word-break: break-word; }
-    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    @keyframes rot { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+<section id="configs-page" class="space-y-6">
+    <header class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-[22px] font-bold tracking-[-0.4px] text-rf-text">订阅配置</h1>
+        <p class="mt-0.5 text-[13px] text-rf-muted">管理配置策略，生成专属订阅链接</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          data-action="create"
+          class="inline-flex items-center gap-1.5 rounded-rf border border-[#18c865] bg-[#18c865] px-3.5 py-[7px] text-[13.5px] font-medium leading-[1.2] text-white transition hover:border-[#15b25a] hover:bg-[#15b25a]"
+        >
+          <svg class="h-[14px] w-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          新建策略
+        </button>
+      </div>
+    </header>
 
-  <script type="text/babel" src="/web/shared/components.js" data-presets="react"></script>
-  <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
+    <div id="configs-content"></div>
+    <div id="configs-modal-root"></div>
+    <div id="configs-delete-root"></div>
+    <div id="configs-toast-root" class="pointer-events-none fixed bottom-[18px] left-[18px] z-[9999] flex flex-col gap-2"></div>
+  </section>
 
-    /* ===== 目标类型徽章 ===== */
-    const TargetBadge = ({ target }) => {
-      const map = { 'clash-meta': ['Clash Meta', 'bdg-b'], stash: ['Stash', 'bdg-p'], surge: ['Surge', 'bdg-o'], 'sing-box': ['sing-box', 'bdg-c'] };
-      const [label, cls] = map[target] || [target, 'bdg-gray'];
-      return <span className={`bdg ${cls}`}><span className="bdg-dot"></span>{label}</span>;
-    };
+  <script>
+    (() => {
+      const root = document.getElementById('configs-page');
+      if (!root) return;
 
-    /* ===== 主应用组件 ===== */
-    const App = () => {
-      /* 数据状态 */
-      const [policies, setPolicies] = useState([]);
-      const [subscriptions, setSubscriptions] = useState([]);
-      const [templates, setTemplates] = useState([]);
-      const [manualNodes, setManualNodes] = useState([]);
-      const [loading, setLoading] = useState(true);
+      const contentEl = document.getElementById('configs-content');
+      const modalRoot = document.getElementById('configs-modal-root');
+      const deleteRoot = document.getElementById('configs-delete-root');
+      const toastRoot = document.getElementById('configs-toast-root');
 
-      /* Modal 控制 */
-      const [showModal, setShowModal] = useState(false);
-      const [editItem, setEditItem] = useState(null); // null = 新建
-      const [showDeleteModal, setShowDeleteModal] = useState(false);
-      const [deleteTarget, setDeleteTarget] = useState(null);
-      const [showLogsModal, setShowLogsModal] = useState(false);
-      const [logTarget, setLogTarget] = useState(null);
-      const [logsLoading, setLogsLoading] = useState(false);
-      const [accessLogs, setAccessLogs] = useState([]);
-
-      /* Toast */
-      const { toasts, addToast } = window.useToasts();
-
-      /* 表单状态 */
-      const defaultForm = { name: '', target: 'clash-meta', subscription_ids: [], node_ids: [], template_name: '', description: '', enabled: true };
-      const [form, setForm] = useState(defaultForm);
-      const [saving, setSaving] = useState(false);
-      const [deleting, setDeleting] = useState(false);
-      const [refreshing, setRefreshing] = useState(null); // 正在清除缓存的策略 name
-
-      /* 加载所有数据 */
-      const loadData = async () => {
-        try {
-          const [pRes, sRes, tRes, nRes] = await Promise.all([
-            api.get('/api/config-policies'),
-            api.get('/api/subscriptions'),
-            api.get('/api/templates'),
-            api.get('/api/nodes?source=manual'),
-          ]);
-          setPolicies(pRes.data || []);
-          setSubscriptions(sRes.data || []);
-          setTemplates(tRes.data || []);
-          setManualNodes(nRes.data || []);
-        } catch (err) {
-          addToast('加载数据失败：' + err.message, 'err');
-        } finally {
-          setLoading(false);
-        }
+      const state = {
+        policies: [],
+        subscriptions: [],
+        templates: [],
+        manualNodes: [],
+        loading: true,
+        modalOpen: false,
+        editItem: null,
+        deleteTarget: null,
+        saving: false,
+        deleting: false,
+        refreshingId: null,
+        form: defaultForm(),
+        toasts: [],
       };
 
-      useEffect(() => { loadData(); }, []);
+      function defaultForm() {
+        return {
+          name: '',
+          target: 'clash-meta',
+          subscription_ids: [],
+          node_ids: [],
+          template_name: '',
+          description: '',
+          enabled: true,
+        };
+      }
 
-      const getManualNodeNames = useCallback((nodeIDs = []) => {
-        if (!Array.isArray(nodeIDs) || nodeIDs.length === 0) return [];
-        const idSet = new Set(nodeIDs.map(Number));
-        return manualNodes
-          .filter(node => idSet.has(Number(node.id)))
-          .map(node => node.name);
-      }, [manualNodes]);
+      function request(url, options = {}) {
+        return fetch(url, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options,
+        }).then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || ('请求失败: ' + res.status));
+          }
+          return res.json();
+        });
+      }
 
-      const formatPreview = useCallback((items = [], emptyText) => {
-        if (!items.length) return emptyText;
+      function get(url) { return request(url); }
+      function post(url, data) { return request(url, { method: 'POST', body: JSON.stringify(data) }); }
+      function put(url, data) { return request(url, { method: 'PUT', body: JSON.stringify(data) }); }
+      function del(url) { return request(url, { method: 'DELETE' }); }
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[char]);
+      }
+
+      function badge(tone, text, withDot = true) {
+        const toneClass = {
+          green: 'bg-green-100 text-green-700',
+          blue: 'bg-blue-100 text-blue-600',
+          red: 'bg-red-100 text-red-600',
+          orange: 'bg-orange-100 text-orange-600',
+          purple: 'bg-violet-100 text-violet-700',
+          cyan: 'bg-cyan-100 text-cyan-700',
+          gray: 'bg-slate-100 text-slate-600',
+        }[tone] || 'bg-slate-100 text-slate-600';
+        const dotClass = {
+          green: 'bg-green-600',
+          blue: 'bg-blue-500',
+          red: 'bg-red-500',
+          orange: 'bg-orange-500',
+          purple: 'bg-violet-500',
+          cyan: 'bg-cyan-500',
+          gray: 'bg-slate-500',
+        }[tone] || 'bg-slate-500';
+        return `
+          <span class="inline-flex items-center gap-1 rounded-full px-[7px] py-[2px] text-[11.5px] font-medium whitespace-nowrap ${toneClass}">
+            ${withDot ? `<span class="h-[5px] w-[5px] shrink-0 rounded-full ${dotClass}"></span>` : ''}
+            ${escapeHtml(text)}
+          </span>
+        `;
+      }
+
+      function targetMeta(target) {
+        const map = {
+          'clash-meta': ['Clash Meta', 'blue'],
+          stash: ['Stash', 'purple'],
+          surge: ['Surge', 'orange'],
+          'sing-box': ['sing-box', 'cyan'],
+        };
+        return map[target] || [target || '未知', 'gray'];
+      }
+
+      function addToast(message, type = 'ok') {
+        const id = Date.now() + Math.random();
+        state.toasts.push({ id, message, type });
+        renderToasts();
+        window.setTimeout(() => {
+          state.toasts = state.toasts.filter((item) => item.id !== id);
+          renderToasts();
+        }, 3200);
+      }
+
+      function renderToasts() {
+        toastRoot.innerHTML = state.toasts.map((toast) => `
+          <div class="pointer-events-auto flex min-w-[260px] max-w-[380px] items-center gap-[9px] rounded-rf-xl border px-[14px] py-[11px] text-[13.5px] font-medium shadow-rf3 ${toast.type === 'ok' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-600'}">
+            ${toast.type === 'ok' ? icons.check : icons.alert}
+            <span>${escapeHtml(toast.message)}</span>
+          </div>
+        `).join('');
+      }
+
+      function formatDate(value) {
+        if (!value) return '从未';
+        try {
+          return new Date(value).toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } catch (_) {
+          return '未知';
+        }
+      }
+
+      function formatPreview(items, emptyText) {
+        if (!Array.isArray(items) || items.length === 0) return emptyText;
         if (items.length <= 3) return items.join('、');
-        return `${items.slice(0, 3).join('、')} 等 ${items.length} 个`;
-      }, []);
+        return items.slice(0, 3).join('、') + ' 等 ' + items.length + ' 个';
+      }
 
-      const openTemplateEditor = useCallback((templateName) => {
+      function getManualNodeNames(nodeIDs) {
+        const ids = new Set((nodeIDs || []).map(Number));
+        return state.manualNodes.filter((node) => ids.has(Number(node.id))).map((node) => node.name);
+      }
+
+      function getPolicyURL(policy) {
+        return window.location.origin + '/subscribe?token=' + policy.token;
+      }
+
+      async function copyText(text, successMessage) {
+        try {
+          await navigator.clipboard.writeText(text);
+          addToast(successMessage || '已复制到剪贴板');
+        } catch (_) {
+          addToast('复制失败', 'err');
+        }
+      }
+
+      function openTemplateEditor(templateName) {
         if (!templateName) return;
-        const tpl = templates.find(item => item.name === templateName);
+        const tpl = state.templates.find((item) => item.name === templateName);
         if (!tpl) {
-          addToast(`未找到模板：${templateName}`, 'err');
+          addToast('未找到模板：' + templateName, 'err');
           return;
         }
         const url = new URL('/templates', window.location.origin);
         url.searchParams.set('edit', String(tpl.id));
         url.searchParams.set('return_to', window.location.pathname + window.location.search + window.location.hash);
         window.location.href = url.toString();
-      }, [templates, addToast]);
+      }
 
-      /* 打开新建 Modal */
-      const openCreate = () => {
-        setEditItem(null);
-        setForm(defaultForm);
-        setShowModal(true);
-      };
+      function syncFormFromDom() {
+        const formEl = modalRoot.querySelector('form');
+        if (!formEl) return;
+        state.form.name = formEl.querySelector('[name="name"]')?.value || '';
+        state.form.target = formEl.querySelector('[name="target"]')?.value || 'clash-meta';
+        state.form.description = formEl.querySelector('[name="description"]')?.value || '';
+        state.form.template_name = formEl.querySelector('[name="template_name"]')?.value || '';
+        state.form.enabled = !!formEl.querySelector('[name="enabled"]')?.checked;
+      }
 
-      /* 打开编辑 Modal */
-      const openEdit = (policy) => {
-        const validSubIDs = new Set(subscriptions.map(item => Number(item.id)));
-        const validNodeIDs = new Set(manualNodes.map(item => Number(item.id)));
-        setEditItem(policy);
-        setForm({
-          name: policy.name,
-          target: policy.target,
-          subscription_ids: (policy.subscription_ids || []).map(Number).filter(id => validSubIDs.has(id)),
-          node_ids: (policy.node_ids || []).map(Number).filter(id => validNodeIDs.has(id)),
-          template_name: policy.template_name || '',
-          description: policy.description || '',
-          enabled: policy.enabled,
+      function filteredTemplates() {
+        return state.templates.filter((tpl) => {
+          if (state.form.target === 'surge') return tpl.target === 'surge';
+          if (state.form.target === 'sing-box') return tpl.target === 'sing_box';
+          return tpl.target !== 'surge' && tpl.target !== 'sing_box';
         });
-        setShowModal(true);
-      };
+      }
 
-      /* 关闭 Modal */
-      const closeModal = () => {
-        setShowModal(false);
-        setEditItem(null);
-        setForm(defaultForm);
-      };
-
-      /* 切换订阅源选中状态 */
-      const toggleSub = (id) => {
-        setForm(f => {
-          const exists = f.subscription_ids.includes(id);
-          return {
-            ...f,
-            subscription_ids: exists
-              ? f.subscription_ids.filter(n => n !== id)
-              : [...f.subscription_ids, id],
-          };
-        });
-      };
-
-      /* 切换手动节点选中状态 */
-      const toggleNode = (id) => {
-        setForm(f => {
-          const exists = f.node_ids.includes(id);
-          return {
-            ...f,
-            node_ids: exists
-              ? f.node_ids.filter(n => n !== id)
-              : [...f.node_ids, id],
-          };
-        });
-      };
-
-      /* 保存策略（新建/更新） */
-      const handleSave = async () => {
-        if (!form.name.trim()) { addToast('策略名称不能为空', 'err'); return; }
-        if (form.subscription_ids.length === 0 && form.node_ids.length === 0) { addToast('请至少选择一个订阅源或手动节点', 'err'); return; }
-        setSaving(true);
-        try {
-          if (editItem) {
-            await api.put(`/api/config-policies/${editItem.id}`, form);
-            addToast('策略已更新');
-          } else {
-            await api.post('/api/config-policies', form);
-            addToast('策略已创建');
-          }
-          closeModal();
-          loadData();
-        } catch (err) {
-          addToast('保存失败：' + err.message, 'err');
-        } finally {
-          setSaving(false);
+      function renderContent() {
+        if (state.loading) {
+          contentEl.innerHTML = `
+            <div class="rounded-rf-lg border border-rf-border bg-white px-5 py-[56px] text-center shadow-rf1">
+              <div class="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-[#18c865] border-t-transparent"></div>
+              <div class="text-[13px] text-rf-muted">加载中...</div>
+            </div>
+          `;
+          return;
         }
-      };
 
-      const getPolicyURL = (policy) => `${window.location.origin}/subscribe?token=${policy.token}`;
-
-      /* 复制配置链接 */
-      const handleCopyLink = async (policy) => {
-        const url = getPolicyURL(policy);
-        await window.copyText(url, {
-          successMessage: '配置链接已复制到剪贴板',
-          errorMessage: '复制失败，请手动复制',
-          addToast
-        });
-      };
-
-      /* 新标签页打开配置链接 */
-      const handleOpenLink = (policy) => {
-        window.open(getPolicyURL(policy), '_blank', 'noopener,noreferrer');
-      };
-
-      /* 清除策略生成配置缓存 */
-      const handleClearCache = async (policy) => {
-        setRefreshing(policy.name);
-        try {
-          await api.delete(`/api/config-policies/${policy.id}/cache`);
-          addToast('缓存已清除');
-        } catch (err) {
-          addToast('清除缓存失败：' + err.message, 'err');
-        } finally {
-          setRefreshing(null);
-        }
-      };
-
-      /* 打开删除确认 Modal */
-      const openDelete = (policy) => {
-        setDeleteTarget(policy);
-        setShowDeleteModal(true);
-      };
-
-      /* 确认删除 */
-      const handleDelete = async () => {
-        if (!deleteTarget) return;
-        setDeleting(true);
-        try {
-          await api.delete(`/api/config-policies/${deleteTarget.id}`);
-          addToast(`策略 "${deleteTarget.name}" 已删除`);
-          setShowDeleteModal(false);
-          setDeleteTarget(null);
-          loadData();
-        } catch (err) {
-          addToast('删除失败：' + err.message, 'err');
-        } finally {
-          setDeleting(false);
-        }
-      };
-
-      const openLogs = async (policy) => {
-        setLogTarget(policy);
-        setShowLogsModal(true);
-        setLogsLoading(true);
-        try {
-          const res = await api.get(`/api/config-policies/${policy.id}/access-logs?limit=20`);
-          setAccessLogs(res.data || []);
-        } catch (err) {
-          addToast('加载访问日志失败：' + err.message, 'err');
-          setAccessLogs([]);
-        } finally {
-          setLogsLoading(false);
-        }
-      };
-
-      const closeLogsModal = () => {
-        setShowLogsModal(false);
-        setLogTarget(null);
-        setAccessLogs([]);
-      };
-
-      return (
-        <div className="app">
-          <Sidebar active="configs" />
-          <main className="main">
-            {/* 页面标题栏 */}
-            <div className="ph">
-              <div>
-                <div className="pt">订阅配置</div>
-                <div className="ps">管理配置策略，生成专属订阅链接</div>
-              </div>
-              <div className="phr">
-                <a className="btn btn-s" href="/config-access-logs">
-                  <IcoClock />访问日志
-                </a>
-                <button className="btn btn-p" onClick={openCreate}>
-                  <IcoPlus />新建策略
+        if (state.policies.length === 0) {
+          contentEl.innerHTML = `
+            <div class="rounded-rf-lg border border-rf-border bg-white shadow-rf1">
+              <div class="flex flex-col items-center justify-center px-5 py-14 text-center">
+                <div class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-[14px] bg-slate-100 text-rf-muted">${icons.settingsBig}</div>
+                <div class="mb-1.5 text-[15px] font-semibold text-rf-text">暂无订阅配置</div>
+                <div class="max-w-[280px] text-[13px] leading-6 text-rf-muted">创建一个配置策略，生成专属的订阅链接。</div>
+                <button type="button" data-action="create" class="mt-4 inline-flex items-center gap-1.5 rounded-rf border border-[#18c865] bg-[#18c865] px-3.5 py-[7px] text-[13.5px] font-medium leading-[1.2] text-white transition hover:border-[#15b25a] hover:bg-[#15b25a]">
+                  ${icons.plus}
+                  新建策略
                 </button>
               </div>
             </div>
+          `;
+          return;
+        }
 
-            {/* 策略列表 */}
-            {loading ? (
-              <div className="card" style={{ padding: '56px 20px', textAlign: 'center' }}>
-                <span className="spin" style={{ width: 24, height: 24 }}></span>
-                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--t2)' }}>加载中...</div>
-              </div>
-            ) : policies.length === 0 ? (
-              <div className="card">
-                <div className="empty">
-                  <div className="empty-ic">
-                    <IcoSettings />
-                  </div>
-                  <div className="empty-t">暂无订阅配置</div>
-                  <div className="empty-d">创建一个配置策略，生成专属的订阅链接</div>
-                  <button className="btn btn-p" style={{ marginTop: 16 }} onClick={openCreate}>
-                    <IcoPlus />新建策略
-                  </button>
+        contentEl.innerHTML = state.policies.map((policy) => {
+          const manualNodeIDs = (policy.node_ids || []).map(Number);
+          const manualNodeNames = getManualNodeNames(manualNodeIDs);
+          const manualSummary = manualNodeIDs.length === 0
+            ? ''
+            : (manualNodeNames.length > 0 ? '手动节点：' + formatPreview(manualNodeNames, '无手动节点') : '手动节点：已选 ' + manualNodeIDs.length + ' 个');
+          const target = targetMeta(policy.target);
+          return `
+            <article class="mb-2 flex items-start justify-between gap-3.5 rounded-rf-lg border border-rf-border bg-white px-[18px] py-[14px] shadow-rf1 transition hover:shadow-rf2">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-rf-text">
+                  <span>${escapeHtml(policy.name)}</span>
+                  ${policy.enabled ? badge('green', '启用') : badge('red', '禁用')}
+                  ${badge(target[1], target[0])}
+                </div>
+                ${policy.description ? `<div class="mt-1 text-[12.5px] leading-[1.5] text-rf-muted">${escapeHtml(policy.description)}</div>` : ''}
+                <div class="mt-[7px] flex flex-wrap items-center gap-3 text-xs text-rf-subtle">
+                  <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.rssMini}${(policy.subscription_ids || []).length > 0 ? (policy.subscription_ids || []).length + ' 个订阅源' : '无订阅源'}</span>
+                  <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0" title="${escapeHtml(manualNodeNames.join('\n'))}">${icons.listMini}${manualSummary || '无手动节点'}</span>
+                  <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">
+                    ${icons.tagMini}
+                    模板：
+                    ${policy.template_name ? `<button type="button" data-action="edit-template" data-template="${escapeHtml(policy.template_name)}" class="border-none bg-transparent p-0 text-left text-blue-500 transition hover:text-blue-700 hover:underline">${escapeHtml(policy.template_name)}</button>` : '默认'}
+                  </span>
+                  <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.clockMini}最近访问：${escapeHtml(formatDate(policy.last_accessed_at))}</span>
                 </div>
               </div>
-            ) : (
-              <div>
-                {policies.map(policy => {
-                  const manualNodeIDs = (policy.node_ids || []).map(Number);
-                  const manualNodeNames = getManualNodeNames(manualNodeIDs);
-                  const manualNodeSummary = manualNodeIDs.length === 0
-                    ? null
-                    : manualNodeNames.length > 0
-                      ? `手动节点：${formatPreview(manualNodeNames, '无手动节点')}`
-                      : `手动节点：已选 ${manualNodeIDs.length} 个`;
-                  return (
-                  <div key={policy.id} className="item">
-                    <div className="item-l">
-                      {/* 名称与徽章 */}
-                      <div className="item-name">
-                        {policy.name}
-                        <span className={`bdg ${policy.enabled ? 'bdg-g' : 'bdg-r'}`}>
-                          <span className="bdg-dot"></span>
-                          {policy.enabled ? '启用' : '禁用'}
-                        </span>
-                        <TargetBadge target={policy.target} />
-                      </div>
-                      {/* 描述 */}
-                      {policy.description && (
-                        <div className="item-desc">{policy.description}</div>
-                      )}
-                      {/* 元信息 */}
-                      <div className="item-meta">
-                        <span className="item-mi">
-                          <IcoRSS />
-                          {(policy.subscription_ids || []).length > 0
-                            ? `${(policy.subscription_ids || []).length} 个订阅源`
-                            : <span style={{ color: 'var(--t3)' }}>无订阅源</span>
-                          }
-                        </span>
-                        <span className="item-mi" title={manualNodeNames.join('\n')}>
-                          <IcoList />
-                          {manualNodeSummary
-                            ? manualNodeSummary
-                            : <span style={{ color: 'var(--t3)' }}>无手动节点</span>
-                          }
-                        </span>
-                        <span className="item-mi">
-                          <IcoTag />
-                          {policy.template_name ? (
-                            <>
-                              模板：
-                              <button
-                                type="button"
-                                className="item-mi-btn"
-                                title={`编辑模板 ${policy.template_name}`}
-                                onClick={() => openTemplateEditor(policy.template_name)}
-                              >
-                                {policy.template_name}
-                              </button>
-                            </>
-                          ) : (
-                            '模板：默认'
-                          )}
-                        </span>
-                        <span className="item-mi">
-                          <IcoClock />
-                          最近访问：{formatDate(policy.last_accessed_at)}
-                        </span>
-                      </div>
-                    </div>
-                    {/* 操作按钮 */}
-                    <div className="item-r">
-                      <button className="btic" title="查看访问日志" onClick={() => openLogs(policy)}>
-                        <IcoClock />
-                      </button>
-                      <button className="btic green" title="复制配置链接" onClick={() => handleCopyLink(policy)}>
-                        <IcoCopy />
-                      </button>
-                      <button className="btic blue" title="新标签页打开配置链接" onClick={() => handleOpenLink(policy)}>
-                        <IcoLink />
-                      </button>
-                      <button
-                        className="btic"
-                        title="清除配置缓存"
-                        disabled={refreshing === policy.name}
-                        onClick={() => handleClearCache(policy)}
-                      >
-                        {refreshing === policy.name
-                          ? <span className="spin"></span>
-                          : <IcoRefresh />
-                        }
-                      </button>
-                      <button className="btic blue" title="编辑配置" onClick={() => openEdit(policy)}>
-                        <IcoEdit />
-                      </button>
-                      <button className="btic red" title="删除策略" onClick={() => openDelete(policy)}>
-                        <IcoTrash />
-                      </button>
-                    </div>
-                  </div>
-                )})}
+              <div class="flex shrink-0 items-center gap-[3px]">
+                <button type="button" data-action="copy-link" data-id="${policy.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-green-50 hover:text-[#18c865]" title="复制配置链接">${icons.copy}</button>
+                <button type="button" data-action="open-link" data-id="${policy.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-blue-50 hover:text-blue-500" title="新标签页打开">${icons.link}</button>
+                <button type="button" data-action="clear-cache" data-id="${policy.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-slate-100 hover:text-rf-text disabled:cursor-not-allowed disabled:opacity-50" title="清除配置缓存" ${state.refreshingId === policy.id ? 'disabled' : ''}>
+                  ${state.refreshingId === policy.id ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : icons.refresh}
+                </button>
+                <button type="button" data-action="edit" data-id="${policy.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-blue-50 hover:text-blue-500" title="编辑配置">${icons.edit}</button>
+                <button type="button" data-action="delete" data-id="${policy.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-red-50 hover:text-red-500" title="删除策略">${icons.trash}</button>
               </div>
-            )}
-          </main>
+            </article>
+          `;
+        }).join('');
+      }
 
-          {/* 新建/编辑 Modal */}
-          {showModal && (
-            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
-              <div className="modal modal-lg">
-                <div className="mh">
-                  <span className="mht">{editItem ? '编辑配置' : '新建订阅配置'}</span>
-                  <button className="btic" onClick={closeModal}><IcoX /></button>
-                </div>
-                <div className="mb">
-                  {/* 策略名称 + 目标类型 */}
-                  <div className="frow">
-                    <div className="fg">
-                      <label className="fl">策略名称</label>
-                      <input
-                        className="fc"
-                        type="text"
-                        placeholder="my-config"
-                        value={form.name}
-                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                      />
+      function renderModal() {
+        if (!state.modalOpen) {
+          modalRoot.innerHTML = '';
+          return;
+        }
+
+        const templates = filteredTemplates();
+
+        modalRoot.innerHTML = `
+          <div class="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-5 backdrop-blur-[3px]">
+            <div class="max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-rf-xl bg-white shadow-rf3">
+              <div class="sticky top-0 z-[1] flex items-center justify-between border-b border-rf-border bg-white px-[22px] py-[18px]">
+                <span class="text-base font-semibold text-rf-text">${state.editItem ? '编辑配置' : '新建订阅配置'}</span>
+                <button type="button" data-action="close-modal" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-slate-100 hover:text-rf-text">${icons.close}</button>
+              </div>
+              <form id="config-form">
+                <div class="space-y-[14px] px-[22px] py-[22px]">
+                  <div class="grid gap-[14px] md:grid-cols-2">
+                    <div>
+                      <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">策略名称</label>
+                      <input name="name" type="text" value="${escapeHtml(state.form.name)}" placeholder="my-config" class="w-full rounded-rf border border-rf-border bg-white px-[11px] py-[8px] text-[13.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
                     </div>
-                    <div className="fg">
-                      <label className="fl">目标类型</label>
-                      <select
-                        className="fc"
-                        value={form.target}
-                        onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
-                      >
-                        <option value="clash-meta">Clash Meta</option>
-                        <option value="stash">Stash</option>
-                        <option value="surge">Surge</option>
-                        <option value="sing-box">sing-box</option>
+                    <div>
+                      <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">目标类型</label>
+                      <select name="target" class="w-full rounded-rf border border-rf-border bg-white px-[11px] py-[8px] text-[13.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
+                        <option value="clash-meta" ${state.form.target === 'clash-meta' ? 'selected' : ''}>Clash Meta</option>
+                        <option value="stash" ${state.form.target === 'stash' ? 'selected' : ''}>Stash</option>
+                        <option value="surge" ${state.form.target === 'surge' ? 'selected' : ''}>Surge</option>
+                        <option value="sing-box" ${state.form.target === 'sing-box' ? 'selected' : ''}>sing-box</option>
                       </select>
                     </div>
                   </div>
 
-                  {/* 描述 */}
-                  <div className="fg">
-                    <label className="fl">描述 <span className="flo">可选</span></label>
-                    <textarea
-                      className="fc"
-                      placeholder="简要描述此策略的用途..."
-                      rows={2}
-                      value={form.description}
-                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    />
+                  <div>
+                    <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">描述 <span class="ml-1 text-[11px] font-normal text-rf-muted">可选</span></label>
+                    <textarea name="description" rows="2" placeholder="简要描述此策略的用途..." class="min-h-[72px] w-full resize-y rounded-rf border border-rf-border bg-white px-[11px] py-[8px] text-[13.5px] leading-[1.5] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">${escapeHtml(state.form.description)}</textarea>
                   </div>
 
-                  {/* 订阅源选择 */}
-                  <div className="fg">
-                    <label className="fl">
-                      选择订阅源
-                      <span className="flo">已选 {form.subscription_ids.length} 个</span>
-                    </label>
-                    {subscriptions.length === 0 ? (
-                      <div style={{ padding: '12px', border: '1px solid var(--bdr)', borderRadius: 'var(--rm)', fontSize: 13, color: 'var(--t2)' }}>
-                        暂无订阅源，请先 <a href="/subscriptions" style={{ color: 'var(--grn)' }}>创建订阅源</a>
+                  <div>
+                    <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">选择订阅源 <span class="ml-1 text-[11px] font-normal text-rf-muted">已选 ${state.form.subscription_ids.length} 个</span></label>
+                    ${state.subscriptions.length === 0 ? `
+                      <div class="rounded-rf border border-rf-border px-3 py-3 text-[13px] text-rf-muted">
+                        暂无订阅源，请先 <a href="/subscriptions" class="text-[#18c865] transition hover:text-[#18c865]Dark">创建订阅源</a>
                       </div>
-                    ) : (
-                      <div className="sub-grid">
-                        {subscriptions.map(sub => {
-                          const checked = form.subscription_ids.includes(sub.id);
-                          return (
-                            <div
-                              key={sub.id}
-                              className={`sub-item${checked ? ' checked' : ''}`}
-                              onClick={() => toggleSub(sub.id)}
-                            >
-                              <div className="sub-check">
-                                {checked && (
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                  </svg>
-                                )}
-                              </div>
-                              <span className="sub-label">{sub.name}</span>
-                            </div>
-                          );
-                        })}
+                    ` : `
+                      <div class="grid gap-2 md:grid-cols-2">
+                        ${state.subscriptions.map((sub) => {
+                          const checked = state.form.subscription_ids.includes(Number(sub.id));
+                          return `
+                            <button type="button" data-action="toggle-sub" data-id="${sub.id}" class="flex items-center gap-2 rounded-rf border px-[10px] py-[8px] text-left transition ${checked ? 'border-[#18c865] bg-[rgba(24,200,101,0.06)]' : 'border-rf-border bg-white hover:bg-slate-50'}">
+                              <span class="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-2 ${checked ? 'border-[#18c865] bg-[#18c865] text-white' : 'border-rf-border text-transparent'}">${icons.tickTiny}</span>
+                              <span class="truncate text-[13px] font-medium text-rf-text">${escapeHtml(sub.name)}</span>
+                            </button>
+                          `;
+                        }).join('')}
                       </div>
-                    )}
+                    `}
                   </div>
 
-                  {/* 手动节点选择 */}
-                  {manualNodes.length > 0 && (
-                    <div className="fg">
-                      <label className="fl">
-                        手动节点
-                        <span className="flo">已选 {form.node_ids.length} 个</span>
-                      </label>
-                      <div className="sub-grid">
-                        {manualNodes.map(node => {
-                          const checked = form.node_ids.includes(node.id);
-                          return (
-                            <div
-                              key={node.id}
-                              className={`sub-item${checked ? ' checked' : ''}`}
-                              onClick={() => toggleNode(node.id)}
-                            >
-                              <div className="sub-check">
-                                {checked && (
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                  </svg>
-                                )}
-                              </div>
-                              <span className="sub-label" title={`${node.protocol} · ${node.server}:${node.port}`}>
-                                {node.name}
-                              </span>
-                            </div>
-                          );
-                        })}
+                  ${state.manualNodes.length > 0 ? `
+                    <div>
+                      <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">手动节点 <span class="ml-1 text-[11px] font-normal text-rf-muted">已选 ${state.form.node_ids.length} 个</span></label>
+                      <div class="grid gap-2 md:grid-cols-2">
+                        ${state.manualNodes.map((node) => {
+                          const checked = state.form.node_ids.includes(Number(node.id));
+                          return `
+                            <button type="button" data-action="toggle-node" data-id="${node.id}" class="flex items-center gap-2 rounded-rf border px-[10px] py-[8px] text-left transition ${checked ? 'border-[#18c865] bg-[rgba(24,200,101,0.06)]' : 'border-rf-border bg-white hover:bg-slate-50'}" title="${escapeHtml((node.protocol || '') + ' · ' + node.server + ':' + node.port)}">
+                              <span class="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-2 ${checked ? 'border-[#18c865] bg-[#18c865] text-white' : 'border-rf-border text-transparent'}">${icons.tickTiny}</span>
+                              <span class="truncate text-[13px] font-medium text-rf-text">${escapeHtml(node.name)}</span>
+                            </button>
+                          `;
+                        }).join('')}
                       </div>
                     </div>
-                  )}
+                  ` : ''}
 
-                  {/* 规则模板 */}
-                  <div className="fg">
-                    <label className="fl">规则模板</label>
-                    <select
-                      className="fc"
-                      value={form.template_name}
-                      onChange={e => setForm(f => ({ ...f, template_name: e.target.value }))}
-                    >
+                  <div>
+                    <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">规则模板</label>
+                    <select name="template_name" class="w-full rounded-rf border border-rf-border bg-white px-[11px] py-[8px] text-[13.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
                       <option value="">内置模板</option>
-                      {templates.filter(tpl => {
-                        if (form.target === 'surge') return tpl.target === 'surge';
-                        if (form.target === 'sing-box') return tpl.target === 'sing_box';
-                        return tpl.target !== 'surge' && tpl.target !== 'sing_box';
-                      }).map(tpl => (
-                        <option key={tpl.name} value={tpl.name}>
-                          {tpl.name}
-                        </option>
-                      ))}
+                      ${templates.map((tpl) => `<option value="${escapeHtml(tpl.name)}" ${state.form.template_name === tpl.name ? 'selected' : ''}>${escapeHtml(tpl.name)}</option>`).join('')}
                     </select>
                   </div>
 
-                  {/* 启用开关 */}
-                  <div className="fg" style={{ marginBottom: 0 }}>
-                    <Toggle
-                      checked={form.enabled}
-                      onChange={v => setForm(f => ({ ...f, enabled: v }))}
-                      label="启用此策略"
-                    />
-                  </div>
+                  <label class="flex items-center gap-3 rounded-rf border border-rf-border bg-slate-50 px-3 py-[10px] text-[13px] text-rf-text">
+                    <input name="enabled" type="checkbox" ${state.form.enabled ? 'checked' : ''} class="h-4 w-4 cursor-pointer accent-[#18c865]">
+                    <span>启用此策略</span>
+                  </label>
                 </div>
-                <div className="mf">
-                  <button className="btn btn-s" onClick={closeModal}>取消</button>
-                  <button
-                    className="btn btn-p"
-                    onClick={handleSave}
-                    disabled={saving || (form.subscription_ids.length === 0 && form.node_ids.length === 0)}
-                  >
-                    {saving && <span className="spin"></span>}
-                    {saving ? '保存中...' : (editItem ? '保存更改' : '创建策略')}
+
+                <div class="flex justify-end gap-2 rounded-b-rf-xl border-t border-rf-border bg-slate-50 px-[22px] py-[14px]">
+                  <button type="button" data-action="close-modal" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-3.5 py-[7px] text-[13.5px] font-medium text-rf-text transition hover:bg-slate-50">取消</button>
+                  <button type="submit" class="inline-flex items-center gap-1.5 rounded-rf border border-[#18c865] bg-[#18c865] px-3.5 py-[7px] text-[13.5px] font-medium text-white transition hover:border-[#15b25a] hover:bg-[#15b25a] disabled:cursor-not-allowed disabled:opacity-60" ${state.saving ? 'disabled' : ''}>
+                    ${state.saving ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : ''}
+                    ${state.saving ? '保存中...' : (state.editItem ? '保存更改' : '创建策略')}
                   </button>
                 </div>
+              </form>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderDeleteDialog() {
+        if (!state.deleteTarget) {
+          deleteRoot.innerHTML = '';
+          return;
+        }
+
+        deleteRoot.innerHTML = `
+          <div class="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-5 backdrop-blur-[3px]">
+            <div class="w-full max-w-[420px] rounded-rf-xl bg-white shadow-rf3">
+              <div class="border-b border-rf-border px-5 py-4">
+                <div class="text-[16px] font-semibold text-rf-text">确认删除</div>
+              </div>
+              <div class="px-5 py-4 text-[13.5px] leading-6 text-rf-muted">
+                确定要删除策略「<span class="font-medium text-rf-text">${escapeHtml(state.deleteTarget.name)}</span>」吗？
+                <div class="mt-2 text-[13px]">此操作不可撤销，关联的配置链接将立即失效。</div>
+              </div>
+              <div class="flex justify-end gap-2 rounded-b-rf-xl border-t border-rf-border bg-slate-50 px-5 py-3.5">
+                <button type="button" data-action="close-delete" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-3.5 py-[7px] text-[13.5px] font-medium text-rf-text transition hover:bg-slate-50">取消</button>
+                <button type="button" data-action="confirm-delete" class="inline-flex items-center gap-1.5 rounded-rf border border-red-500 bg-red-500 px-3.5 py-[7px] text-[13.5px] font-medium text-white transition hover:border-red-600 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60" ${state.deleting ? 'disabled' : ''}>
+                  ${state.deleting ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : ''}
+                  ${state.deleting ? '删除中...' : '确认删除'}
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        `;
+      }
 
-          {showLogsModal && (
-            <div className="overlay" onClick={e => { if (e.target === e.currentTarget) closeLogsModal(); }}>
-              <div className="modal modal-md">
-                <div className="mh">
-                  <div className="mht">{logTarget ? `${logTarget.name} 的访问日志` : '访问日志'}</div>
-                  <button className="btic" onClick={closeLogsModal}><IcoX /></button>
-                </div>
-                <div className="mb">
-                  {logsLoading ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t2)', fontSize: 13 }}>加载中...</div>
-                  ) : accessLogs.length === 0 ? (
-                    <div className="empty" style={{ padding: '24px 0' }}>
-                      <div className="empty-t">暂无访问日志</div>
-                      <div className="empty-d">用户请求订阅配置后，这里会记录最近的访问明细。</div>
-                    </div>
-                  ) : (
-                    <div className="log-list">
-                      {accessLogs.map(log => (
-                        <div key={log.id} className="log-item">
-                          <div className="log-head">
-                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--t1)' }}>
-                              {formatDate(log.created_at)}
-                            </div>
-                            <span className={`bdg ${log.success ? 'bdg-g' : 'bdg-r'}`}>
-                              <span className="bdg-dot"></span>
-                              {log.success ? '成功' : '失败'}
-                            </span>
-                          </div>
-                          <div className="log-meta">
-                            <span>状态码：{log.status_code}</span>
-                            <span>缓存：{log.cache_hit ? '命中' : '未命中'}</span>
-                            <span>节点数：{log.node_count != null ? log.node_count : '-'}</span>
-                            <span>IP：{log.client_ip || '-'}</span>
-                          </div>
-                          <div className="log-meta" style={{ marginTop: 6 }}>
-                            <span title={log.user_agent || ''}>UA：{log.user_agent || '-'}</span>
-                          </div>
-                          {log.error_message && <div className="log-err">{log.error_message}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+      function renderAll() {
+        renderContent();
+        renderModal();
+        renderDeleteDialog();
+        renderToasts();
+      }
 
-          {/* 删除确认 Modal */}
-          <window.ConfirmDialog
-            isOpen={showDeleteModal && !!deleteTarget}
-            title="确认删除"
-            message={
-              <>
-                <p style={{ fontSize: 14, color: 'var(--t1)', lineHeight: 1.6 }}>
-                  确定要删除策略 <strong>"{deleteTarget?.name}"</strong> 吗？
-                </p>
-                <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
-                  此操作不可撤销，关联的配置链接将立即失效。
-                </p>
-              </>
-            }
-            confirmText="确认删除"
-            loading={deleting}
-            onConfirm={handleDelete}
-            onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
-          />
+      async function loadData() {
+        state.loading = true;
+        renderContent();
+        try {
+          const [pRes, sRes, tRes, nRes] = await Promise.all([
+            get('/api/config-policies'),
+            get('/api/subscriptions'),
+            get('/api/templates'),
+            get('/api/nodes?source=manual'),
+          ]);
+          state.policies = pRes.data || [];
+          state.subscriptions = sRes.data || [];
+          state.templates = tRes.data || [];
+          state.manualNodes = nRes.data || [];
+        } catch (err) {
+          addToast('加载数据失败：' + err.message, 'err');
+        } finally {
+          state.loading = false;
+          renderContent();
+        }
+      }
 
-          {/* Toast 通知 */}
-          <ToastContainer toasts={toasts} />
-        </div>
-      );
-    };
+      function openCreate() {
+        state.editItem = null;
+        state.form = defaultForm();
+        state.modalOpen = true;
+        renderModal();
+      }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+      function openEdit(policy) {
+        const validSubIDs = new Set(state.subscriptions.map((item) => Number(item.id)));
+        const validNodeIDs = new Set(state.manualNodes.map((item) => Number(item.id)));
+        state.editItem = policy;
+        state.form = {
+          name: policy.name || '',
+          target: policy.target || 'clash-meta',
+          subscription_ids: (policy.subscription_ids || []).map(Number).filter((id) => validSubIDs.has(id)),
+          node_ids: (policy.node_ids || []).map(Number).filter((id) => validNodeIDs.has(id)),
+          template_name: policy.template_name || '',
+          description: policy.description || '',
+          enabled: policy.enabled !== false,
+        };
+        state.modalOpen = true;
+        renderModal();
+      }
+
+      function closeModal() {
+        state.modalOpen = false;
+        state.editItem = null;
+        state.saving = false;
+        state.form = defaultForm();
+        modalRoot.innerHTML = '';
+      }
+
+      function openDelete(policy) {
+        state.deleteTarget = policy;
+        state.deleting = false;
+        renderDeleteDialog();
+      }
+
+      function closeDelete() {
+        state.deleteTarget = null;
+        state.deleting = false;
+        deleteRoot.innerHTML = '';
+      }
+
+      async function savePolicy() {
+        syncFormFromDom();
+        if (!state.form.name.trim()) {
+          addToast('策略名称不能为空', 'err');
+          return;
+        }
+        if (state.form.subscription_ids.length === 0 && state.form.node_ids.length === 0) {
+          addToast('请至少选择一个订阅源或手动节点', 'err');
+          return;
+        }
+
+        const payload = {
+          name: state.form.name.trim(),
+          target: state.form.target,
+          subscription_ids: state.form.subscription_ids,
+          node_ids: state.form.node_ids,
+          template_name: state.form.template_name,
+          description: state.form.description.trim(),
+          enabled: state.form.enabled,
+        };
+
+        state.saving = true;
+        renderModal();
+        try {
+          if (state.editItem) {
+            await put('/api/config-policies/' + state.editItem.id, payload);
+            addToast('策略已更新');
+          } else {
+            await post('/api/config-policies', payload);
+            addToast('策略已创建');
+          }
+          closeModal();
+          await loadData();
+        } catch (err) {
+          state.saving = false;
+          renderModal();
+          addToast('保存失败：' + err.message, 'err');
+        }
+      }
+
+      async function confirmDelete() {
+        if (!state.deleteTarget) return;
+        state.deleting = true;
+        renderDeleteDialog();
+        try {
+          await del('/api/config-policies/' + state.deleteTarget.id);
+          addToast('策略 "' + state.deleteTarget.name + '" 已删除');
+          closeDelete();
+          await loadData();
+        } catch (err) {
+          state.deleting = false;
+          renderDeleteDialog();
+          addToast('删除失败：' + err.message, 'err');
+        }
+      }
+
+      async function clearCache(policy) {
+        state.refreshingId = policy.id;
+        renderContent();
+        try {
+          await del('/api/config-policies/' + policy.id + '/cache');
+          addToast('缓存已清除');
+        } catch (err) {
+          addToast('清除缓存失败：' + err.message, 'err');
+        } finally {
+          state.refreshingId = null;
+          renderContent();
+        }
+      }
+
+      root.addEventListener('click', async (event) => {
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+
+        const action = target.dataset.action;
+        const id = Number(target.dataset.id);
+        const policy = state.policies.find((item) => item.id === id);
+
+        if (action === 'create') openCreate();
+        if (action === 'edit' && policy) openEdit(policy);
+        if (action === 'delete' && policy) openDelete(policy);
+        if (action === 'copy-link' && policy) await copyText(getPolicyURL(policy), '配置链接已复制到剪贴板');
+        if (action === 'open-link' && policy) window.open(getPolicyURL(policy), '_blank', 'noopener,noreferrer');
+        if (action === 'clear-cache' && policy) await clearCache(policy);
+        if (action === 'edit-template' && target.dataset.template) openTemplateEditor(target.dataset.template);
+      });
+
+      modalRoot.addEventListener('click', (event) => {
+        const overlay = event.target;
+        if (overlay === modalRoot.firstElementChild) {
+          closeModal();
+          return;
+        }
+
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+
+        if (target.dataset.action === 'close-modal') closeModal();
+        if (target.dataset.action === 'toggle-sub') {
+          syncFormFromDom();
+          const id = Number(target.dataset.id);
+          state.form.subscription_ids = state.form.subscription_ids.includes(id)
+            ? state.form.subscription_ids.filter((item) => item !== id)
+            : state.form.subscription_ids.concat(id);
+          renderModal();
+        }
+        if (target.dataset.action === 'toggle-node') {
+          syncFormFromDom();
+          const id = Number(target.dataset.id);
+          state.form.node_ids = state.form.node_ids.includes(id)
+            ? state.form.node_ids.filter((item) => item !== id)
+            : state.form.node_ids.concat(id);
+          renderModal();
+        }
+      });
+
+      modalRoot.addEventListener('change', (event) => {
+        if (event.target.name === 'target') {
+          syncFormFromDom();
+          if (!filteredTemplates().some((tpl) => tpl.name === state.form.template_name)) {
+            state.form.template_name = '';
+          }
+          renderModal();
+        }
+      });
+
+      modalRoot.addEventListener('submit', (event) => {
+        if (event.target.id !== 'config-form') return;
+        event.preventDefault();
+        savePolicy();
+      });
+
+      deleteRoot.addEventListener('click', (event) => {
+        const overlay = event.target;
+        if (overlay === deleteRoot.firstElementChild) {
+          closeDelete();
+          return;
+        }
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+        if (target.dataset.action === 'close-delete') closeDelete();
+        if (target.dataset.action === 'confirm-delete') confirmDelete();
+      });
+
+      const icons = {
+        plus: '<svg class="h-[14px] w-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+        check: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+        alert: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>',
+        close: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>',
+        copy: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
+        link: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l2.12-2.12a5 5 0 0 0-7.07-7.07L11.5 5.44"></path><path d="M14 11a5 5 0 0 0-7.54-.54L4.34 12.58a5 5 0 0 0 7.07 7.07l1.06-1.06"></path></svg>',
+        refresh: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15.55-6.36L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15.55 6.36L3 16"></path></svg>',
+        edit: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>',
+        trash: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>',
+        clockMini: '<svg class="h-[11px] w-[11px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+        rssMini: '<svg class="h-[11px] w-[11px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>',
+        listMini: '<svg class="h-[11px] w-[11px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>',
+        tagMini: '<svg class="h-[11px] w-[11px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+        settingsBig: '<svg class="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .67.39 1.27 1 1.51H21a2 2 0 1 1 0 4h-.09c-.67 0-1.27.39-1.51 1z"></path></svg>',
+        tickTiny: '<svg class="h-[10px] w-[10px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+      };
+
+      renderAll();
+      loadData();
+    })();
   </script>
-</body>
-</html>

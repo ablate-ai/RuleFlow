@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ablate-ai/RuleFlow/cache"
@@ -15,6 +16,32 @@ import (
 
 type policyCacheInvalidator interface {
 	DeletePolicyConfig(ctx context.Context, token string) error
+}
+
+type preparedSubscriptionSync struct {
+	sub      *database.Subscription
+	nodes    []*app.ProxyNode
+	userInfo *database.UserInfo
+	err      error
+}
+
+// SubscriptionBatchSyncFailure 批量同步失败项
+type SubscriptionBatchSyncFailure struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Error string `json:"error"`
+}
+
+// SubscriptionBatchSyncResult 批量同步结果
+type SubscriptionBatchSyncResult struct {
+	Total        int                            `json:"total"`
+	Attempted    int                            `json:"attempted"`
+	Succeeded    int                            `json:"succeeded"`
+	Failed       int                            `json:"failed"`
+	Skipped      int                            `json:"skipped"`
+	TotalNodes   int                            `json:"total_nodes"`
+	Failures     []SubscriptionBatchSyncFailure `json:"failures"`
+	SkippedNames []string                       `json:"skipped_names"`
 }
 
 // SubscriptionSyncService 订阅同步服务
@@ -45,88 +72,13 @@ func NewSubscriptionSyncService(
 func (s *SubscriptionSyncService) SyncSubscription(ctx context.Context, subscriptionID int64) (int, error) {
 	log.Printf("[sync] 开始同步订阅: id=%d", subscriptionID)
 
-	// 1. 获取订阅配置
 	sub, err := s.subRepo.GetByID(ctx, subscriptionID)
 	if err != nil {
 		return 0, fmt.Errorf("订阅不存在: %d", subscriptionID)
 	}
 
-	if !sub.Enabled {
-		return 0, fmt.Errorf("订阅已禁用: %s", sub.Name)
-	}
-
-	if sub.URL == nil || *sub.URL == "" {
-		return 0, fmt.Errorf("订阅没有配置 URL: %s", sub.Name)
-	}
-
-	// 2. 从 URL 拉取订阅内容
-	log.Printf("[sync] 拉取订阅内容: %s", *sub.URL)
-	content, userInfoHeader, err := s.fetchSubscriptionContent(ctx, *sub.URL)
-	if err != nil {
-		log.Printf("[sync] 拉取失败: %v", err)
-		_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, 0, err)
-		return 0, fmt.Errorf("拉取订阅内容失败: %w", err)
-	}
-	log.Printf("[sync] 拉取成功，内容长度: %d 字节", len(content))
-
-	// 3. 解析节点
-	log.Printf("[sync] 开始解析节点...")
-	nodes, err := app.ParseSubscription(content)
-	if err != nil {
-		log.Printf("[sync] 解析失败: %v", err)
-		_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, 0, err)
-		return 0, fmt.Errorf("解析订阅内容失败: %w", err)
-	}
-
-	if len(nodes) == 0 {
-		log.Printf("[sync] 未解析到任何节点")
-		_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, 0, fmt.Errorf("订阅中没有有效节点"))
-		return 0, fmt.Errorf("订阅中没有有效节点")
-	}
-	log.Printf("[sync] 解析完成，共 %d 个节点", len(nodes))
-
-	// 4. 开始事务处理
-	namePrefix := fmt.Sprintf("%s-", strings.TrimSpace(sub.Name))
-
-	// 4.1 删除该订阅的旧节点。按 source_id 删除，避免订阅改名后旧 source 残留。
-	deleted, err := s.nodeRepo.DeleteBySourceID(ctx, sub.ID)
-	if err != nil {
-		return 0, fmt.Errorf("删除旧节点失败: %w", err)
-	}
-	log.Printf("[sync] 已删除旧节点: %d 个", deleted)
-
-	// 4.2 将解析的节点转换为数据库模型
-	dbNodes := s.convertToDBNodes(nodes, sub.ID, namePrefix)
-
-	// 4.3 批量插入新节点
-	if err := s.nodeRepo.BatchCreate(ctx, dbNodes); err != nil {
-		log.Printf("[sync] 插入新节点失败: %v", err)
-		return 0, fmt.Errorf("插入新节点失败: %w", err)
-	}
-
-	// 5. 更新订阅同步状态
-	now := time.Now()
-	nodeCount := len(dbNodes)
-	_ = s.subRepo.UpdateFetchResultByID(ctx, subscriptionID, nodeCount, nil)
-
-	if err := s.updateNodesLastSyncedAt(ctx, sub.ID, now); err != nil {
-		_ = err
-	}
-
-	// 6. 解析并持久化流量信息
-	var userInfo *database.UserInfo
-	if userInfoHeader != "" {
-		userInfo = parseUserInfo(userInfoHeader)
-	}
-	if err := s.subRepo.UpdateUserInfoByID(ctx, subscriptionID, userInfo); err != nil {
-		log.Printf("[sync] 保存流量信息失败: %v", err)
-	} else if userInfo != nil {
-		log.Printf("[sync] 流量信息已保存: upload=%d download=%d total=%d", userInfo.Upload, userInfo.Download, userInfo.Total)
-	}
-
-	s.invalidateRelatedPolicyCaches(ctx, sub.ID)
-	log.Printf("[sync] 同步完成: %s，节点数: %d", sub.Name, nodeCount)
-	return nodeCount, nil
+	prepared := s.prepareSubscriptionSync(ctx, sub)
+	return s.applyPreparedSubscriptionSync(ctx, prepared)
 }
 
 func (s *SubscriptionSyncService) invalidateRelatedPolicyCaches(ctx context.Context, subscriptionID int64) {
@@ -219,6 +171,87 @@ func (s *SubscriptionSyncService) fetchSubscriptionContent(ctx context.Context, 
 	return content, headers.Get("Subscription-Userinfo"), nil
 }
 
+func (s *SubscriptionSyncService) prepareSubscriptionSync(ctx context.Context, sub *database.Subscription) preparedSubscriptionSync {
+	if sub == nil {
+		return preparedSubscriptionSync{err: fmt.Errorf("订阅不存在")}
+	}
+	if !sub.Enabled {
+		return preparedSubscriptionSync{sub: sub, err: fmt.Errorf("订阅已禁用: %s", sub.Name)}
+	}
+	if sub.URL == nil || strings.TrimSpace(*sub.URL) == "" {
+		return preparedSubscriptionSync{sub: sub, err: fmt.Errorf("订阅没有配置 URL: %s", sub.Name)}
+	}
+
+	log.Printf("[sync] 拉取订阅内容: id=%d url=%s", sub.ID, *sub.URL)
+	content, userInfoHeader, err := s.fetchSubscriptionContent(ctx, *sub.URL)
+	if err != nil {
+		log.Printf("[sync] 拉取失败: id=%d err=%v", sub.ID, err)
+		return preparedSubscriptionSync{sub: sub, err: fmt.Errorf("拉取订阅内容失败: %w", err)}
+	}
+	log.Printf("[sync] 拉取成功: id=%d content_length=%d", sub.ID, len(content))
+
+	nodes, err := app.ParseSubscription(content)
+	if err != nil {
+		log.Printf("[sync] 解析失败: id=%d err=%v", sub.ID, err)
+		return preparedSubscriptionSync{sub: sub, err: fmt.Errorf("解析订阅内容失败: %w", err)}
+	}
+	if len(nodes) == 0 {
+		log.Printf("[sync] 未解析到任何节点: id=%d", sub.ID)
+		return preparedSubscriptionSync{sub: sub, err: fmt.Errorf("订阅中没有有效节点")}
+	}
+
+	return preparedSubscriptionSync{
+		sub:      sub,
+		nodes:    nodes,
+		userInfo: parseUserInfo(userInfoHeader),
+	}
+}
+
+func (s *SubscriptionSyncService) applyPreparedSubscriptionSync(ctx context.Context, prepared preparedSubscriptionSync) (int, error) {
+	if prepared.sub == nil {
+		if prepared.err != nil {
+			return 0, prepared.err
+		}
+		return 0, fmt.Errorf("订阅不存在")
+	}
+
+	if prepared.err != nil {
+		_ = s.subRepo.UpdateFetchResultByID(ctx, prepared.sub.ID, 0, prepared.err)
+		return 0, prepared.err
+	}
+
+	namePrefix := fmt.Sprintf("%s-", strings.TrimSpace(prepared.sub.Name))
+	deleted, err := s.nodeRepo.DeleteBySourceID(ctx, prepared.sub.ID)
+	if err != nil {
+		return 0, fmt.Errorf("删除旧节点失败: %w", err)
+	}
+	log.Printf("[sync] 已删除旧节点: id=%d count=%d", prepared.sub.ID, deleted)
+
+	dbNodes := s.convertToDBNodes(prepared.nodes, prepared.sub.ID, namePrefix)
+	if err := s.nodeRepo.BatchCreate(ctx, dbNodes); err != nil {
+		log.Printf("[sync] 插入新节点失败: id=%d err=%v", prepared.sub.ID, err)
+		return 0, fmt.Errorf("插入新节点失败: %w", err)
+	}
+
+	now := time.Now()
+	nodeCount := len(dbNodes)
+	_ = s.subRepo.UpdateFetchResultByID(ctx, prepared.sub.ID, nodeCount, nil)
+
+	if err := s.updateNodesLastSyncedAt(ctx, prepared.sub.ID, now); err != nil {
+		_ = err
+	}
+
+	if err := s.subRepo.UpdateUserInfoByID(ctx, prepared.sub.ID, prepared.userInfo); err != nil {
+		log.Printf("[sync] 保存流量信息失败: id=%d err=%v", prepared.sub.ID, err)
+	} else if prepared.userInfo != nil {
+		log.Printf("[sync] 流量信息已保存: id=%d upload=%d download=%d total=%d", prepared.sub.ID, prepared.userInfo.Upload, prepared.userInfo.Download, prepared.userInfo.Total)
+	}
+
+	s.invalidateRelatedPolicyCaches(ctx, prepared.sub.ID)
+	log.Printf("[sync] 同步完成: %s，节点数: %d", prepared.sub.Name, nodeCount)
+	return nodeCount, nil
+}
+
 // convertToDBNodes 将解析的节点转换为数据库模型
 func (s *SubscriptionSyncService) convertToDBNodes(nodes []*app.ProxyNode, sourceID int64, namePrefix string) []database.Node {
 	dbNodes := make([]database.Node, 0, len(nodes))
@@ -277,34 +310,63 @@ func (s *SubscriptionSyncService) GetSyncStatus(ctx context.Context, subscriptio
 	return status, nil
 }
 
-// SyncAllSubscriptions 同步所有启用的订阅
-func (s *SubscriptionSyncService) SyncAllSubscriptions(ctx context.Context) (map[string]int, error) {
-	// 获取所有订阅
+// SyncAllSubscriptions 同步所有启用的订阅，采用两阶段流程：
+// 1. 并行拉取和解析
+// 2. 串行落库，减少数据库写冲突
+func (s *SubscriptionSyncService) SyncAllSubscriptions(ctx context.Context) (*SubscriptionBatchSyncResult, error) {
 	subs, err := s.subRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("获取订阅列表失败: %w", err)
 	}
 
-	results := make(map[string]int)
-	successCount := 0
-	failureCount := 0
-
-	for _, sub := range subs {
-		if !sub.Enabled {
-			continue
-		}
-
-		// 同步订阅
-		count, err := s.SyncSubscription(ctx, sub.ID)
-		if err != nil {
-			failureCount++
-			results[sub.Name] = 0
-			continue
-		}
-
-		successCount++
-		results[sub.Name] = count
+	result := &SubscriptionBatchSyncResult{
+		Total:        len(subs),
+		Failures:     make([]SubscriptionBatchSyncFailure, 0),
+		SkippedNames: make([]string, 0),
 	}
 
-	return results, nil
+	targets := make([]database.Subscription, 0, len(subs))
+	for _, sub := range subs {
+		if !sub.Enabled {
+			result.SkippedNames = append(result.SkippedNames, sub.Name)
+			continue
+		}
+		if sub.URL == nil || strings.TrimSpace(*sub.URL) == "" {
+			result.SkippedNames = append(result.SkippedNames, sub.Name)
+			continue
+		}
+		targets = append(targets, sub)
+	}
+	result.Attempted = len(targets)
+	result.Skipped = len(result.SkippedNames)
+
+	prepared := make([]preparedSubscriptionSync, len(targets))
+	var wg sync.WaitGroup
+	wg.Add(len(targets))
+	for idx, sub := range targets {
+		idx := idx
+		sub := sub
+		go func() {
+			defer wg.Done()
+			prepared[idx] = s.prepareSubscriptionSync(ctx, &sub)
+		}()
+	}
+	wg.Wait()
+
+	for _, item := range prepared {
+		count, err := s.applyPreparedSubscriptionSync(ctx, item)
+		if err != nil {
+			result.Failed++
+			result.Failures = append(result.Failures, SubscriptionBatchSyncFailure{
+				ID:    item.sub.ID,
+				Name:  item.sub.Name,
+				Error: err.Error(),
+			})
+			continue
+		}
+		result.Succeeded++
+		result.TotalNodes += count
+	}
+
+	return result, nil
 }

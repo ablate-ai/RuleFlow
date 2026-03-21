@@ -1,458 +1,42 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RuleFlow - 规则模板</title>
-  <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
-  <link rel="stylesheet" href="/web/shared/base.css">
-  <!-- React/Babel 必须在 Monaco 之前加载，避免 AMD define 冲突 -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Monaco loader 在 React/Babel 之后加载，此时它们已作为全局变量注册，不会触发 AMD -->
-  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.min.js"></script>
+<section id="templates-page" class="space-y-6">
+    <header class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-[22px] font-bold tracking-[-0.4px] text-rf-text">规则模板</h1>
+        <p class="mt-0.5 text-[13px] text-rf-muted">管理 Clash / Surge 等客户端的规则模板</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" data-action="create" class="inline-flex items-center gap-1.5 rounded-rf border border-[#18c865] bg-[#18c865] px-3.5 py-[7px] text-[13.5px] font-medium leading-[1.2] text-white transition hover:border-[#15b25a] hover:bg-[#15b25a]">
+          <svg class="h-[14px] w-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          新建模板
+        </button>
+      </div>
+    </header>
+
+    <div id="templates-content"></div>
+    <div id="templates-modal-root"></div>
+    <div id="templates-delete-root"></div>
+    <div id="templates-toast-root" class="pointer-events-none fixed bottom-[18px] left-[18px] z-[9999] flex flex-col gap-2"></div>
+  </section>
+
   <script>
-    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-  </script>
-  <style>
-    :root {}
-    .ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
-    .pt { font-size: 22px; font-weight: 700; color: var(--t1); letter-spacing: -.4px; }
-    .ps { font-size: 13px; color: var(--t2); margin-top: 2px; }
-    .phr { display: flex; gap: 8px; align-items: center; }
-    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
-    .card-h { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; }
-    .card-ht { font-size: 14px; font-weight: 600; color: var(--t1); }
-    .card-b { padding: 18px; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--rm); font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .btn svg { width: 14px; height: 14px; }
-    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
-    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
-    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
-    .btn-s:hover:not(:disabled) { background: #f9fafb; }
-    .btn-d { background: #fff; color: var(--red); border-color: #fecaca; }
-    .btn-d:hover:not(:disabled) { background: var(--redbg); }
-    .btn-g { background: transparent; color: var(--t2); border-color: transparent; }
-    .btn-g:hover:not(:disabled) { background: #f3f4f6; color: var(--t1); }
-    .btn-sm { padding: 5px 10px; font-size: 12.5px; }
-    .btn-sm svg { width: 13px; height: 13px; }
-    .btic { padding: 6px; border-radius: var(--rs); background: transparent; border: none; color: var(--t2); cursor: pointer; display: inline-flex; align-items: center; transition: all .15s; }
-    .btic:hover { background: #f3f4f6; color: var(--t1); }
-    .btic.red:hover { background: var(--redbg); color: var(--red); }
-    .btic.blue:hover { background: var(--blubg); color: var(--blu); }
-    .btic.green:hover { background: var(--grnbg); color: var(--grn); }
-    .btic svg { width: 15px; height: 15px; }
-    .fg { margin-bottom: 14px; }
-    .fl { display: block; font-size: 12.5px; font-weight: 500; color: var(--t1); margin-bottom: 5px; }
-    .flo { font-weight: 400; color: var(--t2); font-size: 11px; margin-left: 4px; }
-    .fc { width: 100%; padding: 8px 11px; border: 1px solid var(--bdr); border-radius: var(--rm); font-size: 13.5px; color: var(--t1); background: #fff; transition: border-color .15s, box-shadow .15s; outline: none; appearance: none; -webkit-appearance: none; font-family: inherit; }
-    .fc:focus { border-color: var(--grn); box-shadow: 0 0 0 3px rgba(24,200,101,.1); }
-    .fc:disabled { background: #f9fafb; color: var(--t2); }
-    .fc::placeholder { color: var(--t3); }
-    textarea.fc { resize: vertical; min-height: 72px; line-height: 1.5; }
-    select.fc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px; cursor: pointer; }
-    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .fhint { font-size: 11.5px; color: var(--t2); margin-top: 4px; }
-    .bdg { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
-    .bdg-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-    .bdg-g { background: #dcfce7; color: #15803d; } .bdg-g .bdg-dot { background: #16a34a; }
-    .bdg-r { background: #fee2e2; color: #dc2626; } .bdg-r .bdg-dot { background: #ef4444; }
-    .bdg-b { background: #dbeafe; color: #2563eb; } .bdg-b .bdg-dot { background: #3b82f6; }
-    .bdg-o { background: #ffedd5; color: #ea580c; } .bdg-o .bdg-dot { background: #f97316; }
-    .bdg-p { background: #ede9fe; color: #7c3aed; } .bdg-p .bdg-dot { background: #8b5cf6; }
-    .bdg-c { background: #cffafe; color: #0e7490; } .bdg-c .bdg-dot { background: #06b6d4; }
-    .bdg-pk { background: #fce7f3; color: #be185d; } .bdg-pk .bdg-dot { background: #ec4899; }
-    .bdg-gray { background: #f3f4f6; color: #4b5563; }
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fo .2s ease; }
-    .overlay-full { padding: 0; background: rgba(17,24,39,.36); backdrop-filter: blur(6px); }
-    .modal { background: #fff; border-radius: var(--rxl); box-shadow: var(--sh3); width: 100%; max-height: 90vh; overflow-y: auto; animation: su .2s ease; }
-    .modal-sm { max-width: 420px; } .modal-md { max-width: 540px; } .modal-lg { max-width: 680px; } .modal-xl { max-width: 860px; }
-    .modal-full { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .mh { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--bdr); position: sticky; top: 0; background: #fff; z-index: 1; }
-    .mhl { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
-    .mht { font-size: 14px; font-weight: 600; color: var(--t1); white-space: nowrap; }
-    .mb { padding: 22px; }
-    .mb-full { flex: 1; min-height: 0; overflow: hidden; padding: 10px 16px 16px; background: #f8fafc; display: flex; flex-direction: column; }
-    .item { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; box-shadow: var(--sh1); transition: box-shadow .15s; }
-    .item:hover { box-shadow: var(--sh2); }
-    .item-l { flex: 1; min-width: 0; }
-    .item-name { font-size: 14.5px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .item-desc { font-size: 12.5px; color: var(--t2); margin-top: 4px; line-height: 1.5; }
-    .item-meta { display: flex; align-items: center; gap: 12px; margin-top: 7px; font-size: 12px; color: var(--t3); flex-wrap: wrap; }
-    .item-mi { display: flex; align-items: center; gap: 3px; }
-    .item-mi svg { width: 11px; height: 11px; }
-    .item-r { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
-    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 20px; text-align: center; }
-    .empty-ic { width: 48px; height: 48px; background: #f3f4f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
-    .empty-ic svg { width: 22px; height: 22px; color: var(--t2); }
-    .empty-t { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
-    .empty-d { font-size: 13px; color: var(--t2); max-width: 280px; line-height: 1.6; }
-    .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot .6s linear infinite; flex-shrink: 0; display: inline-block; }
-    /* Monaco 容器 */
-    .monaco-wrap { border: 1px solid var(--bdr); border-radius: var(--rm); overflow: hidden; background: #fff; }
-    .editor-toolbar { flex: 1; min-width: 0; }
-    .editor-toolbar-grid { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(140px, .7fr) auto; gap: 10px; align-items: center; }
-    .editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-    .editor-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .editor-secondary { display: flex; align-items: center; gap: 8px; }
-    .editor-link { appearance: none; border: none; background: transparent; color: var(--blu); padding: 0; font-size: 12px; cursor: pointer; white-space: nowrap; }
-    .editor-link:hover { text-decoration: underline; }
-    .editor-advanced { background: #fff; border: 1px solid var(--bdr); border-radius: var(--rm); padding: 10px 12px; margin-bottom: 10px; }
-    .editor-toolbar .fg { margin-bottom: 0; }
-    .editor-toolbar .fl { font-size: 11px; margin-bottom: 3px; }
-    .editor-toolbar .flo { font-size: 10px; }
-    .editor-toolbar .fc { padding: 6px 10px; font-size: 12.5px; }
-    .editor-toolbar textarea.fc { min-height: 36px; resize: none; line-height: 1.35; }
-    .editor-actions .btn { padding: 6px 12px; font-size: 12.5px; }
-    .editor-pane { min-height: 0; display: flex; flex-direction: column; flex: 1; }
-    .editor-form-group { margin-bottom: 0; display: flex; flex-direction: column; min-height: 0; flex: 1; }
-    .editor-pane .monaco-wrap { min-height: 0; height: 100%; flex: 1; }
-    .editor-pane .fhint { margin-top: 8px; }
-    .val-report { margin-top: 10px; border: 1px solid var(--bdr); border-radius: var(--rm); background: #fff; padding: 12px; }
-    .val-report.warn { border-color: #fed7aa; background: #fffaf3; }
-    .val-report.ok { border-color: #bbf7d0; background: #f0fdf4; }
-    .val-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
-    .val-title { font-size: 13px; font-weight: 600; color: var(--t1); }
-    .val-msg { font-size: 12px; color: var(--t2); }
-    .val-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-    .val-chip { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--bdr); font-size: 11.5px; color: var(--t2); }
-    button.val-chip { cursor: pointer; transition: all .15s; }
-    button.val-chip:hover { border-color: var(--grn); color: var(--grn); }
-    button.val-chip.active { background: #dcfce7; border-color: #86efac; color: #166534; }
-    .val-list { max-height: 220px; overflow: auto; border-top: 1px dashed var(--bdr); padding-top: 8px; }
-    .val-item { font-size: 12px; color: var(--t1); line-height: 1.55; padding: 2px 0; }
-    .val-more, .val-ok { font-size: 12px; color: var(--t2); }
-    @media (max-width: 1180px) {
-      .editor-toolbar-grid { grid-template-columns: 1fr 1fr; }
-      .editor-actions { grid-column: 1 / -1; justify-content: flex-end; }
-    }
-    @media (max-width: 720px) {
-      .mb-full { padding: 16px; }
-      .mh { align-items: flex-start; }
-      .mhl { display: block; }
-      .editor-toolbar-grid { grid-template-columns: 1fr; }
-      .editor-meta { display: grid; grid-template-columns: 1fr; }
-      .editor-secondary { justify-content: space-between; }
-      .editor-actions { grid-column: auto; justify-content: stretch; flex-wrap: wrap; }
-      .editor-actions .btn { flex: 1 1 160px; justify-content: center; }
-    }
-    @keyframes fo { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes su { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    @keyframes si { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    @keyframes rot { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+    (() => {
+      const root = document.getElementById('templates-page');
+      if (!root) return;
 
-  <script type="text/babel" src="/web/shared/components.js" data-presets="react"></script>
-  <script type="text/babel">
-    const { useState, useEffect, useRef, useCallback } = React;
+      const contentEl = document.getElementById('templates-content');
+      const modalRoot = document.getElementById('templates-modal-root');
+      const deleteRoot = document.getElementById('templates-delete-root');
+      const toastRoot = document.getElementById('templates-toast-root');
 
-    /* ===== 目标类型配置 ===== */
-    const TARGET_OPTIONS = [
-      { value: 'clash',        label: 'Clash',        badge: 'bdg-b' },
-      { value: 'clash_meta',   label: 'Clash Meta',   badge: 'bdg-b' },
-      { value: 'stash',        label: 'Stash',        badge: 'bdg-p' },
-      { value: 'surge',        label: 'Surge',        badge: 'bdg-o' },
-      { value: 'sing_box',     label: 'sing-box',     badge: 'bdg-c' },
-      { value: 'loon',         label: 'Loon',         badge: 'bdg-c' },
-      { value: 'shadowrocket', label: 'Shadowrocket', badge: 'bdg-c' },
-    ];
-
-    /* 根据 target 值获取徽章样式 */
-    const getTargetBadge = (target) => {
-      const opt = TARGET_OPTIONS.find(o => o.value === target);
-      return opt || { label: target, badge: 'bdg-gray' };
-    };
-
-    const TargetBadge = ({ target }) => {
-      const { label, badge } = getTargetBadge(target);
-      return (
-        <span className={`bdg ${badge}`}>
-          <span className="bdg-dot"></span>{label}
-        </span>
-      );
-    };
-
-    /* ===== Monaco 编辑器组件 ===== */
-    /* 封装为独立组件，方便管理生命周期 */
-    const MonacoEditor = ({ value, onChange, height = '420px' }) => {
-      const containerRef = useRef(null);   // DOM 挂载点
-      const editorRef = useRef(null);      // Monaco 实例
-      const isUpdating = useRef(false);    // 防止循环触发
-
-      /* 初始化 Monaco 编辑器 */
-      useEffect(() => {
-        if (!containerRef.current) return;
-        let mounted = true;
-
-        /* 使用 window.require（Monaco 的 AMD loader），避免与 Babel 编译产生冲突 */
-        window.require(['vs/editor/editor.main'], () => {
-          if (!mounted || !containerRef.current) return;
-
-          /* 若已存在实例则先销毁，避免重复挂载 */
-          if (editorRef.current) {
-            editorRef.current.dispose();
-            editorRef.current = null;
-          }
-
-          /* 通过全局 window.monaco 访问编辑器 API */
-          const editor = window.monaco.editor.create(containerRef.current, {
-            value: value || '',
-            language: 'yaml',
-            theme: 'vs',
-            automaticLayout: true,
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            tabSize: 2,
-          });
-
-          /* 内容变化时回调父组件 */
-          editor.onDidChangeModelContent(() => {
-            if (!isUpdating.current) {
-              onChange(editor.getValue());
-            }
-          });
-
-          editorRef.current = editor;
-        });
-
-        /* 组件卸载时清理 Monaco 实例 */
-        return () => {
-          mounted = false;
-          if (editorRef.current) {
-            editorRef.current.dispose();
-            editorRef.current = null;
-          }
-        };
-      }, []); /* 仅挂载时初始化一次 */
-
-      /* 外部 value 变化时同步到编辑器（切换编辑项时） */
-      useEffect(() => {
-        if (editorRef.current) {
-          const current = editorRef.current.getValue();
-          if (current !== value) {
-            isUpdating.current = true;
-            editorRef.current.setValue(value || '');
-            isUpdating.current = false;
-          }
-        }
-      }, [value]);
-
-      return (
-        <div className="monaco-wrap" style={{ height }}>
-          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-        </div>
-      );
-    };
-
-    /* ===== 主应用组件 ===== */
-    const App = () => {
-      /* 模板列表状态 */
-      const [templates, setTemplates] = useState([]);
-      const [loading, setLoading] = useState(true);
-
-      /* Modal 控制 */
-      const [showModal, setShowModal] = useState(false);
-      const [editItem, setEditItem] = useState(null); // null = 新建
-      const [showDeleteModal, setShowDeleteModal] = useState(false);
-      const [deleteTarget, setDeleteTarget] = useState(null);
-
-      /* Toast */
-      const { toasts, addToast } = window.useToasts();
-
-      /* 表单状态 */
-      const defaultForm = { name: '', target: 'clash', description: '', content: '' };
-      const [form, setForm] = useState(defaultForm);
-      const [saving, setSaving] = useState(false);
-      const [checking, setChecking] = useState(false);
-      const [deleting, setDeleting] = useState(false);
-      const [autoEditHandled, setAutoEditHandled] = useState(false);
-      const [showAdvanced, setShowAdvanced] = useState(false);
-      const [validationResult, setValidationResult] = useState(null);
-      const [validationFilter, setValidationFilter] = useState('');
-
-      /* 编辑器内容独立维护，避免频繁 setForm 导致重渲染 */
-      const [editorContent, setEditorContent] = useState('');
-
-      /* 加载模板列表 */
-      const loadTemplates = async () => {
-        try {
-          const data = await api.get('/api/templates');
-          setTemplates(data.data || []);
-        } catch (err) {
-          addToast('加载模板失败：' + err.message, 'err');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      useEffect(() => { loadTemplates(); }, []);
-
-      useEffect(() => {
-        if (loading || autoEditHandled) return;
-
-        const params = new URLSearchParams(window.location.search);
-        const editValue = params.get('edit');
-        if (!editValue) {
-          setAutoEditHandled(true);
-          return;
-        }
-
-        const tpl = templates.find(item => String(item.id) === editValue || item.name === editValue);
-        if (tpl) {
-          openEdit(tpl);
-        } else {
-          addToast(`未找到要编辑的模板：${editValue}`, 'err');
-        }
-        setAutoEditHandled(true);
-      }, [loading, autoEditHandled, templates]);
-
-      /* 加载内置模板文件内容（新建时使用） */
-      const builtinTemplateURL = (target) => {
-        if (target === 'surge') return '/rules/surge.conf';
-        if (target === 'sing_box') return '/rules/sing-box.json.template';
-        return '/rules/clash.yaml';
-      };
-
-      const builtinTemplateLabel = (target) => {
-        if (target === 'surge') return 'INI';
-        if (target === 'sing_box') return 'JSON';
-        return 'YAML';
-      };
-
-      const loadDefaultContent = async (target) => {
-        try {
-          const res = await fetch(builtinTemplateURL(target));
-          if (res.ok) {
-            const text = await res.text();
-            const contentType = res.headers.get('content-type') || '';
-            if (contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
-              throw new Error('内置模板响应格式不正确');
-            }
-            return text;
-          }
-        } catch (_) {}
-        return '';
-      };
-
-      /* 打开新建 Modal */
-      const openCreate = async () => {
-        const url = new URL(window.location.href);
-        if (url.searchParams.has('edit')) {
-          url.searchParams.delete('edit');
-          window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-        }
-        setEditItem(null);
-        const content = await loadDefaultContent(defaultForm.target);
-        setForm({ ...defaultForm, content });
-        setEditorContent(content);
-        setValidationResult(null);
-        setValidationFilter('');
-        setShowModal(true);
-      };
-
-      /* 打开编辑 Modal */
-      const openEdit = (tpl) => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('edit', String(tpl.id || tpl.name));
-        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-        setEditItem(tpl);
-        const f = {
-          name: tpl.name,
-          target: tpl.target || 'clash',
-          description: tpl.description || '',
-          content: tpl.content || '',
-        };
-        setForm(f);
-        setEditorContent(f.content);
-        setValidationResult(null);
-        setValidationFilter('');
-        setShowModal(true);
-      };
-
-      /* 关闭 Modal 并清理 */
-      const closeModal = () => {
-        const url = new URL(window.location.href);
-        const returnTo = url.searchParams.get('return_to');
-        if (editItem && returnTo) {
-          window.location.href = returnTo;
-          return;
-        }
-
-        setShowModal(false);
-        setEditItem(null);
-        setForm(defaultForm);
-        setEditorContent('');
-        setShowAdvanced(false);
-        setValidationResult(null);
-        setValidationFilter('');
-        if (url.searchParams.has('edit')) {
-          url.searchParams.delete('edit');
-          url.searchParams.delete('return_to');
-          window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-        }
-      };
-
-      /* Monaco 内容变化回调 */
-      const handleEditorChange = useCallback((val) => {
-        setEditorContent(val);
-      }, []);
-
-      /* 保存模板（新建/更新） */
-      const handleSave = async () => {
-        if (!form.name.trim()) { addToast('模板名称不能为空', 'err'); return; }
-        const payload = { ...form, content: editorContent };
-        setSaving(true);
-        try {
-          if (editItem) {
-            await api.put(`/api/templates/${editItem.id}`, payload);
-            setEditItem(item => item ? { ...item, ...payload } : item);
-            addToast('模板已更新');
-          } else {
-            await api.post('/api/templates', payload);
-            addToast('模板已创建');
-            closeModal();
-          }
-          loadTemplates();
-        } catch (err) {
-          addToast('保存失败：' + err.message, 'err');
-        } finally {
-          setSaving(false);
-        }
-      };
-
-      /* 检查模板 */
-      const handleValidate = async () => {
-        if (!editorContent.trim()) { addToast('模板内容不能为空', 'err'); return; }
-        setChecking(true);
-        try {
-          const res = await api.post('/api/templates/validate', {
-            target: form.target,
-            content: editorContent,
-          });
-          const data = res?.data || {};
-          setValidationResult(data);
-          setValidationFilter('');
-          if (Array.isArray(data.warnings) && data.warnings.length > 0) {
-            addToast(`${data.message || '模板检查完成'}，请查看下方检查报告`, 'err');
-          } else {
-            addToast(data.message || '模板检查通过');
-          }
-        } catch (err) {
-          setValidationResult(null);
-          setValidationFilter('');
-          addToast('检查失败：' + err.message, 'err');
-        } finally {
-          setChecking(false);
-        }
-      };
+      const TARGET_OPTIONS = [
+        { value: 'clash', label: 'Clash', tone: 'blue' },
+        { value: 'clash_meta', label: 'Clash Meta', tone: 'blue' },
+        { value: 'stash', label: 'Stash', tone: 'purple' },
+        { value: 'surge', label: 'Surge', tone: 'orange' },
+        { value: 'sing_box', label: 'sing-box', tone: 'cyan' },
+        { value: 'loon', label: 'Loon', tone: 'cyan' },
+        { value: 'shadowrocket', label: 'Shadowrocket', tone: 'cyan' },
+      ];
 
       const warningCategoryMeta = [
         { key: 'terminal', label: '兜底问题' },
@@ -463,7 +47,155 @@
         { key: 'other', label: '其他' },
       ];
 
-      const warningMatchesCategory = (warning, category) => {
+      const state = {
+        templates: [],
+        loading: true,
+        showModal: false,
+        editItem: null,
+        deleteTarget: null,
+        form: defaultForm(),
+        saving: false,
+        checking: false,
+        formatting: false,
+        deleting: false,
+        showAdvanced: false,
+        validationResult: null,
+        validationFilter: '',
+        editorReady: false,
+        editorContent: '',
+        autoEditHandled: false,
+        toasts: [],
+      };
+
+      let monacoEditor = null;
+      let monacoReadyPromise = null;
+      let yamlReadyPromise = null;
+      let monacoModelUpdating = false;
+      const MONACO_BASE_URL = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs';
+      const YAML_BASE_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
+
+      function defaultForm() {
+        return { name: '', target: 'clash', description: '', content: '' };
+      }
+
+      function request(url, options = {}) {
+        return fetch(url, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options,
+        }).then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || ('请求失败: ' + res.status));
+          }
+          return res.json();
+        });
+      }
+
+      function get(url) { return request(url); }
+      function post(url, data) { return request(url, { method: 'POST', body: JSON.stringify(data) }); }
+      function put(url, data) { return request(url, { method: 'PUT', body: JSON.stringify(data) }); }
+      function del(url) { return request(url, { method: 'DELETE' }); }
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[char]);
+      }
+
+      function addToast(message, type = 'ok') {
+        const id = Date.now() + Math.random();
+        state.toasts.push({ id, message, type });
+        renderToasts();
+        window.setTimeout(() => {
+          state.toasts = state.toasts.filter((item) => item.id !== id);
+          renderToasts();
+        }, 3200);
+      }
+
+      function renderToasts() {
+        toastRoot.innerHTML = state.toasts.map((toast) => `
+          <div class="pointer-events-auto flex min-w-[260px] max-w-[380px] items-center gap-[9px] rounded-rf-xl border px-[14px] py-[11px] text-[13.5px] font-medium shadow-rf3 ${toast.type === 'ok' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-600'}">
+            ${toast.type === 'ok' ? icons.check : icons.alert}
+            <span>${escapeHtml(toast.message)}</span>
+          </div>
+        `).join('');
+      }
+
+      function targetMeta(target) {
+        return TARGET_OPTIONS.find((item) => item.value === target) || { label: target, tone: 'gray' };
+      }
+
+      function toneBadge(tone, text) {
+        const toneClass = {
+          blue: 'bg-blue-100 text-blue-600',
+          purple: 'bg-violet-100 text-violet-700',
+          orange: 'bg-orange-100 text-orange-600',
+          cyan: 'bg-cyan-100 text-cyan-700',
+          gray: 'bg-slate-100 text-slate-600',
+        }[tone] || 'bg-slate-100 text-slate-600';
+        const dotClass = {
+          blue: 'bg-blue-500',
+          purple: 'bg-violet-500',
+          orange: 'bg-orange-500',
+          cyan: 'bg-cyan-500',
+          gray: 'bg-slate-500',
+        }[tone] || 'bg-slate-500';
+        return `<span class="inline-flex items-center gap-1 rounded-full px-[7px] py-[2px] text-[11.5px] font-medium ${toneClass}"><span class="h-[5px] w-[5px] shrink-0 rounded-full ${dotClass}"></span>${escapeHtml(text)}</span>`;
+      }
+
+      function fmtDate(value) {
+        if (!value) return '—';
+        try {
+          return new Date(value).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } catch (_) {
+          return value;
+        }
+      }
+
+      function builtinTemplateURL(target) {
+        if (target === 'surge') return '/rules/surge.conf';
+        if (target === 'sing_box') return '/rules/sing-box.json.template';
+        return '/rules/clash.yaml';
+      }
+
+      function builtinTemplateLabel(target) {
+        if (target === 'surge') return 'INI';
+        if (target === 'sing_box') return 'JSON';
+        return 'YAML';
+      }
+
+      function editorLanguage(target) {
+        if (target === 'sing_box') return 'json';
+        if (target === 'surge') return 'ini';
+        return 'yaml';
+      }
+
+      async function loadDefaultContent(target) {
+        try {
+          const res = await fetch(builtinTemplateURL(target));
+          if (!res.ok) return '';
+          const text = await res.text();
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
+            throw new Error('内置模板响应格式不正确');
+          }
+          return text;
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function warningMatchesCategory(warning, category) {
         switch (category) {
           case 'terminal':
             return warning.includes('兜底规则') || warning.includes('缺少兜底规则');
@@ -484,292 +216,662 @@
           default:
             return true;
         }
-      };
+      }
 
-      const filteredWarnings = (() => {
-        const warnings = Array.isArray(validationResult?.warnings) ? validationResult.warnings : [];
-        if (!validationFilter) return warnings;
-        return warnings.filter(item => warningMatchesCategory(item, validationFilter));
-      })();
+      function filteredWarnings() {
+        const warnings = Array.isArray(state.validationResult?.warnings) ? state.validationResult.warnings : [];
+        if (!state.validationFilter) return warnings;
+        return warnings.filter((item) => warningMatchesCategory(item, state.validationFilter));
+      }
 
-      /* 打开删除确认 Modal */
-      const openDelete = (tpl) => {
-        setDeleteTarget(tpl);
-        setShowDeleteModal(true);
-      };
+      function syncFormFromDom() {
+        const formEl = modalRoot.querySelector('#template-form');
+        if (!formEl) return;
+        state.form.name = modalRoot.querySelector('[name="name"][form="template-form"]')?.value || '';
+        state.form.target = modalRoot.querySelector('[name="target"][form="template-form"]')?.value || 'clash';
+        state.form.description = modalRoot.querySelector('[name="description"][form="template-form"]')?.value || '';
+      }
 
-      /* 确认删除 */
-      const handleDelete = async () => {
-        if (!deleteTarget) return;
-        setDeleting(true);
-        try {
-          await api.delete(`/api/templates/${deleteTarget.id}`);
-          addToast(`模板 "${deleteTarget.name}" 已删除`);
-          setShowDeleteModal(false);
-          setDeleteTarget(null);
-          loadTemplates();
-        } catch (err) {
-          addToast('删除失败：' + err.message, 'err');
-        } finally {
-          setDeleting(false);
+      function updateEditQuery() {
+        const url = new URL(window.location.href);
+        if (state.editItem) {
+          url.searchParams.set('edit', String(state.editItem.id || state.editItem.name));
+        } else {
+          url.searchParams.delete('edit');
         }
-      };
+        if (!state.editItem) url.searchParams.delete('return_to');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      }
 
-      /* 格式化时间显示 */
-      const fmtDate = (str) => {
-        if (!str) return '—';
-        try {
-          return new Date(str).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        } catch {
-          return str;
+      function renderContent() {
+        if (state.loading) {
+          contentEl.innerHTML = `
+            <div class="rounded-rf-lg border border-rf-border bg-white px-5 py-[56px] text-center shadow-rf1">
+              <div class="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-[#18c865] border-t-transparent"></div>
+              <div class="text-[13px] text-rf-muted">加载中...</div>
+            </div>
+          `;
+          return;
         }
-      };
 
-      return (
-        <div className="app">
-          <Sidebar active="templates" />
-          <main className="main">
-            {/* 页面标题栏 */}
-            <div className="ph">
-              <div>
-                <div className="pt">规则模板</div>
-                <div className="ps">管理 Clash / Surge 等客户端的规则模板</div>
+        if (state.templates.length === 0) {
+          contentEl.innerHTML = `
+            <div class="rounded-rf-lg border border-rf-border bg-white shadow-rf1">
+              <div class="flex flex-col items-center justify-center px-5 py-14 text-center">
+                <div class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-[14px] bg-slate-100 text-rf-muted">${icons.fileBig}</div>
+                <div class="mb-1.5 text-[15px] font-semibold text-rf-text">暂无规则模板</div>
+                <div class="max-w-[280px] text-[13px] leading-6 text-rf-muted">创建一个规则模板，用于生成 Clash / Surge 等客户端配置。</div>
+                <button type="button" data-action="create" class="mt-4 inline-flex items-center gap-1.5 rounded-rf border border-[#18c865] bg-[#18c865] px-3.5 py-[7px] text-[13.5px] font-medium text-white transition hover:border-[#15b25a] hover:bg-[#15b25a]">${icons.plus}新建模板</button>
               </div>
-              <div className="phr">
-                <button className="btn btn-p" onClick={openCreate}>
-                  <IcoPlus />新建模板
+            </div>
+          `;
+          return;
+        }
+
+        contentEl.innerHTML = state.templates.map((tpl) => {
+          const meta = targetMeta(tpl.target);
+          return `
+            <article class="mb-2 flex flex-col gap-3 rounded-rf-lg border border-rf-border bg-white px-[18px] py-[14px] shadow-rf1 transition hover:shadow-rf2 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-rf-text">
+                  <span>${escapeHtml(tpl.name)}</span>
+                  ${toneBadge(meta.tone, meta.label)}
+                </div>
+                ${tpl.description ? `<div class="mt-1 text-[12.5px] leading-[1.5] text-rf-muted">${escapeHtml(tpl.description)}</div>` : ''}
+                <div class="mt-[7px] flex flex-wrap items-center gap-3 text-xs text-rf-subtle">
+                  <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.clockMini}${escapeHtml(fmtDate(tpl.created_at))}</span>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center justify-end gap-[3px]">
+                <button type="button" data-action="edit" data-id="${tpl.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-blue-50 hover:text-blue-500" title="编辑模板">${icons.edit}</button>
+                <button type="button" data-action="delete" data-id="${tpl.id}" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-red-50 hover:text-red-500" title="删除模板">${icons.trash}</button>
+              </div>
+            </article>
+          `;
+        }).join('');
+      }
+
+      function renderValidationReport() {
+        if (!state.validationResult) return '';
+        const warnings = filteredWarnings();
+        return `
+          <div class="${state.validationResult?.warnings?.length ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'} mt-[10px] rounded-rf border px-3 py-3">
+            <div class="mb-2 flex flex-wrap items-baseline justify-between gap-3">
+              <div class="text-[13px] font-semibold text-rf-text">检查报告</div>
+              <div class="text-[12px] text-rf-muted">${escapeHtml(state.validationResult.message || '模板检查通过')}</div>
+            </div>
+            ${state.validationResult.warning_summary && Object.keys(state.validationResult.warning_summary).length > 0 ? `
+              <div class="mb-[10px] flex flex-wrap gap-2">
+                ${warningCategoryMeta.map((item) => {
+                  const count = state.validationResult.warning_summary[item.key];
+                  if (!count) return '';
+                  const active = state.validationFilter === item.key;
+                  return `<button type="button" data-action="filter-warning" data-key="${item.key}" class="${active ? 'border-green-300 bg-green-100 text-green-800' : 'border-rf-border bg-white text-rf-muted hover:border-[#18c865] hover:text-[#18c865]'} inline-flex items-center rounded-full border px-2 py-1 text-[11.5px] transition">${item.label} ${count}</button>`;
+                }).join('')}
+              </div>
+            ` : ''}
+            ${Array.isArray(state.validationResult.warnings) && state.validationResult.warnings.length > 0 ? `
+              <div class="max-h-[220px] overflow-auto border-t border-dashed border-rf-border pt-2">
+                ${warnings.slice(0, 50).map((item, idx) => `<div class="py-[2px] text-[12px] leading-[1.55] text-rf-text">${idx + 1}. ${escapeHtml(item)}</div>`).join('')}
+                ${state.validationFilter ? `<div class="mt-1 text-[12px] text-rf-muted">当前筛选：${escapeHtml(warningCategoryMeta.find((item) => item.key === state.validationFilter)?.label || state.validationFilter)}</div>` : ''}
+                ${warnings.length > 50 ? `<div class="mt-1 text-[12px] text-rf-muted">其余 ${warnings.length - 50} 条未展开显示</div>` : ''}
+                ${warnings.length === 0 ? `<div class="mt-1 text-[12px] text-rf-muted">当前分类下没有可展示的告警。</div>` : ''}
+              </div>
+            ` : `<div class="text-[12px] text-rf-muted">未发现规则问题。</div>`}
+          </div>
+        `;
+      }
+
+      function renderModal() {
+        if (!state.showModal) {
+          modalRoot.innerHTML = '';
+          destroyEditor();
+          return;
+        }
+
+        if (modalRoot.innerHTML.trim()) {
+          destroyEditor();
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const hasReturnTo = params.get('return_to');
+
+        modalRoot.innerHTML = `
+          <div class="fixed inset-0 z-[200] bg-[rgba(17,24,39,.36)] p-0 backdrop-blur-[6px]">
+            <div class="flex h-full w-full flex-col overflow-hidden bg-white">
+              <div class="sticky top-0 z-[1] flex items-start justify-between gap-3 border-b border-rf-border bg-white px-4 py-[10px]">
+                <div class="min-w-0 flex-1">
+                  <div class="flex min-w-0 flex-col gap-3 xl:grid xl:grid-cols-[minmax(180px,1.2fr)_minmax(140px,.7fr)_auto] xl:items-center xl:gap-[10px]">
+                    <div class="grid min-w-0 gap-[10px] md:grid-cols-2">
+                      <div>
+                        <label class="mb-[3px] block text-[11px] font-medium text-rf-muted">模板名称</label>
+                        <input name="name" form="template-form" type="text" value="${escapeHtml(state.form.name)}" placeholder="my-template" class="w-full rounded-rf border border-rf-border bg-white px-[10px] py-[6px] text-[12.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
+                      </div>
+                      <div>
+                        <label class="mb-[3px] block text-[11px] font-medium text-rf-muted">目标客户端</label>
+                        <select name="target" form="template-form" class="w-full rounded-rf border border-rf-border bg-white px-[10px] py-[6px] text-[12.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
+                          ${TARGET_OPTIONS.map((opt) => `<option value="${opt.value}" ${state.form.target === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                        </select>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      ${hasReturnTo ? `<button type="button" data-action="close-modal" class="border-none bg-transparent p-0 text-[12px] text-blue-500 transition hover:underline">返回订阅配置</button>` : ''}
+                      <button type="button" data-action="toggle-advanced" class="border-none bg-transparent p-0 text-[12px] text-blue-500 transition hover:underline">${state.showAdvanced ? '收起更多设置' : '更多设置'}</button>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                      <button type="button" data-action="close-modal" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-3 py-[6px] text-[12.5px] font-medium text-rf-text transition hover:bg-slate-50">取消</button>
+                      <button type="button" data-action="format" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-3 py-[6px] text-[12.5px] font-medium text-rf-text transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" ${state.checking || state.saving || state.formatting ? 'disabled' : ''}>
+                        ${state.formatting ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : ''}
+                        ${state.formatting ? '格式化中...' : '格式化'}
+                      </button>
+                      <button type="button" data-action="validate" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-3 py-[6px] text-[12.5px] font-medium text-rf-text transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" ${state.checking || state.saving ? 'disabled' : ''}>
+                        ${state.checking ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : ''}
+                        ${state.checking ? '检查中...' : '检查模版'}
+                      </button>
+                      <button type="button" data-action="save" class="inline-flex items-center gap-1.5 rounded-rf border border-[#18c865] bg-[#18c865] px-3 py-[6px] text-[12.5px] font-medium text-white transition hover:border-[#15b25a] hover:bg-[#15b25a] disabled:cursor-not-allowed disabled:opacity-60" ${state.saving ? 'disabled' : ''}>
+                        ${state.saving ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : ''}
+                        ${state.saving ? '保存中...' : (state.editItem ? '保存更改' : '创建模板')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" data-action="close-modal" class="inline-flex items-center rounded-md border-none bg-transparent p-1.5 text-rf-muted transition hover:bg-slate-100 hover:text-rf-text">${icons.close}</button>
+              </div>
+
+              <form id="template-form" class="contents"></form>
+
+              <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50 px-4 pb-4 pt-[10px]">
+                ${state.showAdvanced ? `
+                  <div class="mb-[10px] rounded-rf border border-rf-border bg-white px-3 py-3">
+                    <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">描述 <span class="ml-1 text-[11px] font-normal text-rf-muted">可选</span></label>
+                    <textarea name="description" form="template-form" rows="2" placeholder="简要描述此模板的用途或适用场景..." class="min-h-[36px] w-full resize-none rounded-rf border border-rf-border bg-white px-[10px] py-[6px] text-[12.5px] leading-[1.35] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">${escapeHtml(state.form.description)}</textarea>
+                  </div>
+                ` : ''}
+                <div class="flex min-h-0 flex-1 flex-col">
+                  <div class="mb-[5px] text-[12.5px] font-medium text-rf-text">模板内容 <span class="ml-1 text-[11px] font-normal text-rf-muted">${builtinTemplateLabel(state.form.target)} 格式</span></div>
+                  <div id="template-editor" class="min-h-0 flex-1 overflow-hidden rounded-rf border border-rf-border bg-white"></div>
+                  ${renderValidationReport()}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        ensureEditor();
+      }
+
+      function renderDeleteDialog() {
+        if (!state.deleteTarget) {
+          deleteRoot.innerHTML = '';
+          return;
+        }
+
+        deleteRoot.innerHTML = `
+          <div class="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-5 backdrop-blur-[3px]">
+            <div class="w-full max-w-[420px] rounded-rf-xl bg-white shadow-rf3">
+              <div class="border-b border-rf-border px-5 py-4">
+                <div class="text-[16px] font-semibold text-rf-text">确认删除</div>
+              </div>
+              <div class="px-5 py-4 text-[13.5px] leading-6 text-rf-muted">
+                确定要删除模板「<span class="font-medium text-rf-text">${escapeHtml(state.deleteTarget.name)}</span>」吗？
+                <div class="mt-2 text-[13px]">此操作不可撤销，使用该模板的配置策略将改为使用内置模板。</div>
+              </div>
+              <div class="flex justify-end gap-2 rounded-b-rf-xl border-t border-rf-border bg-slate-50 px-5 py-3.5">
+                <button type="button" data-action="close-delete" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-3.5 py-[7px] text-[13.5px] font-medium text-rf-text transition hover:bg-slate-50">取消</button>
+                <button type="button" data-action="confirm-delete" class="inline-flex items-center gap-1.5 rounded-rf border border-red-500 bg-red-500 px-3.5 py-[7px] text-[13.5px] font-medium text-white transition hover:border-red-600 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60" ${state.deleting ? 'disabled' : ''}>
+                  ${state.deleting ? '<span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>' : ''}
+                  ${state.deleting ? '删除中...' : '确认删除'}
                 </button>
               </div>
             </div>
+          </div>
+        `;
+      }
 
-            {/* 模板列表 */}
-            {loading ? (
-              <div className="card" style={{ padding: '56px 20px', textAlign: 'center' }}>
-                <span className="spin" style={{ width: 24, height: 24 }}></span>
-                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--t2)' }}>加载中...</div>
-              </div>
-            ) : templates.length === 0 ? (
-              <div className="card">
-                <div className="empty">
-                  <div className="empty-ic">
-                    <IcoFile />
-                  </div>
-                  <div className="empty-t">暂无规则模板</div>
-                  <div className="empty-d">创建一个规则模板，用于生成 Clash / Surge 等客户端配置</div>
-                  <button className="btn btn-p" style={{ marginTop: 16 }} onClick={openCreate}>
-                    <IcoPlus />新建模板
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {templates.map(tpl => (
-                  <div key={tpl.name} className="item">
-                    <div className="item-l">
-                      {/* 名称与徽章 */}
-                      <div className="item-name">
-                        {tpl.name}
-                        <TargetBadge target={tpl.target} />
-                      </div>
-                      {/* 描述 */}
-                      {tpl.description && (
-                        <div className="item-desc">{tpl.description}</div>
-                      )}
-                      {/* 元信息 */}
-                      <div className="item-meta">
-                        <span className="item-mi">
-                          <IcoClock />
-                          {fmtDate(tpl.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                    {/* 操作按钮 */}
-                    <div className="item-r">
-                      <button className="btic blue" title="编辑模板" onClick={() => openEdit(tpl)}>
-                        <IcoEdit />
-                      </button>
-                      <button className="btic red" title="删除模板" onClick={() => openDelete(tpl)}>
-                        <IcoTrash />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </main>
-
-          {/* 新建/编辑 Modal（XL 尺寸，容纳编辑器） */}
-          {showModal && (
-            <div className="overlay overlay-full" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
-              <div className="modal modal-full">
-                <div className="mh">
-                  <div className="mhl">
-                    <div className="mht">{editItem ? `编辑模板：${editItem.name}` : '新建规则模板'}</div>
-                    <div className="editor-toolbar">
-                      <div className="editor-toolbar-grid">
-                        <div className="editor-meta">
-                          <div className="fg">
-                            <label className="fl">模板名称</label>
-                            <input
-                              className="fc"
-                              type="text"
-                              placeholder="my-template"
-                              value={form.name}
-                              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                            />
-                          </div>
-                          <div className="fg">
-                            <label className="fl">目标客户端</label>
-                            <select
-                              className="fc"
-                              value={form.target}
-                              onChange={async e => {
-                                const target = e.target.value;
-                                setForm(f => ({ ...f, target }));
-                                if (!editItem && !editorContent.trim()) {
-                                  const content = await loadDefaultContent(target);
-                                  setEditorContent(content);
-                                }
-                              }}
-                            >
-                              {TARGET_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                        <div className="editor-secondary">
-                          {new URLSearchParams(window.location.search).get('return_to') && (
-                            <button className="editor-link" type="button" onClick={closeModal}>返回订阅配置</button>
-                          )}
-                          <button
-                            className="editor-link"
-                            type="button"
-                            onClick={() => setShowAdvanced(v => !v)}
-                          >
-                            {showAdvanced ? '收起更多设置' : '更多设置'}
-                          </button>
-                        </div>
-                        <div className="editor-actions">
-                          <button className="btn btn-s" onClick={closeModal}>取消</button>
-                          <button className="btn btn-s" onClick={handleValidate} disabled={checking || saving}>
-                            {checking && <span className="spin"></span>}
-                            {checking ? '检查中...' : '检查模版'}
-                          </button>
-                          <button className="btn btn-p" onClick={handleSave} disabled={saving}>
-                            {saving && <span className="spin"></span>}
-                            {saving ? '保存中...' : (editItem ? '保存更改' : '创建模板')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <button className="btic" onClick={closeModal}><IcoX /></button>
-                </div>
-                <div className="mb mb-full">
-                  {showAdvanced && (
-                    <div className="editor-advanced">
-                      <div className="fg">
-                        <label className="fl">描述 <span className="flo">可选</span></label>
-                        <textarea
-                          className="fc"
-                          placeholder="简要描述此模板的用途或适用场景..."
-                          rows={2}
-                          value={form.description}
-                          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <div className="editor-pane">
-                    <div className="fg editor-form-group">
-                      <label className="fl">模板内容 <span className="flo">{builtinTemplateLabel(form.target)} 格式</span></label>
-                      <MonacoEditor
-                        value={editorContent}
-                        onChange={handleEditorChange}
-                        height="100%"
-                      />
-                      {validationResult && (
-                        <div className={`val-report${validationResult?.warnings?.length ? ' warn' : ' ok'}`}>
-                          <div className="val-head">
-                            <div className="val-title">检查报告</div>
-                            <div className="val-msg">{validationResult.message || '模板检查通过'}</div>
-                          </div>
-                          {validationResult.warning_summary && Object.keys(validationResult.warning_summary).length > 0 && (
-                            <div className="val-summary">
-                              {warningCategoryMeta.map(item => {
-                                const count = validationResult.warning_summary[item.key];
-                                if (!count) return null;
-                                const active = validationFilter === item.key;
-                                return (
-                                  <button
-                                    key={item.key}
-                                    type="button"
-                                    className={`val-chip${active ? ' active' : ''}`}
-                                    onClick={() => setValidationFilter(active ? '' : item.key)}
-                                    title={active ? '取消筛选' : `只看${item.label}`}
-                                  >
-                                    {item.label} {count}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {Array.isArray(validationResult.warnings) && validationResult.warnings.length > 0 ? (
-                            <div className="val-list">
-                              {filteredWarnings.slice(0, 50).map((item, idx) => (
-                                <div key={idx} className="val-item">{idx + 1}. {item}</div>
-                              ))}
-                              {validationFilter && (
-                                <div className="val-more">当前筛选：{warningCategoryMeta.find(item => item.key === validationFilter)?.label || validationFilter}</div>
-                              )}
-                              {filteredWarnings.length > 50 ? (
-                                <div className="val-more">其余 {filteredWarnings.length - 50} 条未展开显示</div>
-                              ) : null}
-                              {filteredWarnings.length === 0 ? (
-                                <div className="val-more">当前分类下没有可展示的告警。</div>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <div className="val-ok">未发现规则问题。</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 删除确认 Modal */}
-          <window.ConfirmDialog
-            isOpen={showDeleteModal && !!deleteTarget}
-            title="确认删除"
-            message={
-              <>
-                <p style={{ fontSize: 14, color: 'var(--t1)', lineHeight: 1.6 }}>
-                  确定要删除模板 <strong>"{deleteTarget?.name}"</strong> 吗？
-                </p>
-                <p style={{ fontSize: 13, color: 'var(--t2)', marginTop: 8 }}>
-                  此操作不可撤销，使用该模板的配置策略将改为使用内置模板。
-                </p>
-              </>
+      function loadScript(src, options = {}) {
+        return new Promise((resolve, reject) => {
+          const existing = document.querySelector(`script[src="${src}"]`);
+          if (existing) {
+            if (existing.dataset.loaded === 'true') {
+              resolve();
+              return;
             }
-            confirmText={deleting ? '删除中...' : '确认删除'}
-            loading={deleting}
-            onConfirm={handleDelete}
-            onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
-          />
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('脚本加载失败: ' + src)), { once: true });
+            return;
+          }
 
-          {/* Toast 通知 */}
-          <ToastContainer toasts={toasts} />
-        </div>
-      );
-    };
+          const script = document.createElement('script');
+          script.src = src;
+          script.async = true;
+          let restoreAMD = null;
+          if (options.disableAMD) {
+            const previousDefine = window.define;
+            restoreAMD = () => {
+              if (typeof previousDefine === 'undefined') {
+                delete window.define;
+              } else {
+                window.define = previousDefine;
+              }
+            };
+            try {
+              window.define = undefined;
+            } catch (_) {
+              restoreAMD = null;
+            }
+          }
+          script.addEventListener('load', () => {
+            if (restoreAMD) restoreAMD();
+            script.dataset.loaded = 'true';
+            resolve();
+          }, { once: true });
+          script.addEventListener('error', () => {
+            if (restoreAMD) restoreAMD();
+            reject(new Error('脚本加载失败: ' + src));
+          }, { once: true });
+          document.head.appendChild(script);
+        });
+      }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+      function ensureMonacoReady() {
+        if (!monacoReadyPromise) {
+          monacoReadyPromise = loadScript(`${MONACO_BASE_URL}/loader.min.js`).then(() => new Promise((resolve, reject) => {
+            const amdRequire = window.require;
+            if (!amdRequire || typeof amdRequire.config !== 'function') {
+              reject(new Error('Monaco Loader 未正确初始化'));
+              return;
+            }
+            amdRequire.config({ paths: { vs: MONACO_BASE_URL } });
+            amdRequire(['vs/editor/editor.main'], () => resolve(window.monaco), (err) => reject(err || new Error('Monaco 加载失败')));
+          })).catch((err) => {
+            monacoReadyPromise = null;
+            throw err;
+          });
+        }
+        return monacoReadyPromise;
+      }
+
+      function ensureYAMLReady() {
+        if (!yamlReadyPromise) {
+          yamlReadyPromise = loadScript(YAML_BASE_URL, { disableAMD: true }).then(() => {
+            if (!window.jsyaml) {
+              throw new Error('YAML 格式化库未正确初始化');
+            }
+            return window.jsyaml;
+          }).catch((err) => {
+            yamlReadyPromise = null;
+            throw err;
+          });
+        }
+        return yamlReadyPromise;
+      }
+
+      async function ensureEditor() {
+        const container = document.getElementById('template-editor');
+        if (!container) return;
+        let monaco;
+        try {
+          monaco = await ensureMonacoReady();
+        } catch (err) {
+          container.innerHTML = `<div class="flex h-full min-h-[280px] items-center justify-center px-4 text-center text-[13px] text-red-500">${escapeHtml(err.message || '编辑器加载失败')}</div>`;
+          addToast('编辑器初始化失败：' + (err.message || '未知错误'), 'err');
+          return;
+        }
+        if (!document.getElementById('template-editor')) return;
+
+        if (monacoEditor) {
+          monacoEditor.layout();
+          const model = monacoEditor.getModel();
+          if (model) {
+            monaco.editor.setModelLanguage(model, editorLanguage(state.form.target));
+          }
+          const current = monacoEditor.getValue();
+          if (current !== state.editorContent) {
+            monacoModelUpdating = true;
+            monacoEditor.setValue(state.editorContent || '');
+            monacoModelUpdating = false;
+          }
+          return;
+        }
+
+        monacoEditor = monaco.editor.create(container, {
+          value: state.editorContent || '',
+          language: editorLanguage(state.form.target),
+          theme: 'vs',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          fontSize: 13,
+          lineNumbers: 'on',
+          scrollBeyondLastLine: false,
+          wordWrap: 'on',
+          tabSize: 2,
+        });
+
+        monacoEditor.onDidChangeModelContent(() => {
+          if (!monacoModelUpdating) {
+            state.editorContent = monacoEditor.getValue();
+          }
+        });
+      }
+
+      function formatSurgeContent(content) {
+        const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+        const normalized = [];
+        let previousBlank = false;
+        for (const rawLine of lines) {
+          const line = rawLine.replace(/[ \t]+$/g, '');
+          const isBlank = line.trim() === '';
+          if (isBlank) {
+            if (!previousBlank) normalized.push('');
+            previousBlank = true;
+            continue;
+          }
+          normalized.push(line);
+          previousBlank = false;
+        }
+
+        const result = normalized.join('\n').trim();
+        return result ? (result + '\n') : '';
+      }
+
+      async function formatEditorContent() {
+        const content = state.editorContent || '';
+        if (!content.trim()) {
+          addToast('模板内容为空，无需格式化', 'err');
+          return;
+        }
+
+        state.formatting = true;
+        try {
+          let formatted = content;
+          if (state.form.target === 'sing_box') {
+            formatted = JSON.stringify(JSON.parse(content), null, 2) + '\n';
+          } else if (state.form.target === 'surge') {
+            formatted = formatSurgeContent(content);
+          } else {
+            const jsyaml = await ensureYAMLReady();
+            formatted = jsyaml.dump(jsyaml.load(content), {
+              indent: 2,
+              lineWidth: -1,
+              noRefs: true,
+              sortKeys: false,
+            });
+          }
+
+          if (!formatted.trim() && content.trim()) {
+            throw new Error('格式化结果为空，已中止应用');
+          }
+
+          state.editorContent = formatted;
+          if (monacoEditor && monacoEditor.getValue() !== formatted) {
+            monacoModelUpdating = true;
+            monacoEditor.setValue(formatted);
+            monacoModelUpdating = false;
+          }
+          addToast('模板已格式化');
+        } catch (err) {
+          addToast('格式化失败：' + (err.message || '未知错误'), 'err');
+        } finally {
+          state.formatting = false;
+        }
+      }
+
+      function destroyEditor() {
+        if (monacoEditor) {
+          monacoEditor.dispose();
+          monacoEditor = null;
+        }
+      }
+
+      async function loadTemplates() {
+        try {
+          const data = await get('/api/templates');
+          state.templates = data.data || [];
+        } catch (err) {
+          addToast('加载模板失败：' + err.message, 'err');
+        } finally {
+          state.loading = false;
+          renderContent();
+          maybeAutoOpenEdit();
+        }
+      }
+
+      function maybeAutoOpenEdit() {
+        if (state.loading || state.autoEditHandled) return;
+        const params = new URLSearchParams(window.location.search);
+        const editValue = params.get('edit');
+        if (!editValue) {
+          state.autoEditHandled = true;
+          return;
+        }
+        const tpl = state.templates.find((item) => String(item.id) === editValue || item.name === editValue);
+        if (tpl) {
+          openEdit(tpl);
+        } else {
+          addToast('未找到要编辑的模板：' + editValue, 'err');
+        }
+        state.autoEditHandled = true;
+      }
+
+      async function openCreate() {
+        state.editItem = null;
+        state.form = defaultForm();
+        state.editorContent = await loadDefaultContent(state.form.target);
+        state.form.content = state.editorContent;
+        state.validationResult = null;
+        state.validationFilter = '';
+        state.showAdvanced = false;
+        state.showModal = true;
+        updateEditQuery();
+        renderModal();
+      }
+
+      function openEdit(tpl) {
+        state.editItem = tpl;
+        state.form = {
+          name: tpl.name || '',
+          target: tpl.target || 'clash',
+          description: tpl.description || '',
+          content: tpl.content || '',
+        };
+        state.editorContent = tpl.content || '';
+        state.validationResult = null;
+        state.validationFilter = '';
+        state.showAdvanced = false;
+        state.showModal = true;
+        updateEditQuery();
+        renderModal();
+      }
+
+      function closeModal() {
+        const url = new URL(window.location.href);
+        const returnTo = url.searchParams.get('return_to');
+        if (state.editItem && returnTo) {
+          window.location.href = returnTo;
+          return;
+        }
+
+        state.showModal = false;
+        state.editItem = null;
+        state.form = defaultForm();
+        state.editorContent = '';
+        state.showAdvanced = false;
+        state.validationResult = null;
+        state.validationFilter = '';
+        renderModal();
+
+        url.searchParams.delete('edit');
+        url.searchParams.delete('return_to');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      }
+
+      function openDelete(tpl) {
+        state.deleteTarget = tpl;
+        state.deleting = false;
+        renderDeleteDialog();
+      }
+
+      function closeDelete() {
+        state.deleteTarget = null;
+        state.deleting = false;
+        deleteRoot.innerHTML = '';
+      }
+
+      async function handleSave() {
+        syncFormFromDom();
+        if (!state.form.name.trim()) {
+          addToast('模板名称不能为空', 'err');
+          return;
+        }
+
+        const payload = {
+          ...state.form,
+          content: state.editorContent,
+        };
+
+        state.saving = true;
+        renderModal();
+        try {
+          if (state.editItem) {
+            await put('/api/templates/' + state.editItem.id, payload);
+            state.editItem = state.editItem ? { ...state.editItem, ...payload } : state.editItem;
+            addToast('模板已更新');
+          } else {
+            await post('/api/templates', payload);
+            addToast('模板已创建');
+            closeModal();
+          }
+          await loadTemplates();
+        } catch (err) {
+          state.saving = false;
+          renderModal();
+          addToast('保存失败：' + err.message, 'err');
+        } finally {
+          state.saving = false;
+          if (state.showModal) renderModal();
+        }
+      }
+
+      async function handleValidate() {
+        if (!state.editorContent.trim()) {
+          addToast('模板内容不能为空', 'err');
+          return;
+        }
+        syncFormFromDom();
+        state.checking = true;
+        renderModal();
+        try {
+          const res = await post('/api/templates/validate', {
+            target: state.form.target,
+            content: state.editorContent,
+          });
+          state.validationResult = res?.data || {};
+          state.validationFilter = '';
+          if (Array.isArray(state.validationResult.warnings) && state.validationResult.warnings.length > 0) {
+            addToast((state.validationResult.message || '模板检查完成') + '，请查看下方检查报告', 'err');
+          } else {
+            addToast(state.validationResult.message || '模板检查通过');
+          }
+        } catch (err) {
+          state.validationResult = null;
+          state.validationFilter = '';
+          addToast('检查失败：' + err.message, 'err');
+        } finally {
+          state.checking = false;
+          renderModal();
+        }
+      }
+
+      async function handleDelete() {
+        if (!state.deleteTarget) return;
+        state.deleting = true;
+        renderDeleteDialog();
+        try {
+          await del('/api/templates/' + state.deleteTarget.id);
+          addToast('模板 "' + state.deleteTarget.name + '" 已删除');
+          closeDelete();
+          await loadTemplates();
+        } catch (err) {
+          state.deleting = false;
+          renderDeleteDialog();
+          addToast('删除失败：' + err.message, 'err');
+        }
+      }
+
+      root.addEventListener('click', (event) => {
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+        const action = target.dataset.action;
+        const id = Number(target.dataset.id);
+        const tpl = state.templates.find((item) => item.id === id);
+
+        if (action === 'create') openCreate();
+        if (action === 'edit' && tpl) openEdit(tpl);
+        if (action === 'delete' && tpl) openDelete(tpl);
+      });
+
+      modalRoot.addEventListener('click', async (event) => {
+        const overlay = event.target;
+        if (overlay === modalRoot.firstElementChild) {
+          closeModal();
+          return;
+        }
+
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+        if (target.dataset.action === 'close-modal') closeModal();
+        if (target.dataset.action === 'toggle-advanced') {
+          syncFormFromDom();
+          state.showAdvanced = !state.showAdvanced;
+          renderModal();
+        }
+        if (target.dataset.action === 'format') await formatEditorContent();
+        if (target.dataset.action === 'save') await handleSave();
+        if (target.dataset.action === 'validate') await handleValidate();
+        if (target.dataset.action === 'filter-warning') {
+          const key = target.dataset.key;
+          state.validationFilter = state.validationFilter === key ? '' : key;
+          renderModal();
+        }
+      });
+
+      modalRoot.addEventListener('change', async (event) => {
+        if (event.target.name === 'target') {
+          const previousTarget = state.form.target;
+          syncFormFromDom();
+          if (!state.editItem && previousTarget !== state.form.target && !state.editorContent.trim()) {
+            state.editorContent = await loadDefaultContent(state.form.target);
+          }
+          renderModal();
+        }
+      });
+
+      deleteRoot.addEventListener('click', (event) => {
+        const overlay = event.target;
+        if (overlay === deleteRoot.firstElementChild) {
+          closeDelete();
+          return;
+        }
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+        if (target.dataset.action === 'close-delete') closeDelete();
+        if (target.dataset.action === 'confirm-delete') handleDelete();
+      });
+
+      const icons = {
+        plus: '<svg class="h-[14px] w-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+        check: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+        alert: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>',
+        close: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>',
+        edit: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>',
+        trash: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>',
+        clockMini: '<svg class="h-[11px] w-[11px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+        fileBig: '<svg class="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+      };
+
+      renderToasts();
+      renderContent();
+      renderModal();
+      loadTemplates();
+    })();
   </script>
-</body>
-</html>
