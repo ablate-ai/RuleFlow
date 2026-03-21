@@ -1,9 +1,5 @@
 <section id="subscriptions-page" class="space-y-6">
-    <header class="flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-[22px] font-bold tracking-[-0.4px] text-rf-text">订阅源管理</h1>
-        <p class="mt-0.5 text-[13px] text-rf-muted">管理代理节点订阅源，支持自动刷新与节点同步</p>
-      </div>
+    <header class="flex justify-end">
       <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -213,23 +209,23 @@
           const used = userInfo ? Number(userInfo.upload || 0) + Number(userInfo.download || 0) : 0;
           const remaining = userInfo ? Math.max(Number(userInfo.total || 0) - used, 0) : 0;
           return `
-            <article class="mb-2 flex items-start justify-between gap-3.5 rounded-rf-lg border border-rf-border bg-white px-[18px] py-[14px] shadow-rf1 transition hover:shadow-rf2">
+            <article class="mb-3 flex items-start justify-between gap-4 rounded-rf-lg border border-rf-border bg-white px-5 py-4 shadow-rf1 transition hover:shadow-rf2">
               <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-rf-text">
+                <div class="flex flex-wrap items-center gap-2 text-[14.5px] font-semibold text-rf-text">
                   <span>${escapeHtml(sub.name)}</span>
                   ${sub.enabled ? badge('green', '启用') : badge('gray', '停用', false)}
                   ${sub.auto_refresh ? badge('blue', `自动刷新 ${sub.refresh_interval ? `${sub.refresh_interval}s` : ''}`) : ''}
                 </div>
-                ${sub.description ? `<div class="mt-1 text-[12.5px] leading-[1.5] text-rf-muted">${escapeHtml(sub.description)}</div>` : ''}
-                <div class="mt-[7px] flex flex-wrap items-center gap-3 text-xs text-rf-subtle">
+                ${sub.description ? `<div class="mt-1.5 text-[12.5px] leading-6 text-rf-muted">${escapeHtml(sub.description)}</div>` : ''}
+                <div class="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-rf-subtle">
                   <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.serverMini}${sub.node_count || 0} 个节点</span>
                   <span class="flex items-center gap-[3px] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.clockMini}最后同步：${escapeHtml(formatTime(sub.last_fetched_at))}</span>
-                  <button type="button" data-action="copy-url" data-id="${sub.id}" class="flex max-w-[320px] items-center gap-[3px] overflow-hidden text-ellipsis whitespace-nowrap text-left transition hover:text-rf-text [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0" title="${escapeHtml(sub.url)}">
+                  <button type="button" data-action="copy-url" data-id="${sub.id}" class="flex max-w-[320px] items-center gap-[3px] overflow-hidden text-ellipsis whitespace-nowrap rounded-full bg-slate-100/80 px-2.5 py-1 text-left transition hover:bg-slate-200/70 hover:text-rf-text [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0" title="${escapeHtml(sub.url)}">
                     ${icons.linkMini}${escapeHtml(sub.url)}
                   </button>
                   ${userInfo ? `
                     <span class="flex items-center gap-[3px] text-blue-500 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.uploadMini}已用 ${formatGiB(used)}</span>
-                    <span class="flex items-center gap-[3px] text-[#18c865] [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.plusCircleMini}剩余 ${formatGiB(remaining)}</span>
+                    <span class="flex items-center gap-[3px] text-emerald-600 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.plusCircleMini}剩余 ${formatGiB(remaining)}</span>
                     ${userInfo.expire ? `<span class="flex items-center gap-[3px] text-orange-500 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.calendarMini}${escapeHtml(formatExpire(userInfo.expire))}</span>` : ''}
                   ` : ''}
                 </div>
@@ -353,7 +349,7 @@
                                 type="button"
                                 data-action="toggle-protocol"
                                 data-protocol="${protocol}"
-                                class="inline-flex items-center rounded-full border px-[10px] py-1 text-[13px] transition ${checked ? 'border-[#18c865] bg-emerald-500/10 text-[#18c865]Dark' : 'border-rf-border bg-white text-rf-muted'}"
+                                class="inline-flex items-center rounded-full border px-[10px] py-1 text-[13px] transition ${checked ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-rf-border bg-white text-rf-muted'}"
                               >
                                 ${escapeHtml(protocol)}
                               </button>

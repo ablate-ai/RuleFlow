@@ -33,7 +33,6 @@ type ConfigAccessLogFilter struct {
 	PolicyID *int64
 	Success  *bool
 	CacheHit *bool
-	Limit    int
 }
 
 // NewConfigAccessLogRepo 创建访问日志仓储
@@ -77,20 +76,14 @@ func (r *ConfigAccessLogRepo) Create(ctx context.Context, log *ConfigAccessLog) 
 }
 
 // ListByPolicy 按策略查询最近访问日志
-func (r *ConfigAccessLogRepo) ListByPolicy(ctx context.Context, policyID int64, limit int) ([]*ConfigAccessLog, error) {
+func (r *ConfigAccessLogRepo) ListByPolicy(ctx context.Context, policyID int64) ([]*ConfigAccessLog, error) {
 	return r.List(ctx, ConfigAccessLogFilter{
 		PolicyID: &policyID,
-		Limit:    limit,
 	})
 }
 
 // List 查询访问日志
 func (r *ConfigAccessLogRepo) List(ctx context.Context, filter ConfigAccessLogFilter) ([]*ConfigAccessLog, error) {
-	limit := filter.Limit
-	if limit <= 0 {
-		limit = 20
-	}
-
 	query := `
 		SELECT l.id, l.policy_id, COALESCE(p.name, ''), l.token, host(l.client_ip), l.user_agent, l.status_code, l.success, l.cache_hit, l.node_count, COALESCE(l.error_message, ''), l.created_at
 		FROM config_access_logs l
@@ -99,10 +92,9 @@ func (r *ConfigAccessLogRepo) List(ctx context.Context, filter ConfigAccessLogFi
 		  AND ($2::BOOLEAN IS NULL OR l.success = $2)
 		  AND ($3::BOOLEAN IS NULL OR l.cache_hit = $3)
 		ORDER BY l.created_at DESC
-		LIMIT $4
 	`
 
-	rows, err := r.db.Pool.Query(ctx, query, filter.PolicyID, filter.Success, filter.CacheHit, limit)
+	rows, err := r.db.Pool.Query(ctx, query, filter.PolicyID, filter.Success, filter.CacheHit)
 	if err != nil {
 		return nil, fmt.Errorf("查询访问日志失败: %w", err)
 	}

@@ -639,21 +639,8 @@ func (h *Handlers) ListConfigPolicyAccessLogs(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	limit := 20
-	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed <= 0 {
-			SendError(w, http.StatusBadRequest, "无效的 limit 参数")
-			return
-		}
-		if parsed > 100 {
-			parsed = 100
-		}
-		limit = parsed
-	}
-
 	ctx := r.Context()
-	logs, err := h.configPolicyService.ListAccessLogs(ctx, id, limit)
+	logs, err := h.configPolicyService.ListAccessLogs(ctx, id)
 	if err != nil {
 		SendError(w, http.StatusNotFound, err.Error())
 		return
@@ -664,7 +651,7 @@ func (h *Handlers) ListConfigPolicyAccessLogs(w http.ResponseWriter, r *http.Req
 
 // ListAllConfigAccessLogs 列出全局访问日志
 func (h *Handlers) ListAllConfigAccessLogs(w http.ResponseWriter, r *http.Request) {
-	filter := database.ConfigAccessLogFilter{Limit: 100}
+	filter := database.ConfigAccessLogFilter{}
 
 	if raw := strings.TrimSpace(r.URL.Query().Get("policy_id")); raw != "" {
 		policyID, err := strconv.ParseInt(raw, 10, 64)
@@ -691,18 +678,6 @@ func (h *Handlers) ListAllConfigAccessLogs(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		filter.CacheHit = &value
-	}
-
-	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
-		value, err := strconv.Atoi(raw)
-		if err != nil || value <= 0 {
-			SendError(w, http.StatusBadRequest, "无效的 limit 参数")
-			return
-		}
-		if value > 500 {
-			value = 500
-		}
-		filter.Limit = value
 	}
 
 	logs, err := h.configPolicyService.ListAllAccessLogs(r.Context(), filter)

@@ -7,90 +7,141 @@
   <link rel="icon" type="image/svg+xml" href="/web/favicon.svg?v=7">
   <script src="/web/shared/tailwind.config.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/web/shared/base.css">
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-900">
-<div class="flex min-h-screen items-center justify-center px-4">
-<div class="w-full max-w-[380px] animate-slide-up-fade">
-  <div class="mb-7 flex flex-col items-center gap-2.5">
-    <div class="h-11 w-11 overflow-hidden rounded-rf-lg shadow-rf2">
-      <img src="/web/favicon.svg?v=7" alt="" aria-hidden="true" class="block h-full w-full">
-    </div>
-    <div class="text-center">
-      <div class="text-xl font-bold tracking-[-0.4px] text-rf-text">RuleFlow</div>
-      <div class="mt-[-4px] text-[13px] text-rf-muted">订阅转换控制台</div>
-    </div>
-  </div>
-
-  <div class="rounded-rf-xl border border-rf-border bg-white p-7 shadow-rf3">
-    <div class="mb-5 text-[15px] font-semibold text-rf-text">输入管理密码</div>
-
-    <div id="error-bar" class="mb-4 hidden items-center gap-2 rounded-rf border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-      密码错误，请重试
+<body class="min-h-screen overflow-x-hidden">
+  <div class="relative min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+    <div class="pointer-events-none absolute inset-0">
+      <div class="absolute left-[-8%] top-[-10%] h-[280px] w-[280px] rounded-full bg-sky-300/20 blur-3xl"></div>
+      <div class="absolute right-[-8%] top-[10%] h-[320px] w-[320px] rounded-full bg-violet-300/20 blur-3xl"></div>
+      <div class="absolute bottom-[-12%] left-[20%] h-[300px] w-[300px] rounded-full bg-emerald-300/20 blur-3xl"></div>
     </div>
 
-    <form method="POST" action="/login" id="form">
-      <input type="hidden" name="next" id="next-input">
-      <div class="mb-4">
-        <label for="password" class="mb-1.5 block text-[13px] font-medium text-rf-text">密码</label>
-        <div class="relative">
-          <input
-            class="w-full rounded-rf border border-rf-border bg-white px-3 py-2.5 pr-10 text-sm leading-6 text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-emerald-500/10"
-            type="password"
-            id="password"
-            name="password"
-            placeholder="请输入管理密码"
-            autofocus
-            autocomplete="current-password"
-          >
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center border-none bg-transparent p-0.5 text-rf-subtle transition hover:text-rf-muted"
-            onclick="togglePwd()"
-            title="显示/隐藏密码"
-          >
-            <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
-          </button>
-        </div>
+    <div class="relative mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center">
+      <div class="grid w-full gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+        <section class="hidden rounded-[34px] border border-white/60 bg-white/55 p-8 shadow-rf3 backdrop-blur-2xl lg:flex lg:flex-col lg:justify-between">
+          <div>
+            <div class="inline-flex items-center gap-3 rounded-full border border-white/70 bg-white/70 px-4 py-2 text-[12px] font-semibold text-rf-muted shadow-rf1">
+              <span class="h-2 w-2 rounded-full bg-rf-green"></span>
+              Subscription orchestration
+            </div>
+            <h1 class="mt-6 max-w-[520px] text-[46px] font-bold leading-[1.02] tracking-[-0.06em] text-rf-text">
+              用更安静的界面，管理更复杂的规则流转。
+            </h1>
+            <p class="mt-5 max-w-[460px] text-[15px] leading-7 text-rf-muted">
+              RuleFlow 把订阅源、节点、模板和输出配置放进同一条工作流里。界面语言参考 Apple 的克制层次和 Figma 的信息清晰度，重点是快、稳、少干扰。
+            </p>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="rounded-[26px] border border-white/70 bg-white/78 p-5 shadow-rf1">
+              <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-rf-subtle">Subscriptions</div>
+              <div class="mt-3 text-[24px] font-bold tracking-[-0.05em] text-rf-text">1</div>
+              <div class="mt-1 text-[13px] text-rf-muted">统一入口</div>
+            </div>
+            <div class="rounded-[26px] border border-white/70 bg-white/78 p-5 shadow-rf1">
+              <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-rf-subtle">Rules</div>
+              <div class="mt-3 text-[24px] font-bold tracking-[-0.05em] text-rf-text">N</div>
+              <div class="mt-1 text-[13px] text-rf-muted">按模板输出</div>
+            </div>
+            <div class="rounded-[26px] border border-white/70 bg-white/78 p-5 shadow-rf1">
+              <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-rf-subtle">Runtime</div>
+              <div class="mt-3 text-[24px] font-bold tracking-[-0.05em] text-rf-text">24/7</div>
+              <div class="mt-1 text-[13px] text-rf-muted">状态可追踪</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="flex items-center justify-center">
+          <div class="w-full max-w-[420px] rounded-[34px] border border-white/65 bg-white/72 p-7 shadow-rf3 backdrop-blur-2xl sm:p-8">
+            <div class="mb-8 flex items-center gap-4">
+              <div class="h-14 w-14 overflow-hidden rounded-[18px] shadow-rf2">
+                <img src="/web/favicon.svg?v=7" alt="" aria-hidden="true" class="block h-full w-full">
+              </div>
+              <div>
+                <div class="text-[26px] font-bold tracking-[-0.05em] text-rf-text">RuleFlow</div>
+                <div class="mt-0.5 text-[13px] text-rf-muted">管理入口</div>
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <div class="text-[24px] font-semibold tracking-[-0.04em] text-rf-text">登录控制台</div>
+              <div class="mt-2 text-[14px] leading-6 text-rf-muted">输入管理密码后进入工作区。</div>
+            </div>
+
+            <div id="error-bar" class="mb-4 hidden items-center gap-2 rounded-[18px] border border-red-200/80 bg-red-50/90 px-4 py-3 text-[13px] font-medium text-red-700">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              密码错误，请重试
+            </div>
+
+            <form method="POST" action="/login" id="form">
+              <input type="hidden" name="next" id="next-input">
+              <div class="mb-4">
+                <label for="password" class="mb-2 block text-[13px] font-semibold text-rf-text">密码</label>
+                <div class="relative">
+                  <input
+                    class="w-full rounded-[20px] border border-white/80 bg-white/82 px-4 py-3 pr-11 text-[14px] leading-6 text-rf-text shadow-rf1 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-500/10"
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="请输入管理密码"
+                    autofocus
+                    autocomplete="current-password"
+                  >
+                  <button
+                    type="button"
+                    class="absolute right-3 top-1/2 flex -translate-y-1/2 items-center rounded-full p-1 text-rf-subtle transition hover:bg-slate-100 hover:text-rf-muted"
+                    onclick="togglePwd()"
+                    title="显示/隐藏密码"
+                  >
+                    <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                class="mt-2 inline-flex w-full items-center justify-center rounded-[20px] border border-emerald-500 bg-emerald-500 px-4 py-3 text-[14px] font-semibold text-white shadow-[0_18px_36px_rgba(18,183,106,0.24)] transition hover:translate-y-[-1px] hover:bg-emerald-600 active:scale-[0.99]"
+              >
+                登录
+              </button>
+            </form>
+
+            <div class="mt-6 flex items-center justify-between text-[12px] text-rf-subtle">
+              <span>仅限管理员访问</span>
+              <span>RuleFlow &copy; <span id="yr"></span></span>
+            </div>
+          </div>
+        </section>
       </div>
-      <button
-        type="submit"
-        class="mt-1 inline-flex w-full items-center justify-center rounded-rf border border-[#18c865] bg-[#18c865] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-[#15b25a] hover:bg-[#15b25a] active:scale-[0.98]"
-      >
-        登录
-      </button>
-    </form>
+    </div>
   </div>
 
-  <div class="mt-5 text-center text-xs text-rf-subtle">RuleFlow &copy; <span id="yr"></span></div>
-  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
-</div>
-</div>
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
 
-<script>
-  // 从 URL 参数读取 next 和 error
-  const params = new URLSearchParams(location.search);
-  document.getElementById('next-input').value = params.get('next') || '';
-  if (params.get('error') === '1') {
-    document.getElementById('error-bar').classList.remove('hidden');
-    document.getElementById('error-bar').classList.add('flex');
-  }
-
-  function togglePwd() {
-    const inp = document.getElementById('password');
-    const icon = document.getElementById('eye-icon');
-    if (inp.type === 'password') {
-      inp.type = 'text';
-      icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
-    } else {
-      inp.type = 'password';
-      icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+    const params = new URLSearchParams(location.search);
+    document.getElementById('next-input').value = params.get('next') || '';
+    if (params.get('error') === '1') {
+      document.getElementById('error-bar').classList.remove('hidden');
+      document.getElementById('error-bar').classList.add('flex');
     }
-  }
-</script>
+
+    function togglePwd() {
+      const inp = document.getElementById('password');
+      const icon = document.getElementById('eye-icon');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+      } else {
+        inp.type = 'password';
+        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+      }
+    }
+  </script>
 </body>
 </html>

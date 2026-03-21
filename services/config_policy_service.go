@@ -108,14 +108,14 @@ func (s *ConfigPolicyService) RecordAccess(ctx context.Context, log *database.Co
 }
 
 // ListAccessLogs 获取指定策略最近访问日志
-func (s *ConfigPolicyService) ListAccessLogs(ctx context.Context, policyID int64, limit int) ([]*database.ConfigAccessLog, error) {
+func (s *ConfigPolicyService) ListAccessLogs(ctx context.Context, policyID int64) ([]*database.ConfigAccessLog, error) {
 	if _, err := s.policyRepo.GetByID(ctx, policyID); err != nil {
 		return nil, err
 	}
 	if s.accessLogRepo == nil {
 		return []*database.ConfigAccessLog{}, nil
 	}
-	return s.accessLogRepo.ListByPolicy(ctx, policyID, limit)
+	return s.accessLogRepo.ListByPolicy(ctx, policyID)
 }
 
 // ListAllAccessLogs 获取全局访问日志
