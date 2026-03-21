@@ -244,18 +244,20 @@
           <!-- 协议分布 -->
           <section class="rounded-rf-lg border border-rf-border bg-white shadow-rf1 px-[14px] py-[10px]">
             <div class="text-[11px] font-medium text-rf-muted mb-1.5">节点协议分布</div>
-            <div class="grid gap-1.5">
-              ${Object.entries(state.stats.by_protocol || {}).sort((a, b) => b[1] - a[1]).map(([protocol, count]) => `
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    ${badge(protocolTone[protocol] || 'gray', protocolLabel[protocol] || protocol.toUpperCase())}
+            <div class="grid gap-2.5">
+              ${(() => {
+                const protocolItems = Object.entries(state.stats.by_protocol || {}).sort((a, b) => b[1] - a[1]);
+                const protocolMax = Math.max(...protocolItems.map(([, c]) => c), 1);
+                return protocolItems.map(([protocol, count]) => `
+                  <div class="grid grid-cols-[92px_1fr_44px] items-center gap-2.5">
+                    <div class="truncate text-xs font-medium text-rf-muted">${escapeHtml(protocolLabel[protocol] || protocol)}</div>
+                    <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all duration-300" style="width: ${Math.max((count / protocolMax) * 100, 6)}%"></div>
+                    </div>
+                    <div class="text-right text-xs font-semibold text-rf-text">${count}</div>
                   </div>
-                  <div class="text-[13px] font-semibold text-rf-text">${count}</div>
-                </div>
-              `).join('')}
-              ${Object.keys(state.stats.by_protocol || {}).length === 0 ? `
-                <div class="text-[11px] text-rf-muted text-center py-2">暂无协议数据</div>
-              ` : ''}
+                `).join('') || '<div class="text-[11px] text-rf-muted text-center py-2">暂无协议数据</div>';
+              })()}
             </div>
           </section>
 
@@ -294,7 +296,7 @@
           <section class="min-h-0 flex-1 overflow-hidden rounded-rf-lg border border-rf-border bg-white shadow-rf1">
             <div class="h-full overflow-auto">
               <table class="min-w-full border-collapse">
-                <thead class="bg-slate-50">
+                <thead class="bg-slate-50 sticky top-0 z-10">
                   <tr>
                     <th class="w-10 whitespace-nowrap border-b border-rf-border px-[14px] py-[9px] text-left text-[11.5px] font-semibold uppercase tracking-[0.05em] text-rf-muted">
                       <input type="checkbox" data-action="toggle-all" ${allSelected ? 'checked' : ''} ${state.nodes.length === 0 ? 'disabled' : ''} ${someSelected ? 'data-indeterminate="true"' : ''} class="h-[15px] w-[15px] cursor-pointer accent-[#18c865]">
