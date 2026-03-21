@@ -1,696 +1,547 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RuleFlow - 控制台</title>
-  <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
-  <link rel="stylesheet" href="/web/shared/base.css">
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    :root {
-      --sh2: 0 8px 18px rgba(17,24,39,.08);
-    }
-
-    .hero {
-      background: linear-gradient(135deg, #ffffff 0%, #f7faf8 58%, #eefbf3 100%);
+<style>
+    .dashboard-card {
+      transition: all 0.3s ease;
       border: 1px solid var(--bdr);
-      border-radius: 20px;
-      box-shadow: var(--sh2);
-      padding: 24px;
-      margin-bottom: 22px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 20px;
-    }
-    .hero-title { font-size: 28px; font-weight: 750; color: var(--t1); letter-spacing: -.04em; }
-    .hero-sub { font-size: 14px; color: var(--t2); margin-top: 6px; max-width: 720px; }
-    .hero-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 12.5px;
-      font-weight: 600;
-      border: 1px solid transparent;
-      background: #fff;
-    }
-    .pill-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .pill-ok { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
-    .pill-ok .pill-dot { background: #22c55e; }
-    .pill-warn { color: var(--ylwt); background: var(--ylwbg); border-color: #fde68a; }
-    .pill-warn .pill-dot { background: var(--ylw); }
-    .pill-bad { color: var(--redt); background: var(--redbg); border-color: #fecaca; }
-    .pill-bad .pill-dot { background: var(--red); }
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: var(--rm); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; line-height: 1.2; text-decoration: none; }
-    .btn:disabled { opacity: .55; cursor: not-allowed; }
-    .btn svg { width: 14px; height: 14px; }
-    .btn-p { background: var(--grn); color: #fff; border-color: var(--grn); }
-    .btn-p:hover:not(:disabled) { background: var(--grnd); border-color: var(--grnd); }
-    .btn-s { background: #fff; color: var(--t1); border-color: var(--bdr); }
-    .btn-s:hover:not(:disabled) { background: #f9fafb; }
-
-    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
-    .stat {
-      background: var(--card);
-      border: 1px solid var(--bdr);
-      border-radius: var(--rl);
-      padding: 18px;
+      border-radius: 8px;
+      background: white;
       box-shadow: var(--sh1);
     }
-    .stat-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-    .stat-ic { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .stat-kicker { font-size: 11px; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
-    .stat-v { font-size: 28px; font-weight: 750; color: var(--t1); letter-spacing: -.05em; line-height: 1; }
-    .stat-l { font-size: 12.5px; color: var(--t2); margin-top: 4px; }
-    .stat-note { font-size: 12px; color: var(--t3); margin-top: 10px; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(320px, .9fr);
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-    .card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: var(--sh1); }
-    .card-h { padding: 16px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .card-ht { font-size: 15px; font-weight: 650; color: var(--t1); }
-    .card-hs { font-size: 12.5px; color: var(--t3); }
-    .card-b { padding: 18px; }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    .tag-bad { background: var(--redbg); color: var(--redt); }
-    .tag-warn { background: var(--ylwbg); color: var(--ylwt); }
-    .tag-ok { background: #f0fdf4; color: #166534; }
-
-    .sub-list { display: grid; gap: 10px; }
-    .sub-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) 96px 92px 140px;
-      gap: 12px;
-      align-items: center;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--bdr);
-      background: #fff;
-    }
-    .sub-name { font-size: 13.5px; font-weight: 650; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sub-meta { font-size: 12px; color: var(--t3); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sub-cell { font-size: 12.5px; color: var(--t2); }
-    .sub-expand {
-      grid-column: 1 / -1;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed var(--bdr);
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .sub-expand-item {
-      font-size: 12px;
-      color: var(--t3);
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
-    .sub-expand-label { font-weight: 600; color: var(--t2); white-space: nowrap; }
-    .sub-expand-value { word-break: break-all; overflow: hidden; text-overflow: ellipsis; }
-    .sub-toggle {
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: var(--t3);
-      margin-left: 8px;
-      user-select: none;
-    }
-    .sub-toggle:hover { color: var(--t1); }
-
-    .mini-grid { display: grid; gap: 12px; }
-    .mini-stat {
-      border: 1px solid var(--bdr);
-      border-radius: 12px;
-      padding: 14px;
-      background: #fafafa;
-    }
-    .mini-label { font-size: 12px; color: var(--t3); }
-    .mini-value { font-size: 22px; font-weight: 750; color: var(--t1); margin-top: 4px; letter-spacing: -.03em; }
-    .mini-note { font-size: 12px; color: var(--t2); margin-top: 4px; }
-
-    .breakdown { display: grid; gap: 10px; margin-top: 14px; }
-    .break-item { display: grid; grid-template-columns: 92px 1fr 44px; gap: 10px; align-items: center; }
-    .break-label { font-size: 12.5px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .break-bar { height: 8px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
-    .break-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #22c55e, #16a34a); }
-    .break-count { font-size: 12px; font-weight: 600; color: var(--t3); text-align: right; }
-
-    .quick-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-    .quick-card {
-      padding: 16px;
-      border-radius: 14px;
-      border: 1px solid var(--bdr);
-      background: linear-gradient(180deg, #fff 0%, #fafafa 100%);
-      text-decoration: none;
-      color: inherit;
-      transition: transform .15s ease, box-shadow .15s ease;
-    }
-    .quick-card:hover { transform: translateY(-1px); box-shadow: var(--sh2); }
-    .quick-title { font-size: 14px; font-weight: 650; color: var(--t1); }
-    .quick-desc { font-size: 12.5px; color: var(--t2); margin-top: 6px; }
-
-    .tool-links {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .tool-link-card {
-      display: block;
-      border: 1px solid var(--bdr);
-      border-radius: 14px;
-      padding: 16px;
-      background: linear-gradient(180deg, #fff 0%, #fafafa 100%);
-      text-decoration: none;
-      color: inherit;
-      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-    }
-    .tool-link-card:hover {
-      transform: translateY(-1px);
+    .dashboard-card:hover {
       box-shadow: var(--sh2);
-      border-color: #cbd5e1;
+      border-color: var(--grn);
+      transform: translateY(-1px);
     }
-    .tool-link-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
+    .stat-number {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--t1);
+      letter-spacing: -0.02em;
     }
-    .tool-link-title { font-size: 14px; font-weight: 650; color: var(--t1); }
-    .tool-link-desc { font-size: 12.5px; color: var(--t2); margin-top: 6px; }
-    .tool-link-url {
-      display: block;
-      margin-top: 10px;
-      font-size: 12px;
-      color: var(--blu);
-      text-decoration: none;
-      word-break: break-all;
+    .stat-label {
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--t3);
     }
-    .tool-link-url:hover { text-decoration: underline; }
-    .empty {
-      border: 1px dashed #d1d5db;
-      border-radius: 12px;
-      padding: 22px 16px;
-      text-align: center;
-      color: var(--t2);
-      font-size: 13px;
-      background: #fafafa;
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
     }
-    .muted { color: var(--t3); }
-    .skel {
-      height: 28px;
-      width: 72px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e5e7eb 50%, #f0f0f0 75%);
-      background-size: 200% 100%;
+    .status-dot.healthy { background: var(--grn); }
+    .status-dot.warning { background: var(--ylw); }
+    .status-dot.error { background: var(--red); }
+    .progress-bar {
+      height: 3px;
+      background: var(--bdr);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--grn), var(--grnd));
+      border-radius: 99px;
+      transition: width 0.3s ease;
+    }
+    .metric-card {
+      padding: 12px;
+      border-radius: 8px;
+      background: white;
+      border: 1px solid var(--bdr);
+      transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+      box-shadow: var(--sh2);
+      transform: translateY(-1px);
+    }
+    .metric-icon {
+      width: 30px;
+      height: 30px;
       border-radius: 6px;
-      animation: shimmer 1.2s infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
-    @keyframes shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-
-    @media (max-width: 1200px) {
-      .stats, .quick-grid, .tool-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .grid { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 900px) { .hero { flex-direction: column; } }
-    @media (max-width: 720px) {
-      .stats, .quick-grid, .tool-links { grid-template-columns: 1fr; }
-      .sub-row { grid-template-columns: 1fr; }
-      .hero-title { font-size: 24px; }
-    }
+    .metric-icon.subscriptions { background: rgba(24, 200, 101, 0.1); color: var(--grn); }
+    .metric-icon.nodes { background: rgba(59, 130, 246, 0.1); color: var(--blu); }
+    .metric-icon.policies { background: rgba(249, 115, 22, 0.1); color: var(--org); }
+    .metric-icon.templates { background: rgba(139, 92, 246, 0.1); color: var(--pur); }
   </style>
-</head>
-<body>
-  <div id="root"></div>
-
-  <script type="text/babel" src="/web/shared/components.js" data-presets="react"></script>
-  <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
-
-    const DAY_MS = 24 * 60 * 60 * 1000;
-
-    function formatTime(value) {
-      if (!value) return '从未同步';
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return '时间未知';
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-    }
-
-    function formatAgo(value) {
-      if (!value) return '从未同步';
-      const date = new Date(value);
-      const diff = Date.now() - date.getTime();
-      if (Number.isNaN(diff)) return '时间未知';
-      if (diff < 60 * 1000) return '刚刚';
-      if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))} 分钟前`;
-      if (diff < DAY_MS) return `${Math.floor(diff / (60 * 60 * 1000))} 小时前`;
-      return `${Math.floor(diff / DAY_MS)} 天前`;
-    }
-
-
-    function getSubStatus(sub) {
-      if (sub.last_fetch_error) return { label: '失败', cls: 'tag-bad' };
-      if (!sub.enabled)         return { label: '已停用', cls: 'tag-warn' };
-      if (!sub.last_fetched_at) return { label: '未同步', cls: 'tag-warn' };
-      if (Date.now() - new Date(sub.last_fetched_at).getTime() > DAY_MS)
-                                return { label: '过旧', cls: 'tag-warn' };
-      return { label: '正常', cls: 'tag-ok' };
-    }
-
-    /* ===== 子组件 ===== */
-
-    const Skel = () => <div className="skel" />;
-
-    const StatCard = ({ kicker, value, label, note, iconBg, icon, loaded }) => (
-      <div className="stat">
-        <div className="stat-top">
-          <div>
-            <div className="stat-kicker">{kicker}</div>
-            <div className="stat-v">{loaded ? value : <Skel />}</div>
-          </div>
-          <div className="stat-ic" style={{ background: iconBg }}>{icon}</div>
-        </div>
-        <div className="stat-l">{label}</div>
-        <div className="stat-note">{loaded ? note : '加载中'}</div>
+<section id="dashboard-page" class="space-y-4">
+    <!-- Hero Section -->
+    <div class="relative overflow-hidden rounded-[12px] border border-rf-border bg-gradient-to-br from-white via-[#f7faf8] to-[#eefbf3] px-3 py-3 shadow-[0_8px_18px_rgba(17,24,39,.08)]">
+      <div class="pointer-events-none absolute right-[-48px] top-[-48px] h-[180px] w-[180px] rounded-full bg-[radial-gradient(circle,rgba(24,200,101,0.14)_0%,rgba(24,200,101,0)_72%)]"></div>
+      <div class="relative z-10">
+        <h1 class="text-xl font-bold tracking-[-0.04em] text-rf-text">控制台</h1>
+        <p class="mt-1 max-w-[720px] text-[11px] leading-4 text-rf-muted">集中查看订阅、节点、配置策略和缓存健康度。优先暴露异常订阅和协议分布，减少进入各页面才发现问题的情况。</p>
+        <div id="dashboard-hero-meta" class="mt-2 flex flex-wrap gap-1.5"></div>
       </div>
-    );
+    </div>
 
+    <div id="dashboard-content"></div>
+    <div id="dashboard-toast-root" class="pointer-events-none fixed bottom-[18px] left-[18px] z-[9999] flex flex-col gap-2"></div>
+  </section>
 
-    const SubRow = ({ sub }) => {
-      const status = getSubStatus(sub);
-      const detail = sub.last_fetch_error ? sub.last_fetch_error : `最近同步：${formatTime(sub.last_fetched_at)}`;
-      const [expanded, setExpanded] = useState(false);
+  <script>
+    (() => {
+      const root = document.getElementById('dashboard-page');
+      if (!root) return;
 
-      return (
-        <div className="sub-row">
-          <div>
-            <div className="sub-name">
-              {sub.name}
-              <span className="sub-toggle" onClick={() => setExpanded(!expanded)}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-                {expanded ? '收起' : '展开'}
-              </span>
-            </div>
-            <div className="sub-meta">{detail}</div>
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const contentEl = document.getElementById('dashboard-content');
+      const heroMetaEl = document.getElementById('dashboard-hero-meta');
+      const toastRoot = document.getElementById('dashboard-toast-root');
+
+      const TOOL_LINKS = [
+        {
+          name: 'IP 检测',
+          description: '快速确认当前出口 IP、地区和 ASN 信息。',
+          url: 'https://ip.skk.moe/',
+        },
+        {
+          name: 'DNS 泄漏检测',
+          description: '检查 DNS 请求是否按预期走代理或指定解析链路。',
+          url: 'https://browserleaks.com/dns',
+        },
+      ];
+
+      const state = {
+        health: null,
+        subscriptions: [],
+        nodeStats: {},
+        templates: [],
+        policies: [],
+        lastUpdated: null,
+        loaded: false,
+        refreshing: false,
+        expandedIds: [],
+        toasts: [],
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[char]);
+      }
+
+      function request(url, options = {}) {
+        return fetch(url, options).then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || ('请求失败: ' + res.status));
+          }
+          return res.json();
+        });
+      }
+
+      function safeRequest(url, options) {
+        return request(url, options).catch(() => null);
+      }
+
+      function addToast(message, type = 'ok') {
+        const id = Date.now() + Math.random();
+        state.toasts.push({ id, message, type });
+        renderToasts();
+        window.setTimeout(() => {
+          state.toasts = state.toasts.filter((item) => item.id !== id);
+          renderToasts();
+        }, 3200);
+      }
+
+      function renderToasts() {
+        toastRoot.innerHTML = state.toasts.map((toast) => `
+          <div class="pointer-events-auto flex min-w-[260px] max-w-[380px] items-center gap-[9px] rounded-rf-xl border px-[14px] py-[11px] text-[13.5px] font-medium shadow-rf3 ${toast.type === 'ok' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-600'}">
+            ${toast.type === 'ok' ? icons.check : icons.alert}
+            <span>${escapeHtml(toast.message)}</span>
           </div>
-          <div className="sub-cell">{sub.node_count ?? 0} 节点</div>
-          <div className="sub-cell">{sub.auto_refresh ? '自动刷新' : '手动'}</div>
-          <div className="sub-cell">
-            <span className={`tag ${status.cls}`}>{status.label}</span>{' '}
-            <span className="muted">{formatAgo(sub.last_fetched_at)}</span>
-          </div>
+        `).join('');
+      }
 
-          {expanded && (
-            <div className="sub-expand">
-              <div className="sub-expand-item">
-                <span className="sub-expand-label">订阅地址:</span>
-                <span className="sub-expand-value">{sub.url}</span>
+      function formatTime(value) {
+        if (!value) return '从未同步';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '时间未知';
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+      }
+
+      function formatAgo(value) {
+        if (!value) return '从未同步';
+        const date = new Date(value);
+        const diff = Date.now() - date.getTime();
+        if (Number.isNaN(diff)) return '时间未知';
+        if (diff < 60 * 1000) return '刚刚';
+        if (diff < 60 * 60 * 1000) return Math.floor(diff / (60 * 1000)) + ' 分钟前';
+        if (diff < DAY_MS) return Math.floor(diff / (60 * 60 * 1000)) + ' 小时前';
+        return Math.floor(diff / DAY_MS) + ' 天前';
+      }
+
+      function getSubStatus(sub) {
+        if (sub.last_fetch_error) return { label: '失败', tone: 'red' };
+        if (!sub.enabled) return { label: '已停用', tone: 'yellow' };
+        if (!sub.last_fetched_at) return { label: '未同步', tone: 'yellow' };
+        if (Date.now() - new Date(sub.last_fetched_at).getTime() > DAY_MS) return { label: '过旧', tone: 'yellow' };
+        return { label: '正常', tone: 'green' };
+      }
+
+      function heroStatus() {
+        if (!state.loaded) return { tone: 'gray', label: '正在检查服务状态' };
+        if (state.health && state.health.status === 'healthy') return { tone: 'green', label: '服务运行正常' };
+        if (state.health && state.health.status) return { tone: 'yellow', label: '系统状态：' + state.health.status };
+        return { tone: 'red', label: '服务状态获取失败' };
+      }
+
+      function derive() {
+        const enabledSubs = state.subscriptions.filter((s) => s.enabled).length;
+        const failedSubs = state.subscriptions.filter((s) => Boolean(s.last_fetch_error));
+        const staleSubs = state.subscriptions.filter((s) => s.enabled && (!s.last_fetched_at || Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS));
+        const totalNodes = Number(state.nodeStats.total || 0);
+        const enabledNodes = Number(state.nodeStats.enabled || 0);
+        const disabledNodes = Math.max(totalNodes - enabledNodes, 0);
+        const enabledPolicies = state.policies.filter((p) => p.enabled).length;
+        const sourceCount = Object.keys(state.nodeStats.by_source || {}).length;
+        const protocolItems = Object.entries(state.nodeStats.by_protocol || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const protocolMax = Math.max(...protocolItems.map((item) => item[1]), 1);
+        const templateTypes = [...new Set(state.templates.map((t) => t.target).filter(Boolean))].join(' / ');
+        const sortedSubs = state.subscriptions.slice().sort((a, b) => {
+          const score = (s) => {
+            if (s.last_fetch_error) return 0;
+            if (!s.enabled) return 1;
+            if (!s.last_fetched_at) return 2;
+            if (Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS) return 3;
+            return 4;
+          };
+          const delta = score(a) - score(b);
+          if (delta !== 0) return delta;
+          return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+        });
+        return {
+          enabledSubs,
+          failedSubs,
+          staleSubs,
+          totalNodes,
+          enabledNodes,
+          disabledNodes,
+          enabledPolicies,
+          sourceCount,
+          protocolItems,
+          protocolMax,
+          templateTypes,
+          sortedSubs,
+        };
+      }
+
+      function renderHeroMeta() {
+        const hero = heroStatus();
+        const heroToneClass = hero.tone === 'green'
+          ? 'border-green-200 bg-green-50 text-green-700'
+          : hero.tone === 'yellow'
+            ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
+            : hero.tone === 'red'
+              ? 'border-red-200 bg-red-50 text-red-600'
+              : 'border-rf-border bg-white text-rf-text';
+        const heroDotClass = hero.tone === 'green'
+          ? 'bg-green-500'
+          : hero.tone === 'yellow'
+            ? 'bg-yellow-500'
+            : hero.tone === 'red'
+              ? 'bg-red-500'
+              : 'bg-slate-400';
+        heroMetaEl.innerHTML = `
+          <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold shadow-sm ${heroToneClass}">
+            <span class="h-2 w-2 shrink-0 rounded-full ${heroDotClass}"></span>
+            <span>${escapeHtml(hero.label)}</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-rf-border bg-white/85 px-2.5 py-1.5 text-[11px] font-medium text-rf-muted shadow-sm">${state.lastUpdated ? '最后刷新：' + escapeHtml(formatTime(state.lastUpdated.toISOString())) : '最后刷新：加载中'}</span>
+        `;
+      }
+
+      function renderContent() {
+        renderHeroMeta();
+        const d = derive();
+        contentEl.innerHTML = `
+          <!-- 核心指标卡片 -->
+          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div class="metric-card">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <span class="stat-label">订阅源</span>
+                  <div class="stat-number mt-1">${state.loaded ? d.enabledSubs + '/' + state.subscriptions.length : '...'}</div>
+                  <div class="mt-1 text-xs text-rf-muted">启用 / 全部订阅</div>
+                  <div class="mt-0.5 text-xs text-rf-subtle">
+                    ${state.subscriptions.length
+                      ? (d.failedSubs.length > 0 ? `<span class="text-red-500">${d.failedSubs.length} 个失败</span>` : '') +
+                        (d.staleSubs.length > 0 ? `，${d.staleSubs.length} 个未及时更新` : '')
+                      : '还没有订阅源'
+                    }
+                  </div>
+                </div>
+                <div class="metric-icon subscriptions">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle>
+                  </svg>
+                </div>
               </div>
-              {sub.refresh_interval && (
-                <div className="sub-expand-item">
-                  <span className="sub-expand-label">刷新间隔:</span>
-                  <span className="sub-expand-value">{sub.refresh_interval}秒</span>
-                </div>
-              )}
-              {sub.description && (
-                <div className="sub-expand-item">
-                  <span className="sub-expand-label">描述:</span>
-                  <span className="sub-expand-value">{sub.description}</span>
-                </div>
-              )}
-              {sub.filter_rules && (
-                <div className="sub-expand-item">
-                  <span className="sub-expand-label">过滤规则:</span>
-                  <span className="sub-expand-value">
-                    {sub.filter_rules.exclude_keywords?.length > 0 && `排除关键词: ${sub.filter_rules.exclude_keywords.join(', ')}; `}
-                    {sub.filter_rules.exclude_regex && `排除正则: ${sub.filter_rules.exclude_regex}; `}
-                    {sub.filter_rules.include_protocols?.length > 0 && `协议白名单: ${sub.filter_rules.include_protocols.join(', ')}`}
-                  </span>
-                </div>
-              )}
             </div>
-          )}
-        </div>
-      );
-    };
 
-    const BreakItem = ({ label, count, max }) => (
-      <div className="break-item">
-        <div className="break-label">{label}</div>
-        <div className="break-bar">
-          <div className="break-fill" style={{ width: `${Math.max((count / max) * 100, 6)}%` }} />
-        </div>
-        <div className="break-count">{count}</div>
-      </div>
-    );
+            <div class="metric-card">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <span class="stat-label">节点可用性</span>
+                  <div class="stat-number mt-1">${state.loaded ? d.enabledNodes + '/' + d.totalNodes : '...'}</div>
+                  <div class="mt-1 text-xs text-rf-muted">启用节点 / 总节点</div>
+                  <div class="mt-0.5 text-xs text-rf-subtle">
+                    ${d.totalNodes
+                      ? `${d.sourceCount} 个来源，${d.disabledNodes} 个禁用`
+                      : '还没有节点数据'}
+                  </div>
+                </div>
+                <div class="metric-icon nodes">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                    <line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-    const TOOL_LINKS = [
-      {
-        name: 'IP 检测',
-        description: '快速确认当前出口 IP、地区和 ASN 信息。',
-        url: 'https://ip.skk.moe/',
-      },
-      {
-        name: 'DNS 泄漏检测',
-        description: '检查 DNS 请求是否按预期走代理或指定解析链路。',
-        url: 'https://browserleaks.com/dns',
-      },
-    ];
+            <div class="metric-card">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <span class="stat-label">配置策略</span>
+                  <div class="stat-number mt-2">${state.loaded ? d.enabledPolicies + '/' + state.policies.length : '...'}</div>
+                  <div class="mt-2 text-sm text-rf-muted">启用策略 / 全部策略</div>
+                  <div class="mt-1 text-xs text-rf-subtle">
+                    ${state.policies.length
+                      ? `${state.templates.length} 个模板`
+                      : '还没有配置策略'}
+                  </div>
+                </div>
+                <div class="metric-icon policies">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-    /* ===== 主应用 ===== */
+            <div class="metric-card">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <span class="stat-label">规则模板</span>
+                  <div class="stat-number mt-1">${state.loaded ? state.templates.length : '...'}</div>
+                  <div class="mt-1 text-xs text-rf-muted">可用模板数量</div>
+                  <div class="mt-0.5 text-xs text-rf-subtle">
+                    ${state.templates.length
+                      ? `${d.templateTypes.split(' / ').length} 种类型`
+                      : '还没有规则模板'}
+                  </div>
+                </div>
+                <div class="metric-icon templates">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
 
-    const App = () => {
-      const [health, setHealth]             = useState(null);
-      const [subscriptions, setSubscriptions] = useState([]);
-      const [nodeStats, setNodeStats]       = useState({});
-      const [templates, setTemplates]       = useState([]);
-      const [policies, setPolicies]         = useState([]);
-      const [lastUpdated, setLastUpdated]   = useState(null);
-      const [loaded, setLoaded]             = useState(false);
-      const [refreshing, setRefreshing]     = useState(false);
-      const { toasts, addToast }            = window.useToasts();
+          <!-- 订阅状态 -->
+          <div class="mt-4 dashboard-card">
+            <div class="flex items-center justify-between gap-3 border-b border-rf-border px-4 py-3">
+              <div>
+                <div class="text-base font-semibold text-rf-text">订阅状态</div>
+                <div class="mt-1 text-xs text-rf-subtle">显示源名称、流量、过期时间和更新时间</div>
+              </div>
+              <a href="/subscriptions" class="inline-flex items-center gap-1.5 rounded-rf border border-rf-border bg-white px-2.5 py-1.5 text-xs font-medium text-rf-text transition hover:bg-slate-50">进入订阅管理</a>
+            </div>
+            <div class="px-4 py-3">
+              ${!state.loaded ? `
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-xs text-rf-muted">加载中...</div>
+              ` : d.sortedSubs.length === 0 ? `
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-xs text-rf-muted">还没有订阅源，先去创建一个可同步的订阅。</div>
+              ` : `
+                <div class="space-y-1">
+                  ${d.sortedSubs.map((sub) => {
+                    const status = getSubStatus(sub);
+                    const userInfo = sub.userinfo || null;
+                    const used = userInfo ? Number(userInfo.upload || 0) + Number(userInfo.download || 0) : 0;
+                    const total = userInfo ? Number(userInfo.total || 0) : 0;
+                    const remaining = userInfo ? Math.max(total - used, 0) : 0;
+                    const usedGiB = (used / (1024 ** 3)).toFixed(2);
+                    const totalGiB = (total / (1024 ** 3)).toFixed(2);
+                    const remainingGiB = (remaining / (1024 ** 3)).toFixed(2);
+                    const expireDate = userInfo && userInfo.expire ? new Date(Number(userInfo.expire) * 1000) : null;
+                    const expireStr = expireDate ? expireDate.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) + '（剩 ' + Math.ceil((expireDate - Date.now()) / 86400000) + ' 天）' : '无';
+                    return `
+                      <article class="flex items-center justify-between gap-3 rounded-lg border border-rf-border bg-white px-3 py-2">
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-center gap-1.5 text-xs font-semibold text-rf-text">
+                            <span class="truncate">${escapeHtml(sub.name)}</span>
+                            <span class="inline-flex rounded-full ${status.tone === 'green' ? 'bg-green-100 text-green-700' : status.tone === 'red' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'} px-1.5 py-0.5 text-[10px] font-bold">${status.label}</span>
+                          </div>
+                          <div class="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-rf-subtle">
+                            <span>更新于 ${formatAgo(sub.last_fetched_at)}</span>
+                            <span>${sub.node_count ?? 0} 节点</span>
+                          </div>
+                        </div>
+                        <div class="text-right text-[11px] text-rf-muted">
+                          ${userInfo ? `
+                            <div>已用 ${usedGiB} GiB</div>
+                            <div>剩余 ${remainingGiB} GiB</div>
+                            <div>总计 ${totalGiB} GiB</div>
+                          ` : '无流量信息'}
+                        </div>
+                        <div class="text-right text-[11px] text-rf-muted">
+                          ${expireStr}
+                        </div>
+                      </article>
+                    `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+          </div>
 
-      const clearPolicyCache = useCallback(async () => {
-        await api.post('/api/cache/policies/clear', {});
-      }, []);
+          <!-- 节点协议分布 -->
+          <div class="mt-4 dashboard-card">
+            <div class="border-b border-rf-border px-4 py-3">
+              <div class="text-base font-semibold text-rf-text">节点协议分布</div>
+              <div class="mt-1 text-xs text-rf-subtle">查看不同协议的节点数量</div>
+            </div>
+            <div class="px-4 py-3">
+              ${!state.loaded ? `
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-xs text-rf-muted">加载中...</div>
+              ` : d.protocolItems.length === 0 ? `
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-xs text-rf-muted">暂无节点协议数据</div>
+              ` : `
+                <div class="grid gap-3">
+                  ${d.protocolItems.map((item) => `
+                    <div class="grid grid-cols-[minmax(0,112px)_1fr_44px] items-center gap-1.5">
+                      <div class="truncate text-xs font-medium text-rf-muted">${escapeHtml(item[0])}</div>
+                      <div class="progress-bar">
+                        <div class="progress-fill" style="width:${Math.max((item[1] / d.protocolMax) * 100, 6)}%"></div>
+                      </div>
+                      <div class="text-right text-xs font-semibold text-rf-subtle">${item[1]}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          </div>
 
-      const loadDashboard = useCallback(async () => {
-        setRefreshing(true);
+          <!-- 常用工具 -->
+          <div class="mt-4 dashboard-card">
+            <div class="border-b border-rf-border px-4 py-3">
+              <div class="text-base font-semibold text-rf-text">常用工具 URL</div>
+              <div class="mt-1 text-xs text-rf-subtle">辅助检查工具，不属于核心业务指标</div>
+            </div>
+            <div class="px-4 py-3">
+              <div class="grid gap-3 md:grid-cols-2">
+                ${TOOL_LINKS.map((item) => `
+                  <a href="${item.url}" target="_blank" rel="noreferrer" class="block rounded-lg border border-rf-border bg-white px-3 py-2.5 transition hover:border-[#18c865] hover:shadow-[0_8px_18px_rgba(17,24,39,.05)]">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="text-xs font-semibold text-rf-text">${escapeHtml(item.name)}</div>
+                        <div class="mt-0.5 text-[11px] text-rf-muted">${escapeHtml(item.description)}</div>
+                      </div>
+                      <span class="inline-flex rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">工具</span>
+                    </div>
+                    <div class="mt-1.5 break-all text-[11px] text-blue-500">${escapeHtml(item.url)}</div>
+                  </a>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      async function loadDashboard(showToast) {
+        state.refreshing = true;
+        updateRefreshButton();
         try {
           const [h, subRes, nodeStatsRes, tplRes, policyRes] = await Promise.all([
-            fetch('/health').then(r => r.ok ? r.json() : null).catch(() => null),
-            fetch('/api/subscriptions').then(r => r.json()).catch(() => ({ data: [] })),
-            fetch('/api/nodes/stats').then(r => r.json()).catch(() => ({ data: {} })),
-            fetch('/api/templates').then(r => r.json()).catch(() => ({ data: [] })),
-            fetch('/api/config-policies').then(r => r.json()).catch(() => ({ data: [] })),
+            safeRequest('/health'),
+            safeRequest('/api/subscriptions'),
+            safeRequest('/api/nodes/stats'),
+            safeRequest('/api/templates'),
+            safeRequest('/api/config-policies'),
           ]);
-          setHealth(h);
-          setSubscriptions(subRes.data || []);
-          setNodeStats(nodeStatsRes.data || {});
-          setTemplates(tplRes.data || []);
-          setPolicies(policyRes.data || []);
-          setLastUpdated(new Date());
-        } finally {
-          setLoaded(true);
-          setRefreshing(false);
-        }
-      }, []);
-
-      const handleRefreshOverview = useCallback(async () => {
-        setRefreshing(true);
-        try {
-          await clearPolicyCache();
-          const [h, subRes, nodeStatsRes, tplRes, policyRes] = await Promise.all([
-            fetch('/health').then(r => r.ok ? r.json() : null).catch(() => null),
-            fetch('/api/subscriptions').then(r => r.json()).catch(() => ({ data: [] })),
-            fetch('/api/nodes/stats').then(r => r.json()).catch(() => ({ data: {} })),
-            fetch('/api/templates').then(r => r.json()).catch(() => ({ data: [] })),
-            fetch('/api/config-policies').then(r => r.json()).catch(() => ({ data: [] })),
-          ]);
-          setHealth(h);
-          setSubscriptions(subRes.data || []);
-          setNodeStats(nodeStatsRes.data || {});
-          setTemplates(tplRes.data || []);
-          setPolicies(policyRes.data || []);
-          setLastUpdated(new Date());
-          addToast('概览数据已刷新');
+          state.health = h;
+          state.subscriptions = (subRes && subRes.data) || [];
+          state.nodeStats = (nodeStatsRes && nodeStatsRes.data) || {};
+          state.templates = (tplRes && tplRes.data) || [];
+          state.policies = (policyRes && policyRes.data) || [];
+          state.lastUpdated = new Date();
+          state.loaded = true;
+          if (showToast) addToast('概览数据已刷新');
         } catch (err) {
           addToast('刷新失败：' + err.message, 'err');
         } finally {
-          setLoaded(true);
-          setRefreshing(false);
+          state.refreshing = false;
+          updateRefreshButton();
+          renderContent();
         }
-      }, [clearPolicyCache, addToast]);
+      }
 
-      useEffect(() => { loadDashboard(); }, [loadDashboard]);
+      async function handleRefresh() {
+        try {
+          await request('/api/cache/policies/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        } catch (_) {}
+        await loadDashboard(true);
+      }
 
-      /* 派生数据 */
-      const enabledSubs    = subscriptions.filter(s => s.enabled).length;
-      const failedSubs     = subscriptions.filter(s => Boolean(s.last_fetch_error));
-      const staleSubs      = subscriptions.filter(s => s.enabled && (!s.last_fetched_at || Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS));
-      const totalNodes     = Number(nodeStats.total || 0);
-      const enabledNodes   = Number(nodeStats.enabled || 0);
-      const disabledNodes  = Math.max(totalNodes - enabledNodes, 0);
-      const enabledPolicies = policies.filter(p => p.enabled).length;
-      const sourceCount    = Object.keys(nodeStats.by_source || {}).length;
-      const protocolItems  = Object.entries(nodeStats.by_protocol || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
-      const protocolMax    = Math.max(...protocolItems.map(([, c]) => c), 1);
-      const templateTypes  = [...new Set(templates.map(t => t.target).filter(Boolean))].join(' / ');
+      function updateRefreshButton() {
+      }
 
-      const sortedSubs = [...subscriptions].sort((a, b) => {
-        const score = s => {
-          if (s.last_fetch_error) return 0;
-          if (!s.enabled) return 1;
-          if (!s.last_fetched_at) return 2;
-          if (Date.now() - new Date(s.last_fetched_at).getTime() > DAY_MS) return 3;
-          return 4;
-        };
-        const d = score(a) - score(b);
-        return d !== 0 ? d : new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+      async function copyPolicyLink(policy) {
+        const url = window.location.origin + '/subscribe?token=' + policy.token;
+        try {
+          await navigator.clipboard.writeText(url);
+          addToast('订阅链接已复制');
+        } catch (_) {
+          addToast('复制失败', 'err');
+        }
+      }
+
+      root.addEventListener('click', async (event) => {
+        const target = event.target.closest('[data-action]');
+        if (!target) return;
+        const action = target.dataset.action;
+        if (action === 'refresh') await handleRefresh();
+        if (action === 'toggle-sub') {
+          const id = Number(target.dataset.id);
+          state.expandedIds = state.expandedIds.includes(id)
+            ? state.expandedIds.filter((item) => item.id !== id)
+            : state.expandedIds.concat(id);
+          renderContent();
+        }
+        if (action === 'copy-policy-link') {
+          const id = Number(target.dataset.id);
+          const policy = state.policies.find((item) => item.id === id);
+          if (policy) await copyPolicyLink(policy);
+        }
       });
 
-      const heroStatus = (() => {
-        if (!loaded) return { cls: 'pill pill-ok', label: '正在检查服务状态' };
-        if (health && health.status === 'healthy') return { cls: 'pill pill-ok', label: '服务运行正常' };
-        if (health && health.status) return { cls: 'pill pill-warn', label: `系统状态：${health.status}` };
-        return { cls: 'pill pill-bad', label: '服务状态获取失败' };
-      })();
+      const icons = {
+        check: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+        alert: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>',
+      };
 
+      window.__RULEFLOW_DASHBOARD_REFRESH__ = handleRefresh;
 
-      return (
-        <div className="app">
-          <Sidebar active="home" />
-          <main className="main">
-            <ToastContainer toasts={toasts} />
-            {/* Hero */}
-            <section className="hero">
-              <div>
-                <div className="hero-title">控制台</div>
-                <div className="hero-meta">
-                  <div className={heroStatus.cls}>
-                    <span className="pill-dot"></span>
-                    <span>{heroStatus.label}</span>
-                  </div>
-                  <div className="pill">
-                    <span>{lastUpdated ? `最后刷新：${formatTime(lastUpdated.toISOString())}` : '最后刷新：加载中'}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="hero-actions">
-                <button className="btn btn-p" disabled={refreshing} onClick={handleRefreshOverview}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                    <path d="M3.51 9A9 9 0 0 1 17 5l6 5"/><path d="M20.49 15A9 9 0 0 1 7 19l-6-5"/>
-                  </svg>
-                  刷新概览
-                </button>
-              </div>
-            </section>
-
-            {/* Stats */}
-            <section className="stats">
-              <StatCard
-                loaded={loaded}
-                kicker="订阅源"
-                value={`${enabledSubs}/${subscriptions.length}`}
-                label="启用订阅 / 全部订阅"
-                note={subscriptions.length ? `${failedSubs.length} 个失败，${staleSubs.length} 个未及时更新` : '还没有订阅源'}
-                iconBg="var(--grnbg)"
-                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>}
-              />
-              <StatCard
-                loaded={loaded}
-                kicker="节点可用性"
-                value={`${enabledNodes}/${totalNodes}`}
-                label="启用节点 / 总节点"
-                note={totalNodes ? `${sourceCount} 个来源，禁用 ${disabledNodes} 个` : '还没有节点数据'}
-                iconBg="var(--blubg)"
-                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blu)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>}
-              />
-              <StatCard
-                loaded={loaded}
-                kicker="配置能力"
-                value={`${enabledPolicies}/${policies.length}`}
-                label="启用策略 / 全部策略"
-                note={policies.length ? `${templates.length} 个模板（${templateTypes}）` : '还没有配置策略'}
-                iconBg="var(--orgbg)"
-                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--org)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>}
-              />
-            </section>
-
-            {/* 配置策略总览 + 节点协议分布 */}
-            <section className="grid" style={{ marginBottom: 22 }}>
-              {/* 配置策略总览 */}
-              <div className="card">
-                <div className="card-h">
-                  <div>
-                    <div className="card-ht">配置策略总览</div>
-                    <div className="card-hs">查看生成的订阅配置详情</div>
-                  </div>
-                  <a href="/configs" className="btn btn-s">进入配置管理</a>
-                </div>
-                <div className="card-b">
-                  {!loaded ? (
-                    <div className="empty">加载中...</div>
-                  ) : policies.length === 0 ? (
-                    <div className="empty">
-                      <div className="empty-t" style={{ fontSize: 14 }}>暂无配置策略</div>
-                      <div className="empty-d" style={{ fontSize: 12, marginTop: 4 }}>创建配置策略，生成专属的订阅链接</div>
-                      <button className="btn btn-p" style={{ marginTop: 12, fontSize: 12, padding: '6px 12px' }} onClick={() => window.location.href = '/configs'}>
-                        <IcoPlus />新建策略
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="sub-list">
-                      {policies.slice(0, 3).map(policy => {
-                        const targetMap = { 'clash-meta': 'Clash Meta', stash: 'Stash', surge: 'Surge', 'sing-box': 'sing-box' };
-                        const status = policy.enabled ? { label: '启用', cls: 'tag-ok' } : { label: '禁用', cls: 'tag-warn' };
-                        const subCount = (policy.subscription_ids || []).length;
-                        const nodeCount = (policy.node_ids || []).length;
-                        return (
-                          <div key={policy.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {policy.name}
-                                <span className={`tag ${status.cls}`} style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px' }}>{status.label}</span>
-                                <span className="tag bdg-gray" style={{ marginLeft: 4, fontSize: 10, padding: '1px 6px' }}>{targetMap[policy.target] || policy.target}</span>
-                              </div>
-                              <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {subCount} 订阅 + {nodeCount} 节点
-                              </div>
-                            </div>
-                            <button
-                              className="btn btn-s btn-sm"
-                              style={{ fontSize: 11, padding: '4px 8px' }}
-                              onClick={() => {
-                                const url = `${window.location.origin}/subscribe?token=${policy.token}`;
-                                copyText(url, {
-                                  successMessage: '订阅链接已复制',
-                                  errorMessage: '复制失败',
-                                  addToast
-                                });
-                              }}
-                            >
-                              <IcoCopy />复制
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {policies.length > 3 && (
-                        <div style={{ paddingTop: 8, textAlign: 'center' }}>
-                          <span style={{ fontSize: 12, color: 'var(--t3)' }}>还有 {policies.length - 3} 个策略…</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 节点协议分布 */}
-              <div className="card">
-                <div className="card-h">
-                  <div>
-                    <div className="card-ht">节点协议分布</div>
-                    <div className="card-hs">查看不同协议的节点数量</div>
-                  </div>
-                </div>
-                <div className="card-b">
-                  <div className="breakdown">
-                    {!loaded
-                      ? <div className="empty">加载中...</div>
-                      : protocolItems.length === 0
-                      ? <div className="empty">暂无节点协议数据</div>
-                      : protocolItems.map(([label, count]) => (
-                          <BreakItem key={label} label={label} count={count} max={protocolMax} />
-                        ))
-                    }
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* 订阅状态 */}
-            <section className="grid" style={{ marginBottom: 22 }}>
-              <div className="card">
-                <div className="card-h">
-                  <div>
-                    <div className="card-ht">订阅状态</div>
-                    <div className="card-hs">先看最近同步和错误，不看装饰信息</div>
-                  </div>
-                  <a href="/subscriptions" className="btn btn-s">进入订阅管理</a>
-                </div>
-                <div className="card-b">
-                  <div className="sub-list">
-                    {!loaded
-                      ? <div className="empty">加载中...</div>
-                      : sortedSubs.length === 0
-                      ? <div className="empty">还没有订阅源，先去创建一个可同步的订阅。</div>
-                      : sortedSubs.map(sub => <SubRow key={sub.id} sub={sub} />)
-                    }
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="card">
-              <div className="card-h">
-                <div>
-                  <div className="card-ht">常用工具 URL</div>
-                  <div className="card-hs">保留常看的检测页面，减少来回找链接</div>
-                </div>
-              </div>
-              <div className="card-b">
-                <div className="tool-links">
-                  {TOOL_LINKS.map(item => (
-                    <a key={item.url} className="tool-link-card" href={item.url} target="_blank" rel="noreferrer">
-                      <div className="tool-link-head">
-                        <div>
-                          <div className="tool-link-title">{item.name}</div>
-                          <div className="tool-link-desc">{item.description}</div>
-                        </div>
-                        <span className="tag tag-ok">工具</span>
-                      </div>
-                      <div className="tool-link-url">
-                        {item.url}
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-          </main>
-        </div>
-      );
-    };
-
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+      renderToasts();
+      renderContent();
+      loadDashboard(false);
+    })();
   </script>
-</body>
-</html>
