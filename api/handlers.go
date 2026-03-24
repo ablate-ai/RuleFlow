@@ -936,7 +936,7 @@ func (h *Handlers) buildManualNodeFromRequest(req manualNodeRequest, existing *d
 	}
 
 	name := strings.TrimSpace(req.Name)
-	if name == "" {
+	if name == "" || (existing != nil && name == existing.Name) {
 		name = proxyNode.Name
 	}
 
