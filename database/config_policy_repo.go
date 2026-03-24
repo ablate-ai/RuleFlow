@@ -46,6 +46,20 @@ func generateToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+func ensureInt64Slice(values []int64) []int64 {
+	if values == nil {
+		return []int64{}
+	}
+	return values
+}
+
+func ensureStringSlice(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
 // Create 创建配置策略，自动生成访问 token
 func (r *ConfigPolicyRepo) Create(ctx context.Context, policy *ConfigPolicy) error {
 	token, err := generateToken()
@@ -71,13 +85,13 @@ func (r *ConfigPolicyRepo) Create(ctx context.Context, policy *ConfigPolicy) err
 		policy.Name,
 		policy.Token,
 		policy.Description,
-		policy.SubscriptionIDs,
-		policy.NodeIDs,
+		ensureInt64Slice(policy.SubscriptionIDs),
+		ensureInt64Slice(policy.NodeIDs),
 		policy.TemplateName,
 		policy.Target,
 		nodeFiltersJSON,
 		policy.Enabled,
-		policy.Tags,
+		ensureStringSlice(policy.Tags),
 	).Scan(&policy.CreatedAt, &policy.UpdatedAt)
 
 	if err != nil {
@@ -200,13 +214,13 @@ func (r *ConfigPolicyRepo) Update(ctx context.Context, policy *ConfigPolicy) err
 		policy.ID,
 		policy.Name,
 		policy.Description,
-		policy.SubscriptionIDs,
-		policy.NodeIDs,
+		ensureInt64Slice(policy.SubscriptionIDs),
+		ensureInt64Slice(policy.NodeIDs),
 		policy.TemplateName,
 		policy.Target,
 		nodeFiltersJSON,
 		policy.Enabled,
-		policy.Tags,
+		ensureStringSlice(policy.Tags),
 	).Scan(&policy.UpdatedAt)
 
 	if err != nil {

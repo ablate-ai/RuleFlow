@@ -170,7 +170,7 @@ func (s *ConfigPolicyService) sanitizePolicyReferences(ctx context.Context, poli
 
 func sanitizeExistingIDs(ids []int64, exists func(int64) bool) []int64 {
 	if len(ids) == 0 {
-		return nil
+		return []int64{}
 	}
 
 	out := make([]int64, 0, len(ids))
@@ -184,6 +184,9 @@ func sanitizeExistingIDs(ids []int64, exists func(int64) bool) []int64 {
 			continue
 		}
 		out = append(out, id)
+	}
+	if out == nil {
+		return []int64{}
 	}
 	return out
 }

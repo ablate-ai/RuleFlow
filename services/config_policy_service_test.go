@@ -22,6 +22,16 @@ func TestSanitizeExistingIDs(t *testing.T) {
 	}
 }
 
+func TestSanitizeExistingIDsEmptyResultReturnsEmptySlice(t *testing.T) {
+	got := sanitizeExistingIDs([]int64{10, 11}, func(int64) bool { return false })
+	if got == nil {
+		t.Fatalf("期望返回空切片而不是 nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("期望空切片，实际 got=%v", got)
+	}
+}
+
 func TestValidateConfigAfterSanitize(t *testing.T) {
 	policy := &database.ConfigPolicy{
 		Name:            "demo",
