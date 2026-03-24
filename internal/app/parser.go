@@ -292,25 +292,26 @@ func parseShadowsocksNode(nodeURL string) (*ProxyNode, error) {
 		return nil, fmt.Errorf("无效的 Shadowsocks 链接格式")
 	}
 
-	// 移除 ss:// 前缀
-	base64Part := strings.TrimPrefix(nodeURL, "ss://")
-
-	// 提取 fragment（名称）
-	fragment := ""
-	hashIndex := strings.Index(base64Part, "#")
-	if hashIndex > 0 {
-		fragment = base64Part[hashIndex+1:]
-		base64Part = base64Part[:hashIndex]
+	u, err := url.Parse(nodeURL)
+	if err != nil {
+		return nil, fmt.Errorf("解析 URL 失败: %w", err)
 	}
 
 	// 查找 @ 分隔符
+	base64Part := strings.TrimPrefix(nodeURL, "ss://")
+	if hashIndex := strings.Index(base64Part, "#"); hashIndex > 0 {
+		base64Part = base64Part[:hashIndex]
+	}
+	if queryIndex := strings.Index(base64Part, "?"); queryIndex > 0 {
+		base64Part = base64Part[:queryIndex]
+	}
+
 	atIndex := strings.Index(base64Part, "@")
 	if atIndex <= 0 {
 		return nil, fmt.Errorf("无效的 Shadowsocks 格式：缺少 @ 分隔符")
 	}
 
 	userInfo := base64Part[:atIndex]
-	serverPart := base64Part[atIndex+1:]
 
 	// 尝试解码用户信息（可能是 Base64）
 	var cipher, password string
@@ -335,20 +336,19 @@ func parseShadowsocksNode(nodeURL string) (*ProxyNode, error) {
 		password = userInfo[colonIndex+1:]
 	}
 
-	// 解析服务器部分
-	server, port, err := parseServerPartSimple(serverPart)
+	server := u.Hostname()
+	if server == "" {
+		return nil, fmt.Errorf("未找到服务器地址")
+	}
+	port, err := parsePortWithDefault(u.Port(), 8388)
 	if err != nil {
-		return nil, fmt.Errorf("解析服务器部分失败: %w", err)
+		return nil, fmt.Errorf("无效端口: %w", err)
 	}
 
 	// 处理名称
-	name := fragment
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
-	} else {
-		if decoded, err := url.PathUnescape(name); err == nil && decoded != "" {
-			name = decoded
-		}
 	}
 
 	return &ProxyNode{
@@ -361,37 +361,6 @@ func parseShadowsocksNode(nodeURL string) (*ProxyNode, error) {
 			"password": password,
 		},
 	}, nil
-}
-
-// parseServerPartSimple 简化版服务器部分解析
-func parseServerPartSimple(serverPart string) (server string, port int, err error) {
-	// 查找端口
-	colonIndex := strings.LastIndex(serverPart, ":")
-	if colonIndex <= 0 {
-		return "", 0, fmt.Errorf("无效的服务器格式：缺少端口")
-	}
-
-	server = serverPart[:colonIndex]
-	portStr := serverPart[colonIndex+1:]
-
-	// 移除可能的路径参数
-	if slashIndex := strings.Index(portStr, "/"); slashIndex > 0 {
-		portStr = portStr[:slashIndex]
-	}
-
-	if server == "" {
-		return "", 0, fmt.Errorf("服务器地址为空")
-	}
-
-	port = 8388 // 默认端口
-	if portStr != "" {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			port = 8388
-		}
-	}
-
-	return server, port, nil
 }
 
 // parseHysteria2Node 解析 Hysteria2 节点

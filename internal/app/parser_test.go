@@ -281,6 +281,21 @@ func TestParseShadowsocksNode(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "SIP002 带 query 参数的 Shadowsocks 链接",
+			url:  "ss://YWVzLTI1Ni1nY206OGI4Z3pnWkpVdXQ3NEtMV0k4ckNtSkpYS2hiNkplN1dqaHgxM0Eyc0tQOD0@72.234.229.126:38280?type=tcp#telegram%40wenwencc-f3lpezxl",
+			want: &ProxyNode{
+				Protocol: "ss",
+				Name:     "telegram@wenwencc-f3lpezxl",
+				Server:   "72.234.229.126",
+				Port:     38280,
+				Options: map[string]interface{}{
+					"cipher":   "aes-256-gcm",
+					"password": "8b8gzgZJUut74KLWI8rCmJJXKhb6Je7Wjhx13A2sKP8=",
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
