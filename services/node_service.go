@@ -40,6 +40,24 @@ func (s *NodeService) AddManualNode(ctx context.Context, node *database.Node) er
 	return s.repo.Create(ctx, node)
 }
 
+// ImportManualNode 手动导入节点；若节点已存在则更新协议与配置。
+func (s *NodeService) ImportManualNode(ctx context.Context, node *database.Node) (bool, error) {
+	// 验证协议类型
+	if !isValidProtocol(node.Protocol) {
+		return false, fmt.Errorf("不支持的协议类型: %s", node.Protocol)
+	}
+
+	node.SourceID = nil
+	if !node.Enabled {
+		node.Enabled = true
+	}
+	if node.Tags == nil {
+		node.Tags = []string{}
+	}
+
+	return s.repo.UpsertManualImported(ctx, node)
+}
+
 // ListNodes 列出节点
 func (s *NodeService) ListNodes(ctx context.Context, filter database.NodeFilter) ([]database.Node, error) {
 	return s.repo.List(ctx, filter)

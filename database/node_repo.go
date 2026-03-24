@@ -79,6 +79,39 @@ func (r *NodeRepo) Create(ctx context.Context, node *Node) error {
 	return nil
 }
 
+// UpsertManualImported 在手动导入时按业务唯一键更新已有节点。
+// 重复导入时只覆盖协议与配置，保留已有节点的启用状态和标签。
+func (r *NodeRepo) UpsertManualImported(ctx context.Context, node *Node) (bool, error) {
+	node.ID = NextID()
+	query := `
+		INSERT INTO nodes (id, name, protocol, server, port, config, source_id, enabled, tags)
+		VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8)
+		ON CONFLICT (name, server, port) WHERE source_id IS NULL
+		DO UPDATE SET
+			protocol = EXCLUDED.protocol,
+			config = EXCLUDED.config
+		RETURNING created_at, updated_at, xmax = 0 AS inserted
+	`
+
+	var inserted bool
+	err := r.db.Pool.QueryRow(ctx, query,
+		node.ID,
+		node.Name,
+		node.Protocol,
+		node.Server,
+		node.Port,
+		node.Config,
+		node.Enabled,
+		node.Tags,
+	).Scan(&node.CreatedAt, &node.UpdatedAt, &inserted)
+
+	if err != nil {
+		return false, fmt.Errorf("导入节点失败: %w", err)
+	}
+
+	return inserted, nil
+}
+
 // GetByID 根据 ID 获取节点
 func (r *NodeRepo) GetByID(ctx context.Context, id int64) (*Node, error) {
 	query := `

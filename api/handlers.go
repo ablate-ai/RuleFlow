@@ -707,6 +707,7 @@ func (h *Handlers) ImportNodes(w http.ResponseWriter, r *http.Request) {
 		Error string `json:"error"`
 	}
 	var created int
+	var updated int
 	var errors []importErr
 
 	ctx := r.Context()
@@ -727,15 +728,21 @@ func (h *Handlers) ImportNodes(w http.ResponseWriter, r *http.Request) {
 			Port:     proxyNode.Port,
 			Config:   proxyNode.Options,
 		}
-		if err := h.nodeService.AddManualNode(ctx, node); err != nil {
+		inserted, err := h.nodeService.ImportManualNode(ctx, node)
+		if err != nil {
 			errors = append(errors, importErr{URL: line, Error: err.Error()})
 			continue
 		}
-		created++
+		if inserted {
+			created++
+		} else {
+			updated++
+		}
 	}
 
 	SendSuccess(w, map[string]interface{}{
 		"created": created,
+		"updated": updated,
 		"errors":  errors,
 	})
 }
