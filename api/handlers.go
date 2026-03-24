@@ -935,9 +935,12 @@ func (h *Handlers) buildManualNodeFromRequest(req manualNodeRequest, existing *d
 		return nil, fmt.Errorf("wireguard 请使用专用表单添加")
 	}
 
-	name := strings.TrimSpace(req.Name)
-	if name == "" || (existing != nil && name == existing.Name) {
-		name = proxyNode.Name
+	name := proxyNode.Name
+	if existing == nil {
+		overrideName := strings.TrimSpace(req.Name)
+		if overrideName != "" {
+			name = overrideName
+		}
 	}
 
 	return &database.Node{
