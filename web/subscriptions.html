@@ -619,8 +619,9 @@
         const action = button.dataset.action;
 
         if (action === 'close-modal') {
-          const card = event.target.closest('[data-modal-card]');
-          if (!card || button !== card) {
+          const insideCard = event.target.closest('[data-modal-card]');
+          // 点击背景遮层（target 不在 card 内）或点击 card 内的关闭按钮时才关闭
+          if (!insideCard || button.closest('[data-modal-card]')) {
             closeModal();
             return;
           }
