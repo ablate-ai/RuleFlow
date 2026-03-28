@@ -72,7 +72,7 @@
     "strategy": "prefer_ipv4",
     "independent_cache": true
   },
-  "endpoints": __ENDPOINTS__,
+  "endpoints": "__ENDPOINTS__",
   "inbounds": [
     {
       "type": "tun",
@@ -83,9 +83,7 @@
       ],
       "auto_route": true,
       "strict_route": true,
-      "stack": "mixed",
-      "sniff": true,
-      "sniff_override_destination": false
+      "stack": "system"
     }
   ],
   "outbounds": [
@@ -102,8 +100,7 @@
         "DIRECT",
         "__NODES__"
       ],
-      "default": "🛰 Auto",
-      "interrupt_exist_connections": true
+      "default": "🛰 Auto"
     },
     {
       "type": "urltest",
@@ -112,10 +109,9 @@
         "__NODES__"
       ],
       "filter": "^((?!v2).)*$",
-      "url": "http://latency-test.skk.moe/endpoint",
-      "interval": "20m",
-      "tolerance": 50,
-      "interrupt_exist_connections": false
+      "url": "http://cp.cloudflare.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
     },
     {
       "type": "urltest",
@@ -124,9 +120,9 @@
         "__NODES__"
       ],
       "detour-proxy": "🚪 Relay",
-      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(新加坡|SG|Singapore|狮城|🇸🇬)",
-       "url": "http://latency-test.skk.moe/endpoint",
-      "interval": "20m",
+      "filter": "🇸🇬.*(bage)",
+      "url": "http://cp.cloudflare.com/generate_204",
+      "interval": "5m",
       "tolerance": 50
     },
     {
@@ -136,9 +132,9 @@
         "__NODES__"
       ],
       "detour-proxy": "🚪 Relay",
-      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(香港|HK|Hong Kong|🇭🇰)",
-      "url": "http://latency-test.skk.moe/endpoint",
-      "interval": "20m",
+      "filter": "🇭🇰.*(bage)",
+      "url": "http://cp.cloudflare.com/generate_204",
+      "interval": "5m",
       "tolerance": 50
     },
     {
@@ -149,29 +145,30 @@
       ],
       "detour-proxy": "🚪 Relay",
       "filter": "🇺🇸.*(bage)",
-      "url": "http://latency-test.skk.moe/endpoint",
-      "interval": "20m",
+      "url": "http://cp.cloudflare.com/generate_204",
+      "interval": "5m",
       "tolerance": 50
     },
     {
       "type": "urltest",
       "tag": "🇯🇵 JP",
+      "filter": "🇯🇵.*(bage|oo)",
       "outbounds": [
         "__NODES__"
       ],
       "detour-proxy": "🚪 Relay",
-      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?bage-.*(日本|JP|Japan|🇯🇵)",
-      "url": "http://latency-test.skk.moe/endpoint",
-      "interval": "20m",
+      "url": "http://cp.cloudflare.com/generate_204",
+      "interval": "5m",
       "tolerance": 50
     },
     {
       "type": "urltest",
       "tag": "🚪 Relay",
+      "url": "http://cp.cloudflare.com/generate_204",
       "outbounds": [
         "__NODES__"
       ],
-      "filter": "(?i)^(?:[^A-Za-z0-9]+\\s*)?nya-.*(香港|HK|Hong Kong|🇭🇰|日本|JP|Japan|🇯🇵)",
+      "filter": "(🇯🇵|🇭🇰).*(nya)",
       "interrupt_exist_connections": true
     },
     {
@@ -185,18 +182,17 @@
         "🇭🇰 HK",
         "🇸🇬 SG"
       ],
-      "default": "🇺🇸 US",
-      "interrupt_exist_connections": true
+      "default": "🇺🇸 US"
     },
     {
       "type": "selector",
       "tag": "🤖 AI",
       "detour-proxy": "🚪 Relay",
-      "filter": "qqpw|dmit|vmiss|rn",
+      "filter": "qqpw",
       "outbounds": [
         "__NODES__"
       ],
-      "default": "🇺🇸 us.lax.dmit",
+      "default": "🇺🇸 us.hnl.qqpw",
       "interrupt_exist_connections": true
     },
     "__OUTBOUNDS__",
@@ -460,11 +456,10 @@
     ],
     "rules": [
       {
-        "network": [
-          "udp",
-          "tcp"
-        ],
-        "port": 53,
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
         "action": "hijack-dns"
       },
       {
@@ -472,6 +467,12 @@
           "wireguard_home"
         ],
         "outbound": "🏠 wireguard-home"
+      },
+      {
+        "domain_suffix":[
+          "NEVINT.COM"
+        ],
+        "action": "reject"
       },
       {
         "domain_suffix": [
@@ -560,5 +561,18 @@
         "outbound": "🌐 Proxy"
       }
     ]
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "cache.db",
+      "store_rdrc": true
+    },
+  "clash_api": {
+    "external_controller": "0.0.0.0:9090",
+    "external_ui": "dashboard",
+    "external_ui_download_url": "https://github.com/Zephyruso/zashboard/archive/gh-pages.zip",
+    "external_ui_download_detour": "🌐 Proxy"
+  }
   }
 }
