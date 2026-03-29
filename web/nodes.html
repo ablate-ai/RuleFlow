@@ -540,9 +540,22 @@
         }
       }
 
+      const WG_CONFIG_TEMPLATE = JSON.stringify({
+        "private-key": "",
+        "public-key": "",
+        "ip": "",
+        "dns": [""],
+        "mtu": 1420,
+        "allowed-ips": ["0.0.0.0/0"],
+        "test-url": "",
+      }, null, 2);
+
       function resetForm(protocol) {
         state.form = defaultForm();
         state.form.protocol = protocol || 'share';
+        if (protocol === 'wireguard') {
+          state.form.configStr = WG_CONFIG_TEMPLATE;
+        }
         state.configErr = '';
       }
 
