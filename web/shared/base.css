@@ -470,8 +470,19 @@ input, textarea, select {
     bottom: 16px;
     width: min(84vw, 320px);
     max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
     transform: translateX(calc(-100% - 24px));
     transition: transform .24s ease;
+  }
+
+  .sb-nav {
+    flex: 0 0 auto;
+    overflow-y: visible;
+  }
+
+  .sb-foot {
+    margin-top: 0;
   }
 
   body.shell-nav-open .sidebar { transform: translateX(0); }
