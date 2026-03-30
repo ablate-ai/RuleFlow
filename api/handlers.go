@@ -1207,6 +1207,9 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 			}
 			w.Header().Set("X-Cache", "HIT")
+			if userInfo := h.configPolicyService.GetUserInfoForPolicy(ctx, policy); userInfo != nil {
+				w.Header().Set("Subscription-Userinfo", formatUserInfo(userInfo))
+			}
 			h.recordConfigAccess(r, policy, token, http.StatusOK, true, true, nil, "")
 			fmt.Fprint(w, cached)
 			return
@@ -1272,6 +1275,9 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 
 	applyConfigResponseHeaders(w, target, len(proxyNodes))
 	w.Header().Set("X-Cache", "MISS")
+	if userInfo := h.configPolicyService.GetUserInfoForPolicy(ctx, policy); userInfo != nil {
+		w.Header().Set("Subscription-Userinfo", formatUserInfo(userInfo))
+	}
 	nodeCount := len(proxyNodes)
 	h.recordConfigAccess(r, policy, token, http.StatusOK, true, false, &nodeCount, "")
 	fmt.Fprint(w, finalizeConfigContent(r, target, configContent))
@@ -1406,6 +1412,14 @@ func applyConfigResponseHeaders(w http.ResponseWriter, target string, nodeCount 
 	w.Header().Set("Content-Type", meta.contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, meta.filename))
 	w.Header().Set("X-Node-Count", fmt.Sprintf("%d", nodeCount))
+}
+
+func formatUserInfo(info *database.UserInfo) string {
+	s := fmt.Sprintf("upload=%d; download=%d; total=%d", info.Upload, info.Download, info.Total)
+	if info.Expire != nil {
+		s += fmt.Sprintf("; expire=%d", *info.Expire)
+	}
+	return s
 }
 
 func configResponseMetaForTarget(target string) configResponseMeta {

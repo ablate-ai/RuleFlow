@@ -227,6 +227,36 @@ func (s *ConfigPolicyService) GetNodesForPolicy(ctx context.Context, policy *dat
 	return allNodes, nil
 }
 
+// GetUserInfoForPolicy 汇总策略关联的所有订阅流量信息
+func (s *ConfigPolicyService) GetUserInfoForPolicy(ctx context.Context, policy *database.ConfigPolicy) *database.UserInfo {
+	if s.subRepo == nil || len(policy.SubscriptionIDs) == 0 {
+		return nil
+	}
+	var hasInfo bool
+	result := &database.UserInfo{}
+	for _, subID := range policy.SubscriptionIDs {
+		sub, err := s.subRepo.GetByID(ctx, subID)
+		if err != nil || sub.UserInfo == nil {
+			continue
+		}
+		hasInfo = true
+		result.Upload += sub.UserInfo.Upload
+		result.Download += sub.UserInfo.Download
+		result.Total += sub.UserInfo.Total
+		// 取最早到期时间
+		if sub.UserInfo.Expire != nil {
+			if result.Expire == nil || *sub.UserInfo.Expire < *result.Expire {
+				exp := *sub.UserInfo.Expire
+				result.Expire = &exp
+			}
+		}
+	}
+	if !hasInfo {
+		return nil
+	}
+	return result
+}
+
 // applyNodeFilters 应用节点过滤条件
 func (s *ConfigPolicyService) applyNodeFilters(nodes []database.Node, filters map[string]interface{}) []database.Node {
 	filtered := make([]database.Node, 0, len(nodes))
