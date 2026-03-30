@@ -13,6 +13,15 @@ import (
 func BuildSurgeFromTemplateContent(nodes []*ProxyNode, templateContent string) (string, error) {
 	clonedNodes := cloneProxyNodes(nodes)
 
+	// Surge 不支持 vless 协议，过滤掉
+	filtered := clonedNodes[:0]
+	for _, n := range clonedNodes {
+		if n.Protocol != "vless" {
+			filtered = append(filtered, n)
+		}
+	}
+	clonedNodes = filtered
+
 	// 收集节点名称
 	nodeNames := make([]string, 0, len(clonedNodes))
 	nodeNameSet := make(map[string]struct{}, len(clonedNodes))
@@ -386,6 +395,9 @@ func BuildSurgeFromDefaultTemplate(nodes []*ProxyNode) (string, error) {
 	nodeNames := make([]string, 0, len(nodes))
 	nodeLines := make([]string, 0, len(nodes))
 	for i, node := range nodes {
+		if node.Protocol == "vless" {
+			continue
+		}
 		name := ensureNodeName(node, i)
 		nodeNames = append(nodeNames, name)
 		nodeLines = append(nodeLines, surgeProxyLine(node, name))
