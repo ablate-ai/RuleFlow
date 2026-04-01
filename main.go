@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	iofs "io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +17,6 @@ import (
 	"github.com/ablate-ai/RuleFlow/cache"
 	"github.com/ablate-ai/RuleFlow/config"
 	"github.com/ablate-ai/RuleFlow/database"
-	"github.com/ablate-ai/RuleFlow/internal/app"
 	"github.com/ablate-ai/RuleFlow/services"
 )
 
@@ -166,7 +166,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 
 	// 登录页
 	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, app.ResolveProjectPath("web/login.html"))
+		http.ServeFileFS(w, r, webFS, "web/login.html")
 	})
 	r.Post("/login", func(w http.ResponseWriter, req *http.Request) {
 		pass := req.FormValue("password")
@@ -189,15 +189,14 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	})
 
 	// 静态文件服务（需要鉴权）
-	fs := http.FileServer(http.Dir(app.ResolveProjectPath("web")))
-	r.With(webAuth).Handle("/web/*", http.StripPrefix("/web/", fs))
-	rulesFS := http.FileServer(http.Dir(app.ResolveProjectPath("rules")))
-	r.With(webAuth).Handle("/rules/*", http.StripPrefix("/rules/", rulesFS))
+	webSubFS, _ := iofs.Sub(webFS, "web")
+	webFileServer := http.FileServer(http.FS(webSubFS))
+	r.With(webAuth).Handle("/web/*", http.StripPrefix("/web/", webFileServer))
 
 	// 页面路由（无 .html 后缀，需要鉴权）
 	servePage := func(file string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, app.ResolveProjectPath(file))
+			http.ServeFileFS(w, r, webFS, file)
 		}
 	}
 	serveShell := servePage("web/app_shell.html")
@@ -302,7 +301,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 
 func serveFragment(file string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		content, err := os.ReadFile(app.ResolveProjectPath(file))
+		content, err := webFS.ReadFile(file)
 		if err != nil {
 			http.Error(w, "页面不存在", http.StatusNotFound)
 			return
