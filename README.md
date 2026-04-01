@@ -82,7 +82,7 @@ make run
 > 依赖：`docker`、`docker compose`，需以 **root** 身份运行。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sh
 ```
 
 安装脚本会自动完成：
@@ -104,7 +104,7 @@ curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh 
 **一键卸载：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sh
 ```
 
 卸载脚本会停止并移除：systemd 服务、Docker 容器/网络/数据卷、二进制文件、安装目录。**PostgreSQL 数据将被清除。**

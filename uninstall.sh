@@ -34,7 +34,7 @@ require_cmd() {
 }
 
 if [ "$(id -u)" -ne 0 ]; then
-  log "请以 root 身份运行，例如: sudo sh uninstall.sh"
+  log "请以 root 身份运行，例如: su -c 'sh uninstall.sh'"
   exit 1
 fi
 

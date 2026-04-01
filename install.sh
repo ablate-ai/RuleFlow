@@ -173,7 +173,7 @@ EOF
 }
 
 if [ "$(id -u)" -ne 0 ]; then
-  log "请以 root 身份运行，例如: curl ... | sudo sh"
+  log "请以 root 身份运行，例如: sudo curl ... | sh"
   exit 1
 fi
 
