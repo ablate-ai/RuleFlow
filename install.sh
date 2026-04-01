@@ -74,10 +74,11 @@ check_port() {
   fi
 
   while true; do
+    printf "\n端口 %s (%s) 已被占用。\n" "$port" "$desc"
     if [ "$allow_random" = "true" ]; then
-      printf "端口 %s (%s) 已被占用。[r] 随机换一个  [c] 继续使用  [q] 取消安装: " "$port" "$desc"
+      printf "  [r] 随机换一个\n  [c] 继续使用\n  [q] 取消安装\n请选择: "
     else
-      printf "端口 %s (%s) 已被占用。[c] 继续使用现有服务  [q] 取消安装: " "$port" "$desc"
+      printf "  [c] 继续使用现有服务\n  [q] 取消安装\n请选择: "
     fi
     read -r choice </dev/tty
     case "$choice" in
