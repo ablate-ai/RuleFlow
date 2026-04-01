@@ -35,26 +35,10 @@ steps:
         - ${DRONE_COMMIT_SHA:0:8}
         - latest
 
-  - name: push_dockerhub
-    image: zot.ooxo.cc/plugins/kaniko:latest
-    pull: if-not-exists
-    depends_on:
-      - build
-    settings:
-      username:
-        from_secret: dockerhub_username
-      password:
-        from_secret: dockerhub_token
-      repo: nmtz/ruleflow
-      tags:
-        - ${DRONE_COMMIT_SHA:0:8}
-        - latest
-
   - name: deploy
     image: zot.ooxo.cc/appleboy/drone-ssh
     depends_on:
       - build_docker
-      - push_dockerhub
     settings:
       host:
         from_secret: k8s_host
