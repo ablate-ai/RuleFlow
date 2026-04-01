@@ -232,4 +232,3 @@ fi
 log "RuleFlow 已启动"
 log "访问地址: http://$HOST_IP:$PORT_VALUE"
 log "查看日志: journalctl -u ruleflow -f"
-log "停止命令: systemctl stop ruleflow && docker compose --env-file \"$ENV_FILE\" -f \"$COMPOSE_FILE\" down"
