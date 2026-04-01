@@ -189,9 +189,9 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-# 检测已有安装
+# 检测已有安装（以 systemd 服务是否注册为准）
 IS_REINSTALL=false
-if [ -f "$ENV_FILE" ] || [ -f "$BIN_PATH" ]; then
+if systemctl list-unit-files ruleflow.service 2>/dev/null | grep -q ruleflow; then
   IS_REINSTALL=true
   if systemctl is-active --quiet ruleflow 2>/dev/null; then
     log "检测到 RuleFlow 已在运行，停止旧服务后继续..."
