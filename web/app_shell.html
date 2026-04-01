@@ -97,6 +97,12 @@
           </svg>
           访问日志
         </a>
+        <a href="/data-migration" class="nav-lnk" data-route="/data-migration">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          数据迁移
+        </a>
       </div>
 
       <div class="sb-actions">
@@ -161,6 +167,7 @@
       '/templates': { fragment: '/app-fragments/templates', title: '配置模板', subtitle: '编辑输出模板，组织目标平台的生成逻辑' },
       '/configs': { fragment: '/app-fragments/configs', title: '订阅配置', subtitle: '组合策略、模板和节点，生成最终订阅入口' },
       '/config-access-logs': { fragment: '/app-fragments/config-access-logs', title: '访问日志', subtitle: '追踪配置分发访问记录与命中情况' },
+      '/data-migration': { fragment: '/app-fragments/data-migration', title: '数据迁移', subtitle: '导出或导入全量数据，用于跨环境迁移和备份' },
     };
     const shellToastRoot = document.getElementById('shell-toast-root');
     const shellToasts = [];

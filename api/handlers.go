@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/netip"
@@ -11,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -1603,4 +1605,274 @@ func buildConvertLogToken(params convertRequestParams) string {
 		return rawURL
 	}
 	return rawURL[:61] + "..."
+}
+
+// ==================== 数据导入/导出 API ====================
+
+// ExportPayload 导出数据结构
+type ExportPayload struct {
+	Version        string                   `json:"version"`
+	ExportedAt     time.Time                `json:"exported_at"`
+	Subscriptions  []database.Subscription  `json:"subscriptions"`
+	ManualNodes    []database.Node          `json:"manual_nodes"`
+	Templates      []database.Template      `json:"templates"`
+	ConfigPolicies []*database.ConfigPolicy `json:"config_policies"`
+	RuleSources    []database.RuleSource    `json:"rule_sources"`
+}
+
+// ImportStats 单类型导入统计
+type ImportStats struct {
+	Created int `json:"created"`
+	Updated int `json:"updated"`
+	Skipped int `json:"skipped"`
+	Errors  int `json:"errors"`
+}
+
+// ImportResult 导入结果汇总
+type ImportResult struct {
+	Subscriptions  ImportStats `json:"subscriptions"`
+	ManualNodes    ImportStats `json:"manual_nodes"`
+	Templates      ImportStats `json:"templates"`
+	ConfigPolicies ImportStats `json:"config_policies"`
+	RuleSources    ImportStats `json:"rule_sources"`
+}
+
+// ExportData 导出所有数据为 JSON 文件
+func (h *Handlers) ExportData(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 并发获取所有数据
+	type result[T any] struct {
+		data T
+		err  error
+	}
+
+	subsCh := make(chan result[[]database.Subscription], 1)
+	nodesCh := make(chan result[[]database.Node], 1)
+	tplsCh := make(chan result[[]database.Template], 1)
+	policiesCh := make(chan result[[]*database.ConfigPolicy], 1)
+	rulesCh := make(chan result[[]database.RuleSource], 1)
+
+	go func() {
+		data, err := h.subscriptionService.ListSubscriptions(ctx)
+		subsCh <- result[[]database.Subscription]{data, err}
+	}()
+	go func() {
+		data, err := h.nodeService.ListNodes(ctx, database.NodeFilter{ManualOnly: true})
+		nodesCh <- result[[]database.Node]{data, err}
+	}()
+	go func() {
+		data, err := h.templateService.ListTemplates(ctx)
+		tplsCh <- result[[]database.Template]{data, err}
+	}()
+	go func() {
+		data, err := h.configPolicyService.List(ctx)
+		policiesCh <- result[[]*database.ConfigPolicy]{data, err}
+	}()
+	go func() {
+		data, err := h.ruleSourceService.List(ctx)
+		rulesCh <- result[[]database.RuleSource]{data, err}
+	}()
+
+	subsRes := <-subsCh
+	if subsRes.err != nil {
+		SendError(w, http.StatusInternalServerError, "获取订阅源失败: "+subsRes.err.Error())
+		return
+	}
+	nodesRes := <-nodesCh
+	if nodesRes.err != nil {
+		SendError(w, http.StatusInternalServerError, "获取手动节点失败: "+nodesRes.err.Error())
+		return
+	}
+	tplsRes := <-tplsCh
+	if tplsRes.err != nil {
+		SendError(w, http.StatusInternalServerError, "获取模板失败: "+tplsRes.err.Error())
+		return
+	}
+	policiesRes := <-policiesCh
+	if policiesRes.err != nil {
+		SendError(w, http.StatusInternalServerError, "获取配置策略失败: "+policiesRes.err.Error())
+		return
+	}
+	rulesRes := <-rulesCh
+	if rulesRes.err != nil {
+		SendError(w, http.StatusInternalServerError, "获取规则源失败: "+rulesRes.err.Error())
+		return
+	}
+
+	payload := ExportPayload{
+		Version:        "1",
+		ExportedAt:     time.Now().UTC(),
+		Subscriptions:  subsRes.data,
+		ManualNodes:    nodesRes.data,
+		Templates:      tplsRes.data,
+		ConfigPolicies: policiesRes.data,
+		RuleSources:    rulesRes.data,
+	}
+
+	// 空切片序列化为 [] 而非 null
+	if payload.Subscriptions == nil {
+		payload.Subscriptions = []database.Subscription{}
+	}
+	if payload.ManualNodes == nil {
+		payload.ManualNodes = []database.Node{}
+	}
+	if payload.Templates == nil {
+		payload.Templates = []database.Template{}
+	}
+	if payload.ConfigPolicies == nil {
+		payload.ConfigPolicies = []*database.ConfigPolicy{}
+	}
+	if payload.RuleSources == nil {
+		payload.RuleSources = []database.RuleSource{}
+	}
+
+	filename := fmt.Sprintf("ruleflow-export-%s.json", time.Now().Format("20060102-150405"))
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+// ImportData 从 JSON 文件导入数据（支持 multipart/form-data 或直接 JSON body）
+func (h *Handlers) ImportData(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var payload ExportPayload
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		// 解析 multipart 文件上传（最大 32MB）
+		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			SendError(w, http.StatusBadRequest, "解析文件上传失败: "+err.Error())
+			return
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			SendError(w, http.StatusBadRequest, "未找到上传文件（字段名: file）")
+			return
+		}
+		defer file.Close()
+		data, err := io.ReadAll(file)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, "读取文件内容失败: "+err.Error())
+			return
+		}
+		if err := json.Unmarshal(data, &payload); err != nil {
+			SendError(w, http.StatusBadRequest, "JSON 解析失败: "+err.Error())
+			return
+		}
+	} else {
+		// 直接读取 JSON body
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			SendError(w, http.StatusBadRequest, "JSON 解析失败: "+err.Error())
+			return
+		}
+	}
+
+	result := ImportResult{}
+
+	// 导入订阅源
+	for _, sub := range payload.Subscriptions {
+		existing, err := h.subscriptionService.GetSubscription(ctx, sub.Name)
+		if err != nil {
+			// 不存在，创建新记录（清除 ID 由数据库重新分配）
+			sub.ID = 0
+			if createErr := h.subscriptionService.CreateSubscription(ctx, &sub); createErr != nil {
+				result.Subscriptions.Errors++
+			} else {
+				result.Subscriptions.Created++
+			}
+		} else {
+			// 已存在，更新（保留原 ID）
+			sub.ID = existing.ID
+			if updateErr := h.subscriptionService.UpdateSubscription(ctx, &sub); updateErr != nil {
+				result.Subscriptions.Errors++
+			} else {
+				result.Subscriptions.Updated++
+			}
+		}
+	}
+
+	// 导入手动节点（使用已有 upsert 逻辑）
+	for _, node := range payload.ManualNodes {
+		node.ID = 0
+		created, err := h.nodeService.ImportManualNode(ctx, &node)
+		if err != nil {
+			result.ManualNodes.Errors++
+		} else if created {
+			result.ManualNodes.Created++
+		} else {
+			result.ManualNodes.Updated++
+		}
+	}
+
+	// 导入模板
+	for _, tpl := range payload.Templates {
+		existing, err := h.templateService.GetTemplateByName(ctx, tpl.Name)
+		if err != nil {
+			// 不存在，创建
+			tpl.ID = 0
+			if createErr := h.templateService.CreateTemplate(ctx, &tpl); createErr != nil {
+				result.Templates.Errors++
+			} else {
+				result.Templates.Created++
+			}
+		} else {
+			// 已存在，更新
+			if updateErr := h.templateService.UpdateTemplate(ctx, existing.ID, &tpl); updateErr != nil {
+				result.Templates.Errors++
+			} else {
+				result.Templates.Updated++
+			}
+		}
+	}
+
+	// 导入配置策略（token 保留原有值，不被覆盖）
+	for _, policy := range payload.ConfigPolicies {
+		existing, err := h.configPolicyService.GetByName(ctx, policy.Name)
+		if err != nil {
+			// 不存在，创建（导入时 token 字段由数据库生成，清除导出时的旧 token）
+			policy.ID = 0
+			policy.Token = ""
+			if createErr := h.configPolicyService.Create(ctx, policy); createErr != nil {
+				result.ConfigPolicies.Errors++
+			} else {
+				result.ConfigPolicies.Created++
+			}
+		} else {
+			// 已存在，保留原有 token，更新其余字段
+			policy.ID = existing.ID
+			policy.Token = existing.Token
+			if updateErr := h.configPolicyService.Update(ctx, policy); updateErr != nil {
+				result.ConfigPolicies.Errors++
+			} else {
+				result.ConfigPolicies.Updated++
+			}
+		}
+	}
+
+	// 导入规则源
+	for _, source := range payload.RuleSources {
+		existing, err := h.ruleSourceService.GetByName(ctx, source.Name)
+		if err != nil {
+			// 不存在，创建
+			source.ID = 0
+			if createErr := h.ruleSourceService.Create(ctx, &source); createErr != nil {
+				result.RuleSources.Errors++
+			} else {
+				result.RuleSources.Created++
+			}
+		} else {
+			// 已存在，更新
+			source.ID = existing.ID
+			if updateErr := h.ruleSourceService.Update(ctx, &source); updateErr != nil {
+				result.RuleSources.Errors++
+			} else {
+				result.RuleSources.Updated++
+			}
+		}
+	}
+
+	SendSuccess(w, result)
 }

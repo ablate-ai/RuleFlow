@@ -207,6 +207,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.With(webAuth).Get("/templates", serveShell)
 	r.With(webAuth).Get("/configs", serveShell)
 	r.With(webAuth).Get("/config-access-logs", serveShell)
+	r.With(webAuth).Get("/data-migration", serveShell)
 	r.With(webAuth).Route("/app-fragments", func(r chi.Router) {
 		r.Get("/dashboard", serveFragment("web/index.html"))
 		r.Get("/subscriptions", serveFragment("web/subscriptions.html"))
@@ -215,6 +216,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 		r.Get("/templates", serveFragment("web/templates.html"))
 		r.Get("/configs", serveFragment("web/configs.html"))
 		r.Get("/config-access-logs", serveFragment("web/config_access_logs.html"))
+		r.Get("/data-migration", serveFragment("web/data_migration.html"))
 	})
 
 	// 根路径重定向到仪表盘
@@ -280,6 +282,10 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 			r.Delete("/cache", apiHandlers.ClearPolicyConfigCache)
 			r.Get("/access-logs", apiHandlers.ListConfigPolicyAccessLogs)
 		})
+
+		// 数据导入/导出
+		r.Get("/export", apiHandlers.ExportData)
+		r.Post("/import", apiHandlers.ImportData)
 
 		// 节点管理
 		r.Get("/nodes", apiHandlers.ListNodes)
