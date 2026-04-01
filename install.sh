@@ -189,12 +189,16 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-# 检测已有安装，先停止旧服务
+# 检测已有安装
 IS_REINSTALL=false
-if systemctl is-active --quiet ruleflow 2>/dev/null; then
-  log "检测到 RuleFlow 已在运行，停止旧服务后继续..."
-  systemctl stop ruleflow
+if [ -f "$ENV_FILE" ] || [ -f "$BIN_PATH" ]; then
   IS_REINSTALL=true
+  if systemctl is-active --quiet ruleflow 2>/dev/null; then
+    log "检测到 RuleFlow 已在运行，停止旧服务后继续..."
+    systemctl stop ruleflow
+  else
+    log "检测到已有安装，执行更新..."
+  fi
 fi
 
 PORT_VALUE=$(awk -F= '/^PORT=/{print $2}' "$ENV_FILE" 2>/dev/null | tail -n 1)
