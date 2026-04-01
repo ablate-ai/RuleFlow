@@ -190,9 +190,11 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 # 检测已有安装，先停止旧服务
+IS_REINSTALL=false
 if systemctl is-active --quiet ruleflow 2>/dev/null; then
   log "检测到 RuleFlow 已在运行，停止旧服务后继续..."
   systemctl stop ruleflow
+  IS_REINSTALL=true
 fi
 
 PORT_VALUE=$(awk -F= '/^PORT=/{print $2}' "$ENV_FILE" 2>/dev/null | tail -n 1)
@@ -200,9 +202,12 @@ if [ -z "${PORT_VALUE:-}" ]; then
   PORT_VALUE=8080
 fi
 
-check_port "$PORT_VALUE" "RuleFlow" true
-check_port 5432 "PostgreSQL"
-check_port 6379 "Redis"
+# 重装时基础设施已在运行，跳过端口检查
+if [ "$IS_REINSTALL" = "false" ]; then
+  check_port "$PORT_VALUE" "RuleFlow" true
+  check_port 5432 "PostgreSQL"
+  check_port 6379 "Redis"
+fi
 
 download_files
 
