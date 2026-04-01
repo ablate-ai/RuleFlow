@@ -71,6 +71,10 @@ download_files() {
 
   log "下载 migrations/init.sql..."
   curl -fsSL "$RAW_BASE/migrations/init.sql" -o "$INSTALL_DIR/migrations/init.sql"
+
+  log "下载 uninstall.sh..."
+  curl -fsSL "$RAW_BASE/uninstall.sh" -o "$INSTALL_DIR/uninstall.sh"
+  chmod +x "$INSTALL_DIR/uninstall.sh"
 }
 
 download_binary() {
