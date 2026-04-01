@@ -21,10 +21,8 @@ RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
-# 从构建阶段复制二进制文件和必要资源
+# 从构建阶段复制二进制文件（web 已通过 //go:embed 打入二进制）
 COPY --from=builder /app/ruleflow .
-COPY --from=builder /app/web ./web
-COPY --from=builder /app/rules ./rules
 
 # 暴露端口
 EXPOSE 8080
