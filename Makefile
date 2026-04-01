@@ -3,14 +3,15 @@ MIGRATION_FILE := migrations/init.sql
 GOFLAGS ?= -buildvcs=false
 GOCACHE_DIR ?= $(CURDIR)/.cache/go-build
 
-.PHONY: help env-check migrate build run test
+.PHONY: help env-check migrate build run test release
 
 help:
 	@echo "可用命令:"
-	@echo "  make migrate        # 读取 .env 并初始化数据库"
-	@echo "  make build          # 编译程序"
-	@echo "  make run            # 读取 .env 后启动服务"
-	@echo "  make test           # 运行测试"
+	@echo "  make migrate           # 读取 .env 并初始化数据库"
+	@echo "  make build             # 编译程序"
+	@echo "  make run               # 读取 .env 后启动服务"
+	@echo "  make test              # 运行测试"
+	@echo "  make release V=x.y.z   # 打 tag 并推送，触发 GitHub Actions 发布"
 
 env-check:
 	@if [ ! -f "$(ENV_FILE)" ]; then \
@@ -29,3 +30,26 @@ run: env-check
 
 test:
 	GOCACHE=$(GOCACHE_DIR) GOFLAGS="$(GOFLAGS)" go test ./...
+
+release:
+	@CURRENT=$$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -1); \
+	CURRENT=$${CURRENT:-v0.0.0}; \
+	MAJOR=$$(echo $$CURRENT | sed 's/v\([0-9]*\)\..*/\1/'); \
+	MINOR=$$(echo $$CURRENT | sed 's/v[0-9]*\.\([0-9]*\)\..*/\1/'); \
+	PATCH=$$(echo $$CURRENT | sed 's/v[0-9]*\.[0-9]*\.\([0-9]*\)/\1/'); \
+	echo "当前版本: $$CURRENT"; \
+	echo "  1) patch  -> v$$MAJOR.$$MINOR.$$((PATCH+1))"; \
+	echo "  2) minor  -> v$$MAJOR.$$((MINOR+1)).0"; \
+	echo "  3) major  -> v$$((MAJOR+1)).0.0"; \
+	printf "选择发布类型 [1/2/3]: "; \
+	read CHOICE; \
+	case $$CHOICE in \
+		1) NEW="v$$MAJOR.$$MINOR.$$((PATCH+1))";; \
+		2) NEW="v$$MAJOR.$$((MINOR+1)).0";; \
+		3) NEW="v$$((MAJOR+1)).0.0";; \
+		*) echo "无效选项"; exit 1;; \
+	esac; \
+	echo "发布版本 $$NEW ..."; \
+	git tag $$NEW; \
+	git push origin $$NEW; \
+	echo "已推送 tag $$NEW，GitHub Actions 开始构建"
