@@ -48,6 +48,59 @@ ensure_kv() {
   fi
 }
 
+port_in_use() {
+  port=$1
+  ss -tlnp 2>/dev/null | grep -q ":$port " || \
+  netstat -tlnp 2>/dev/null | grep -q ":$port "
+}
+
+find_free_port() {
+  while true; do
+    p=$(awk 'BEGIN{srand(); print int(rand()*16383)+49152}')
+    if ! port_in_use "$p"; then
+      printf '%s' "$p"
+      return
+    fi
+  done
+}
+
+check_port() {
+  port=$1
+  desc=$2
+  allow_random=${3:-false}
+
+  if ! port_in_use "$port"; then
+    return
+  fi
+
+  while true; do
+    if [ "$allow_random" = "true" ]; then
+      printf "端口 %s (%s) 已被占用。[r] 随机换一个  [c] 继续使用  [q] 取消安装: " "$port" "$desc"
+    else
+      printf "端口 %s (%s) 已被占用。[c] 继续使用现有服务  [q] 取消安装: " "$port" "$desc"
+    fi
+    read -r choice
+    case "$choice" in
+      r|R)
+        if [ "$allow_random" = "true" ]; then
+          new_port=$(find_free_port)
+          log "已切换到随机端口: $new_port"
+          PORT_VALUE=$new_port
+          return
+        fi
+        ;;
+      c|C|"")
+        log "继续使用端口 $port"
+        return
+        ;;
+      q|Q)
+        log "已取消安装。"
+        exit 1
+        ;;
+    esac
+  done
+}
+
 detect_arch() {
   arch=$(uname -m)
   case "$arch" in
@@ -134,6 +187,15 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+PORT_VALUE=$(awk -F= '/^PORT=/{print $2}' "$ENV_FILE" 2>/dev/null | tail -n 1)
+if [ -z "${PORT_VALUE:-}" ]; then
+  PORT_VALUE=8080
+fi
+
+check_port "$PORT_VALUE" "RuleFlow" true
+check_port 5432 "PostgreSQL"
+check_port 6379 "Redis"
+
 download_files
 
 # 初始化 .env
@@ -146,6 +208,7 @@ ensure_kv POSTGRES_USER ruleflow
 ensure_kv POSTGRES_PASSWORD password
 ensure_kv DATABASE_URL 'postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable'
 ensure_kv REDIS_ADDR 'localhost:6379'
+ensure_kv PORT "$PORT_VALUE"
 
 download_binary
 
@@ -155,12 +218,16 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
 log "启动 RuleFlow..."
 install_systemd_service
 
-PORT_VALUE=$(awk -F= '/^PORT=/{print $2}' "$ENV_FILE" | tail -n 1)
-if [ -z "${PORT_VALUE:-}" ]; then
-  PORT_VALUE=8080
+# 获取本机 IP（优先取第一个非 loopback 地址）
+HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -n1)
+if [ -z "${HOST_IP:-}" ]; then
+  HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+fi
+if [ -z "${HOST_IP:-}" ]; then
+  HOST_IP=localhost
 fi
 
 log "RuleFlow 已启动"
-log "访问地址: http://localhost:$PORT_VALUE"
+log "访问地址: http://$HOST_IP:$PORT_VALUE"
 log "查看日志: journalctl -u ruleflow -f"
 log "停止命令: systemctl stop ruleflow && docker compose --env-file \"$ENV_FILE\" -f \"$COMPOSE_FILE\" down"
