@@ -16,8 +16,10 @@ services:
       REDIS_DB: ${REDIS_DB:-0}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-3600}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:16-alpine
@@ -29,6 +31,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../migrations/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ruleflow} -d ${POSTGRES_DB:-ruleflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
