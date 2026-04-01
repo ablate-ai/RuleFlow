@@ -77,68 +77,43 @@ make run
 
 内置模板位于 `rules/clash.yaml` 和 `rules/surge.conf`；也可以在 Web 控制台中上传自定义模板。
 
-### 方式二：Docker
+### 方式二：一键安装（Linux 服务器）
 
-GitHub 一键安装并启动：
+> 依赖：`docker`、`docker compose`，需以 **root** 身份运行。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sudo sh
 ```
 
-默认会把仓库安装到 `$HOME/RuleFlow`，自动检查 Docker、生成 `.env.docker` 并执行 Compose 启动，不会覆盖本地开发用的 `.env`。
-远程安装脚本还依赖本机可用的 `git`，用于首次克隆或后续更新仓库。
+安装脚本会自动完成：
 
-GitHub 一键卸载：
+1. 检测 `PORT`（默认 8080）、`5432`、`6379` 端口占用，冲突时交互询问
+2. 下载 `docker-compose.yaml`、`migrations/init.sql`、`uninstall.sh` 到 `$HOME/ruleflow/`
+3. 初始化 `$HOME/ruleflow/.env`（含数据库、Redis 连接信息）
+4. 下载适合当前架构（amd64 / arm64）的预编译二进制
+5. 用 Docker Compose 启动 PostgreSQL + Redis 基础设施
+6. 注册并启动 systemd 服务 `ruleflow`
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sh
+安装完成后打印真实访问地址，例如：
+
+```
+访问地址: http://1.2.3.4:8080
+查看日志: journalctl -u ruleflow -f
 ```
 
-卸载脚本会默认查找 `$HOME/RuleFlow`，然后停止并删除 RuleFlow 相关容器、网络、数据卷，以及 `.env.docker`。这会清空 Docker 内置 PostgreSQL 的数据。
-
-如需自定义安装目录，可先设置 `RULEFLOW_DIR`：
+**一键卸载：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | RULEFLOW_DIR=/opt/RuleFlow sh
-curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | RULEFLOW_DIR=/opt/RuleFlow sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sudo sh
 ```
 
-仓库内本地执行：
+卸载脚本会停止并移除：systemd 服务、Docker 容器/网络/数据卷、二进制文件、安装目录。**PostgreSQL 数据将被清除。**
+
+**自定义安装目录：**
 
 ```bash
-sh install.sh
-sh uninstall.sh
-```
-
-手动方式：
-
-```bash
-cp .env.example .env.docker
-# 编辑 .env.docker，按需修改端口、管理密码和外部访问地址
-
-docker build -t ruleflow .
-
-# 带数据库和鉴权
-docker run -p 8080:8080 \
-  -e ADMIN_PASSWORD=your-password \
-  -e DATABASE_URL=postgresql://user:pass@host:5432/ruleflow \
-  -e REDIS_ADDR=redis:6379 \
-  ruleflow
-```
-
-`docker compose` 示例见 [deploy/docker-compose.yaml](/Users/c.chen/dev/RuleFlow/deploy/docker-compose.yaml)。
-
-手动启动命令：
-
-```bash
-docker compose --env-file .env.docker -f deploy/docker-compose.yaml up -d --build
-```
-
-手动卸载命令：
-
-```bash
-docker compose --env-file .env.docker -f deploy/docker-compose.yaml down -v --remove-orphans
-rm -f .env.docker
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sudo RULEFLOW_DIR=/opt/ruleflow sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sudo RULEFLOW_DIR=/opt/ruleflow sh
 ```
 
 ---
