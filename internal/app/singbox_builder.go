@@ -3,21 +3,12 @@ package app
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 )
 
-func getSingBoxTemplateFilePath() string {
-	return ResolveProjectPath("rules/sing-box.json.template")
-}
-
 func BuildSingBoxFromDefaultTemplate(nodes []*ProxyNode) (string, error) {
-	data, err := os.ReadFile(getSingBoxTemplateFilePath())
-	if err != nil {
-		return "", fmt.Errorf("读取 sing-box 模板文件失败: %w", err)
-	}
-	return BuildSingBoxFromTemplateContent(nodes, string(data))
+	return "", fmt.Errorf("sing-box 默认模板已移除，请在配置策略中指定模板")
 }
 
 func BuildSingBoxFromTemplateContent(nodes []*ProxyNode, templateContent string) (string, error) {

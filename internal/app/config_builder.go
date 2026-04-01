@@ -2,31 +2,10 @@ package app
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
-
-func getRuleTemplateFilePath() string {
-	return ResolveProjectPath("rules/clash.yaml")
-}
-
-func ResolveProjectPath(path string) string {
-	candidates := []string{
-		path,
-		filepath.Join("..", "..", path),
-	}
-
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-
-	return path
-}
 
 // --- yaml.Node 操作辅助函数 ---
 
@@ -326,92 +305,6 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 	return groupList, dialerMap, nil
 }
 
-func buildYAMLFromSourceTemplate(nodes []*ProxyNode, sourcePath string, target string) (string, error) {
-	// 验证目标类型
-	if target != "clash-meta" && target != "stash" {
-		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash)", target)
-	}
-
-	data, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return "", fmt.Errorf("读取模板文件失败: %w", err)
-	}
-
-	// 用 yaml.Node 解析，保留原始格式（含引号风格）
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return "", fmt.Errorf("解析模板文件失败: %w", err)
-	}
-	mapping := yamlMappingNode(&doc)
-	if mapping == nil {
-		return "", fmt.Errorf("模板文件格式无效：根节点不是映射")
-	}
-
-	// 根据目标类型调整配置（直接操作 yaml.Node，不破坏其他节点的格式）
-	adaptConfigForTargetNode(mapping, target)
-
-	proxies, nodeNames := buildProxies(nodes)
-	proxiesNode, err := yamlValueToNode(proxyPayloadForTarget(proxies, target))
-	if err != nil {
-		return "", fmt.Errorf("生成 proxies 失败: %w", err)
-	}
-	yamlSetInMapping(mapping, "proxies", proxiesNode)
-
-	rawGroupsNode := yamlFindInMapping(mapping, "proxy-groups")
-	if rawGroupsNode != nil {
-		var rawGroups interface{}
-		if err := rawGroupsNode.Decode(&rawGroups); err == nil {
-			adaptedGroups, dialerMap, err := adaptTemplateProxyGroups(rawGroups, nodeNames)
-			if err != nil {
-				return "", err
-			}
-			adaptProxyGroupsForTarget(adaptedGroups, target)
-			// 将 dialer-proxy 注入到对应 proxies 条目
-			if len(dialerMap) > 0 {
-				for i := range proxies {
-					if relay, ok := dialerMap[proxies[i].Name]; ok {
-						proxies[i].DialerProxy = relay
-					}
-				}
-				proxiesNode, err = yamlValueToNode(proxyPayloadForTarget(proxies, target))
-				if err != nil {
-					return "", fmt.Errorf("生成 proxies 失败: %w", err)
-				}
-				yamlSetInMapping(mapping, "proxies", proxiesNode)
-			}
-			groupsNode, err := yamlValueToNode(adaptedGroups)
-			if err != nil {
-				return "", fmt.Errorf("生成 proxy-groups 失败: %w", err)
-			}
-			yamlSetInMapping(mapping, "proxy-groups", groupsNode)
-		}
-	} else {
-		defaultGroups := []Group{
-			{Name: "🚀 节点选择", Type: "select", Proxies: append([]string{"♻️ 自动选择", "DIRECT"}, nodeNames...)},
-			{Name: "♻️ 自动选择", Type: "url-test", Proxies: nodeNames},
-		}
-		groupsNode, err := yamlValueToNode(defaultGroups)
-		if err != nil {
-			return "", fmt.Errorf("生成 proxy-groups 失败: %w", err)
-		}
-		yamlSetInMapping(mapping, "proxy-groups", groupsNode)
-	}
-
-	if !yamlHasKey(mapping, "rules") {
-		rulesNode, err := yamlValueToNode(cloneRules(defaultRules))
-		if err != nil {
-			return "", fmt.Errorf("生成 rules 失败: %w", err)
-		}
-		yamlSetInMapping(mapping, "rules", rulesNode)
-	}
-
-	yamlData, err := yaml.Marshal(&doc)
-	if err != nil {
-		return "", fmt.Errorf("生成配置失败")
-	}
-	return string(yamlData), nil
-}
-
 // BuildYAMLFromTemplateContent 从模板内容（字符串）构建 YAML 配置
 func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, target string) (string, error) {
 	if target != "clash-meta" && target != "stash" {
@@ -636,21 +529,3 @@ func yamlRulePolicy(rule string) string {
 	}
 }
 
-// buildYAMLFromSourceTemplateWithTrojan 从 Trojan 节点构建配置（向后兼容）
-func buildYAMLFromSourceTemplateWithTrojan(nodes []TrojanNode, sourcePath string, target string) (string, error) {
-	// 转换为 ProxyNode
-	proxyNodes := make([]*ProxyNode, len(nodes))
-	for i, node := range nodes {
-		proxyNodes[i] = &ProxyNode{
-			Protocol: "trojan",
-			Name:     node.Name,
-			Server:   node.Server,
-			Port:     node.Port,
-			Options: map[string]interface{}{
-				"password": node.Password,
-				"sni":      node.SNI,
-			},
-		}
-	}
-	return buildYAMLFromSourceTemplate(proxyNodes, sourcePath, target)
-}
