@@ -211,12 +211,32 @@ if [ ! -f "$ENV_FILE" ]; then
   touch "$ENV_FILE"
 fi
 
+# 生成随机密码（仅首次安装时生成，重装保留原有值）
+gen_password() {
+  tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24
+}
+
+EXISTING_PG_PASS=$(awk -F= '/^POSTGRES_PASSWORD=/{print $2}' "$ENV_FILE" | tail -n 1)
+if [ -z "${EXISTING_PG_PASS:-}" ]; then
+  PG_PASSWORD=$(gen_password)
+else
+  PG_PASSWORD=$EXISTING_PG_PASS
+fi
+
+EXISTING_ADMIN_PASS=$(awk -F= '/^ADMIN_PASSWORD=/{print $2}' "$ENV_FILE" | tail -n 1)
+if [ -z "${EXISTING_ADMIN_PASS:-}" ]; then
+  ADMIN_PASSWORD=$(gen_password)
+else
+  ADMIN_PASSWORD=$EXISTING_ADMIN_PASS
+fi
+
 ensure_kv POSTGRES_DB ruleflow
 ensure_kv POSTGRES_USER ruleflow
-ensure_kv POSTGRES_PASSWORD password
-ensure_kv DATABASE_URL 'postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable'
+ensure_kv POSTGRES_PASSWORD "$PG_PASSWORD"
+ensure_kv DATABASE_URL "postgresql://ruleflow:${PG_PASSWORD}@localhost:5432/ruleflow?sslmode=disable"
 ensure_kv REDIS_ADDR 'localhost:6379'
 ensure_kv PORT "$PORT_VALUE"
+ensure_kv ADMIN_PASSWORD "$ADMIN_PASSWORD"
 
 download_binary
 
@@ -235,6 +255,12 @@ if [ -z "${HOST_IP:-}" ]; then
   HOST_IP=localhost
 fi
 
-log "RuleFlow 已启动"
-log "访问地址: http://$HOST_IP:$PORT_VALUE"
-log "查看日志: journalctl -u ruleflow -f"
+log ""
+log "========================================="
+log "  RuleFlow 已启动"
+log "========================================="
+log "  访问地址:   http://$HOST_IP:$PORT_VALUE"
+log "  管理密码:   $ADMIN_PASSWORD"
+log "  数据库密码: $PG_PASSWORD"
+log "========================================="
+log "  查看日志: journalctl -u ruleflow -f"
