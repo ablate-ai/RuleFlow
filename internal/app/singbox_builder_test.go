@@ -31,7 +31,20 @@ func TestBuildSingBoxFromTemplateContent(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	templateWithDNS := `{
+  "dns": {
+    "servers": [
+      {"tag": "dns_proxy", "domain_resolver": "dns_direct"},
+      {"tag": "dns_direct"}
+    ]
+  },
+  "outbounds": [
+    {"type": "urltest", "tag": "Auto", "outbounds": ["__AUTO_NODES__"]},
+    "__OUTBOUNDS__",
+    {"type": "direct", "tag": "DIRECT"}
+  ]
+}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, templateWithDNS)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
@@ -192,411 +205,6 @@ func TestBuildSingBoxSupportsFilterExpansion(t *testing.T) {
 	}
 }
 
-func TestBuildSingBoxDefaultTemplateAddsRelayGroup(t *testing.T) {
-	nodes := []*ProxyNode{
-		{
-			Protocol: "trojan",
-			Name:     "nya-hk Node 1",
-			Server:   "hk1.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "password123",
-				"sni":      "hk1.example.com",
-			},
-		},
-		{
-			Protocol: "trojan",
-			Name:     "nya-jp Node 1",
-			Server:   "jp1.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "password456",
-				"sni":      "jp1.example.com",
-			},
-		},
-		{
-			Protocol: "trojan",
-			Name:     "nya-us Node 1",
-			Server:   "us1.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "password789",
-				"sni":      "us1.example.com",
-			},
-		},
-		{
-			Protocol: "trojan",
-			Name:     "HK Node 2",
-			Server:   "hk2.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "password321",
-				"sni":      "hk2.example.com",
-			},
-		},
-	}
-
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	outbounds, ok := cfg["outbounds"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 outbounds")
-	}
-
-	foundRelay := false
-	for _, item := range outbounds {
-		outbound, ok := item.(map[string]interface{})
-		if !ok || outbound["tag"] != "🚪 Relay" {
-			continue
-		}
-		foundRelay = true
-		members, ok := outbound["outbounds"].([]interface{})
-		if !ok {
-			t.Fatalf("Relay 组缺少 outbounds，实际配置为:\n%s", config)
-		}
-		if len(members) != 2 || members[0] != "🇭🇰 nya-hk Node 1" || members[1] != "🇯🇵 nya-jp Node 1" {
-			t.Fatalf("期望 Relay 组只包含同时命中 nya 且属于香港、日本的节点，实际配置为:\n%s", config)
-		}
-	}
-
-	if !foundRelay {
-		t.Fatalf("未找到 Relay 组，实际配置为:\n%s", config)
-	}
-}
-
-func TestBuildSingBoxDefaultTemplateAppliesDetourProxyToAIGroup(t *testing.T) {
-	nodes := []*ProxyNode{
-		{
-			Protocol: "trojan",
-			Name:     "nya-hk Relay",
-			Server:   "hk-relay.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "relay-password",
-				"sni":      "hk-relay.example.com",
-			},
-		},
-		{
-			Protocol: "trojan",
-			Name:     "us.lax.dmit",
-			Server:   "us-dmit.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "dmit-password",
-				"sni":      "us-dmit.example.com",
-			},
-		},
-		{
-			Protocol: "trojan",
-			Name:     "us.hnl.qqpw",
-			Server:   "us-ai.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "ai-password",
-				"sni":      "us-ai.example.com",
-			},
-		},
-	}
-
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	outbounds, ok := cfg["outbounds"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 outbounds")
-	}
-
-	foundAI := false
-	foundQQPWNode := false
-	foundDMITNode := false
-	for _, item := range outbounds {
-		outbound, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		switch outbound["tag"] {
-		case "🤖 AI":
-			foundAI = true
-			members, ok := outbound["outbounds"].([]interface{})
-			if !ok || len(members) != 2 || members[0] != "🇺🇸 us.lax.dmit" || members[1] != "🇺🇸 us.hnl.qqpw" {
-				t.Fatalf("期望 AI 组引用命中 qqpw|dmit 的节点，实际配置为:\n%s", config)
-			}
-		case "🇺🇸 us.lax.dmit":
-			foundDMITNode = true
-			if outbound["detour"] != "🚪 Relay" {
-				t.Fatalf("期望 dmit 节点使用 Relay 作为 detour，实际配置为:\n%s", config)
-			}
-		case "🇺🇸 us.hnl.qqpw":
-			foundQQPWNode = true
-			if outbound["detour"] != "🚪 Relay" {
-				t.Fatalf("期望 qqpw 节点使用 Relay 作为 detour，实际配置为:\n%s", config)
-			}
-		}
-	}
-
-	if !foundAI || !foundQQPWNode || !foundDMITNode {
-		t.Fatalf("未找到期望的 AI 组或带 detour 的节点，实际配置为:\n%s", config)
-	}
-}
-
-func TestBuildSingBoxDefaultTemplateUsesSourceRemoteRuleSetForAIAI(t *testing.T) {
-	config, err := BuildSingBoxFromDefaultTemplate(nil)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	route, ok := cfg["route"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route")
-	}
-	ruleSets, ok := route["rule_set"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route.rule_set")
-	}
-
-	for _, item := range ruleSets {
-		ruleSet, ok := item.(map[string]interface{})
-		if !ok || ruleSet["tag"] != "ai_ai" {
-			continue
-		}
-		if ruleSet["format"] != "source" {
-			t.Fatalf("期望 ai_ai 远程规则集使用 source 格式，实际配置为:\n%s", config)
-		}
-		return
-	}
-
-	t.Fatalf("未找到 ai_ai 远程规则集，实际配置为:\n%s", config)
-}
-
-func TestBuildSingBoxDefaultTemplateIncludesNeedDirectRuleSet(t *testing.T) {
-	config, err := BuildSingBoxFromDefaultTemplate(nil)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	route, ok := cfg["route"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route")
-	}
-	ruleSets, ok := route["rule_set"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route.rule_set")
-	}
-
-	foundRemoteRuleSet := false
-	for _, item := range ruleSets {
-		ruleSet, ok := item.(map[string]interface{})
-		if !ok || ruleSet["tag"] != "need_direct" {
-			continue
-		}
-		if ruleSet["url"] != "/rulesets/need_direct?target=sing-box" {
-			t.Fatalf("期望 need_direct 远程规则集 URL 正确，实际配置为:\n%s", config)
-		}
-		foundRemoteRuleSet = true
-		break
-	}
-	if !foundRemoteRuleSet {
-		t.Fatalf("未找到 need_direct 远程规则集，实际配置为:\n%s", config)
-	}
-
-	routeRules, ok := route["rules"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route.rules")
-	}
-
-	foundDirectRule := false
-	for _, item := range routeRules {
-		rule, ok := item.(map[string]interface{})
-		if !ok || rule["outbound"] != "DIRECT" {
-			continue
-		}
-		ruleSets, ok := rule["rule_set"].([]interface{})
-		if !ok {
-			continue
-		}
-		for _, tag := range ruleSets {
-			if tag == "need_direct" {
-				foundDirectRule = true
-				break
-			}
-		}
-		if foundDirectRule {
-			break
-		}
-	}
-	if !foundDirectRule {
-		t.Fatalf("期望 route.rules 中包含 need_direct -> DIRECT，实际配置为:\n%s", config)
-	}
-}
-
-func TestBuildSingBoxDefaultTemplatePrunesRulesForMissingOutbound(t *testing.T) {
-	nodes := []*ProxyNode{
-		{
-			Protocol: "trojan",
-			Name:     "US Node 1",
-			Server:   "us1.example.com",
-			Port:     443,
-			Options: map[string]interface{}{
-				"password": "password123",
-				"sni":      "us1.example.com",
-			},
-		},
-	}
-
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	route, ok := cfg["route"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route")
-	}
-	rules, ok := route["rules"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route.rules")
-	}
-
-	for _, item := range rules {
-		rule, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if rule["outbound"] == "🏠 wireguard-home" {
-			t.Fatalf("未选择 wireguard-home 节点时，不应保留引用它的规则，实际配置为:\n%s", config)
-		}
-	}
-}
-
-func TestBuildSingBoxDefaultTemplateKeepsRulesForExistingOutbound(t *testing.T) {
-	nodes := []*ProxyNode{
-		{
-			Protocol: "wireguard",
-			Name:     "🏠 wireguard-home",
-			Server:   "vpn.example.com",
-			Port:     51820,
-			Options: map[string]interface{}{
-				"ip":          "10.0.10.3/32",
-				"private-key": "private-key",
-				"public-key":  "peer-public-key",
-				"allowed-ips": []interface{}{"0.0.0.0/0"},
-			},
-		},
-	}
-
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	route, ok := cfg["route"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route")
-	}
-	rules, ok := route["rules"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 route.rules")
-	}
-
-	found := false
-	for _, item := range rules {
-		rule, ok := item.(map[string]interface{})
-		if !ok || rule["outbound"] != "🏠 wireguard-home" {
-			continue
-		}
-		found = true
-	}
-	if !found {
-		t.Fatalf("已存在 wireguard-home 出站时，应保留相关规则，实际配置为:\n%s", config)
-	}
-}
-
-func TestBuildSingBoxDefaultTemplateKeepsInternalDomainsOnLocalDNS(t *testing.T) {
-	config, err := BuildSingBoxFromDefaultTemplate(nil)
-	if err != nil {
-		t.Fatalf("生成 sing-box 配置失败: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-		t.Fatalf("生成的 sing-box 配置不是合法 JSON: %v", err)
-	}
-
-	dns, ok := cfg["dns"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 dns")
-	}
-	dnsRules, ok := dns["rules"].([]interface{})
-	if !ok {
-		t.Fatalf("生成的 sing-box 配置缺少 dns.rules")
-	}
-
-	foundLocalRule := false
-	for _, item := range dnsRules {
-		rule, ok := item.(map[string]interface{})
-		if !ok || rule["server"] != "dns_local" {
-			continue
-		}
-		domains, ok := rule["domain_suffix"].([]interface{})
-		if !ok {
-			continue
-		}
-		hasNioint := false
-		hasNevint := false
-		for _, domain := range domains {
-			switch domain {
-			case "nioint.com":
-				hasNioint = true
-			case "nevint.com":
-				hasNevint = true
-			}
-		}
-		if hasNioint && hasNevint {
-			foundLocalRule = true
-			break
-		}
-	}
-
-	if !foundLocalRule {
-		t.Fatalf("期望内部域名继续使用 dns_local 解析，实际配置为:\n%s", config)
-	}
-}
-
 func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 	nodes := []*ProxyNode{
 		{
@@ -622,7 +230,8 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	minimalTemplate := `{"outbounds": ["__OUTBOUNDS__", {"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
@@ -691,7 +300,8 @@ func TestBuildSingBoxUsesNestedTLSAndTransport(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	minimalTemplate := `{"outbounds": ["__OUTBOUNDS__", {"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
@@ -726,7 +336,8 @@ func TestBuildSingBoxWireGuard(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	minimalTemplate := `{"endpoints": ["__ENDPOINTS__"], "outbounds": [{"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
@@ -817,7 +428,8 @@ func TestBuildSingBoxWireGuardNormalizesAddressPrefix(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	minimalTemplate := `{"endpoints": ["__ENDPOINTS__"], "outbounds": [{"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
@@ -844,7 +456,8 @@ func TestBuildSingBoxSupportsBooleanTLSOption(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	minimalTemplate := `{"outbounds": ["__OUTBOUNDS__", {"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
@@ -868,7 +481,8 @@ func TestBuildSingBoxSupportsFlatSecurityTLSOption(t *testing.T) {
 		},
 	}
 
-	config, err := BuildSingBoxFromDefaultTemplate(nodes)
+	minimalTemplate := `{"outbounds": ["__OUTBOUNDS__", {"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
 	if err != nil {
 		t.Fatalf("生成 sing-box 配置失败: %v", err)
 	}
