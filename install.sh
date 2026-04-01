@@ -189,6 +189,12 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+# 检测已有安装，先停止旧服务
+if systemctl is-active --quiet ruleflow 2>/dev/null; then
+  log "检测到 RuleFlow 已在运行，停止旧服务后继续..."
+  systemctl stop ruleflow
+fi
+
 PORT_VALUE=$(awk -F= '/^PORT=/{print $2}' "$ENV_FILE" 2>/dev/null | tail -n 1)
 if [ -z "${PORT_VALUE:-}" ]; then
   PORT_VALUE=8080
