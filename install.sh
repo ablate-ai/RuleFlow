@@ -2,7 +2,8 @@
 
 set -eu
 
-REPO_URL=${RULEFLOW_REPO_URL:-https://github.com/ablate-ai/RuleFlow.git}
+GITHUB_REPO="ablate-ai/RuleFlow"
+REPO_URL=${RULEFLOW_REPO_URL:-https://github.com/${GITHUB_REPO}.git}
 DEFAULT_BOOTSTRAP_DIR=${RULEFLOW_DIR:-$HOME/RuleFlow}
 
 bootstrap_install() {
@@ -26,6 +27,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ENV_FILE="$ROOT_DIR/.env.docker"
 ENV_EXAMPLE="$ROOT_DIR/.env.example"
 COMPOSE_FILE="$ROOT_DIR/deploy/docker-compose.yaml"
+BIN_PATH="$ROOT_DIR/ruleflow"
 
 log() {
   printf '%s\n' "$1"
@@ -64,6 +66,31 @@ require_cmd() {
   fi
 }
 
+detect_arch() {
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64)  printf 'amd64' ;;
+    aarch64|arm64) printf 'arm64' ;;
+    *)
+      log "不支持的架构: $arch"
+      exit 1
+      ;;
+  esac
+}
+
+download_binary() {
+  require_cmd curl
+
+  ARCH=$(detect_arch)
+  BINARY_NAME="ruleflow-linux-${ARCH}"
+  DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${BINARY_NAME}"
+
+  log "下载二进制: $DOWNLOAD_URL"
+  curl -fsSL "$DOWNLOAD_URL" -o "$BIN_PATH"
+  chmod +x "$BIN_PATH"
+  log "下载完成: $BIN_PATH"
+}
+
 require_cmd docker
 
 if ! docker info >/dev/null 2>&1; then
@@ -93,17 +120,53 @@ fi
 ensure_kv POSTGRES_DB ruleflow
 ensure_kv POSTGRES_USER ruleflow
 ensure_kv POSTGRES_PASSWORD password
-ensure_kv DATABASE_URL 'postgresql://ruleflow:password@postgres:5432/ruleflow?sslmode=disable'
-ensure_kv REDIS_ADDR 'redis:6379'
+ensure_kv DATABASE_URL 'postgresql://ruleflow:password@localhost:5432/ruleflow?sslmode=disable'
+ensure_kv REDIS_ADDR 'localhost:6379'
 
-log "开始构建并启动 RuleFlow..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
+# 下载二进制（如果不存在或用户要求更新）
+if [ ! -f "$BIN_PATH" ]; then
+  download_binary
+fi
+
+log "启动基础设施（postgres + redis）..."
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+
+install_systemd_service() {
+  SERVICE_FILE="/etc/systemd/system/ruleflow.service"
+
+  log "创建 systemd 服务: $SERVICE_FILE"
+  cat >"$SERVICE_FILE" <<EOF
+[Unit]
+Description=RuleFlow
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=$ENV_FILE
+ExecStart=$BIN_PATH
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable ruleflow
+  systemctl restart ruleflow
+}
+
+log "启动 RuleFlow..."
+install_systemd_service
+log "RuleFlow 已注册为 systemd 服务"
+log "查看日志: journalctl -u ruleflow -f"
+log "停止命令: systemctl stop ruleflow && docker compose --env-file \"$ENV_FILE\" -f \"$COMPOSE_FILE\" down"
 
 PORT_VALUE=$(awk -F= '/^PORT=/{print $2}' "$ENV_FILE" | tail -n 1)
 if [ -z "${PORT_VALUE:-}" ]; then
   PORT_VALUE=8080
 fi
 
-log "RuleFlow 已启动"
 log "访问地址: http://localhost:$PORT_VALUE"
-log "停止命令: docker compose --env-file \"$ENV_FILE\" -f \"$COMPOSE_FILE\" down"
