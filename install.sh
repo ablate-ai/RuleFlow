@@ -80,7 +80,8 @@ check_port() {
     else
       printf "  [c] 继续使用现有服务\n  [q] 取消安装\n请选择: "
     fi
-    read -r choice </dev/tty
+    choice=""
+    read -r choice </dev/tty || true
     case "$choice" in
       r|R)
         if [ "$allow_random" = "true" ]; then
