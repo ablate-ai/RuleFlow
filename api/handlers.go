@@ -1772,20 +1772,29 @@ func (h *Handlers) ImportData(w http.ResponseWriter, r *http.Request) {
 
 	result := ImportResult{}
 
+	// 构建订阅源旧 ID → 当前服务器 ID 的映射（用于修正配置策略的 SubscriptionIDs）
+	subIDMap := make(map[int64]int64) // exportedID -> currentID
+
 	// 导入订阅源
 	for _, sub := range payload.Subscriptions {
+		exportedID := sub.ID
 		existing, err := h.subscriptionService.GetSubscription(ctx, sub.Name)
 		if err != nil {
-			// 不存在，创建新记录（清除 ID 由数据库重新分配）
+			// 不存在，创建新记录
 			sub.ID = 0
 			if createErr := h.subscriptionService.CreateSubscription(ctx, &sub); createErr != nil {
 				result.Subscriptions.Errors++
 			} else {
 				result.Subscriptions.Created++
+				// 重新查询以获取新分配的 ID
+				if created, qErr := h.subscriptionService.GetSubscription(ctx, sub.Name); qErr == nil {
+					subIDMap[exportedID] = created.ID
+				}
 			}
 		} else {
 			// 已存在，更新（保留原 ID）
 			sub.ID = existing.ID
+			subIDMap[exportedID] = existing.ID
 			if updateErr := h.subscriptionService.UpdateSubscription(ctx, &sub); updateErr != nil {
 				result.Subscriptions.Errors++
 			} else {
@@ -1794,16 +1803,32 @@ func (h *Handlers) ImportData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 构建手动节点旧 ID → 当前服务器 ID 的映射
+	nodeIDMap := make(map[int64]int64)
+
 	// 导入手动节点（使用已有 upsert 逻辑）
 	for _, node := range payload.ManualNodes {
+		exportedID := node.ID
 		node.ID = 0
 		created, err := h.nodeService.ImportManualNode(ctx, &node)
 		if err != nil {
 			result.ManualNodes.Errors++
-		} else if created {
-			result.ManualNodes.Created++
 		} else {
-			result.ManualNodes.Updated++
+			// 重新查询以获取当前 ID
+			filter := database.NodeFilter{ManualOnly: true}
+			if nodes, qErr := h.nodeService.ListNodes(ctx, filter); qErr == nil {
+				for _, n := range nodes {
+					if n.Name == node.Name && n.Server == node.Server && n.Port == node.Port {
+						nodeIDMap[exportedID] = n.ID
+						break
+					}
+				}
+			}
+			if created {
+				result.ManualNodes.Created++
+			} else {
+				result.ManualNodes.Updated++
+			}
 		}
 	}
 
@@ -1828,11 +1853,28 @@ func (h *Handlers) ImportData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 导入配置策略（token 保留原有值，不被覆盖）
+	// 导入配置策略（token 保留原有值；SubscriptionIDs/NodeIDs 做 ID 重映射）
+	remapIDs := func(oldIDs []int64, idMap map[int64]int64) []int64 {
+		result := make([]int64, 0, len(oldIDs))
+		for _, oldID := range oldIDs {
+			if newID, ok := idMap[oldID]; ok {
+				result = append(result, newID)
+			} else {
+				// ID 不在映射表中，说明该资源未导入或已存在且 ID 相同，直接保留
+				result = append(result, oldID)
+			}
+		}
+		return result
+	}
+
 	for _, policy := range payload.ConfigPolicies {
+		// 修正 SubscriptionIDs 和 NodeIDs
+		policy.SubscriptionIDs = remapIDs(policy.SubscriptionIDs, subIDMap)
+		policy.NodeIDs = remapIDs(policy.NodeIDs, nodeIDMap)
+
 		existing, err := h.configPolicyService.GetByName(ctx, policy.Name)
 		if err != nil {
-			// 不存在，创建（导入时 token 字段由数据库生成，清除导出时的旧 token）
+			// 不存在，创建（token 由数据库生成）
 			policy.ID = 0
 			policy.Token = ""
 			if createErr := h.configPolicyService.Create(ctx, policy); createErr != nil {
