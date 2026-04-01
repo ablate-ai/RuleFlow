@@ -79,7 +79,7 @@ check_port() {
     else
       printf "端口 %s (%s) 已被占用。[c] 继续使用现有服务  [q] 取消安装: " "$port" "$desc"
     fi
-    read -r choice
+    read -r choice </dev/tty
     case "$choice" in
       r|R)
         if [ "$allow_random" = "true" ]; then
