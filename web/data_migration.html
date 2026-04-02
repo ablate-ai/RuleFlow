@@ -66,6 +66,47 @@
       </div>
     </div>
   </div>
+
+  <!-- SQL 执行区域 -->
+  <div class="rounded-rf-xl border border-rf-border bg-white p-6 shadow-rf">
+    <h2 class="mb-1 text-[15px] font-semibold text-rf-text">执行 SQL</h2>
+    <p class="mb-4 text-[13px] text-rf-muted">直接在数据库上执行 SQL 语句，适用于手动数据迁移和字段变更。支持 SELECT / DDL / DML，SELECT 最多返回 500 行。</p>
+
+    <textarea
+      id="sql-input"
+      rows="6"
+      placeholder="-- 例如：ALTER TABLE templates ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false;"
+      class="w-full rounded-rf border border-rf-border bg-slate-50 px-3 py-2.5 font-mono text-[12.5px] text-rf-text outline-none transition placeholder:text-slate-300 focus:border-[#18c865] focus:bg-white focus:ring-4 focus:ring-[rgba(24,200,101,0.1)] resize-y"
+      spellcheck="false"
+    ></textarea>
+
+    <div class="mt-3 flex items-center gap-3">
+      <button
+        id="sql-run-btn"
+        type="button"
+        class="inline-flex items-center gap-2 rounded-rf border border-[#18c865] bg-[#18c865] px-4 py-[8px] text-[13.5px] font-medium text-white transition hover:border-[#15b25a] hover:bg-[#15b25a] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <svg class="h-[14px] w-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span id="sql-run-btn-text">执行</span>
+      </button>
+      <button
+        id="sql-clear-btn"
+        type="button"
+        class="inline-flex items-center gap-2 rounded-rf border border-rf-border bg-white px-4 py-[8px] text-[13.5px] font-medium text-rf-text transition hover:bg-slate-50"
+      >清空</button>
+    </div>
+
+    <!-- 执行结果 -->
+    <div id="sql-result" class="mt-4 hidden">
+      <div class="mb-2 flex items-center justify-between">
+        <div class="text-[13px] font-semibold text-rf-text" id="sql-result-title"></div>
+        <div class="text-[12px] text-rf-muted" id="sql-result-meta"></div>
+      </div>
+      <div id="sql-result-body"></div>
+    </div>
+  </div>
 </section>
 
 <script>
@@ -191,6 +232,100 @@
       } finally {
         importBtn.disabled = false;
         importBtnText.textContent = '开始导入';
+      }
+    });
+
+    // ---- SQL 执行 ----
+    const sqlInput = document.getElementById('sql-input');
+    const sqlRunBtn = document.getElementById('sql-run-btn');
+    const sqlRunBtnText = document.getElementById('sql-run-btn-text');
+    const sqlResult = document.getElementById('sql-result');
+    const sqlResultTitle = document.getElementById('sql-result-title');
+    const sqlResultMeta = document.getElementById('sql-result-meta');
+    const sqlResultBody = document.getElementById('sql-result-body');
+
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+    }
+
+    document.getElementById('sql-clear-btn').addEventListener('click', () => {
+      sqlInput.value = '';
+      sqlResult.classList.add('hidden');
+    });
+
+    sqlRunBtn.addEventListener('click', async () => {
+      const sql = sqlInput.value.trim();
+      if (!sql) return;
+
+      sqlRunBtn.disabled = true;
+      sqlRunBtnText.textContent = '执行中…';
+      sqlResult.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/admin/exec-sql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || `请求失败: ${res.status}`);
+        }
+
+        const data = json.data;
+        sqlResult.classList.remove('hidden');
+
+        if (data.type === 'select') {
+          const cols = data.columns || [];
+          const rows = data.rows || [];
+          sqlResultTitle.textContent = '查询结果';
+          sqlResultMeta.textContent = `${rows.length} 行${rows.length >= 500 ? '（已截断）' : ''}`;
+          if (rows.length === 0) {
+            sqlResultBody.innerHTML = '<div class="rounded-rf border border-rf-border bg-slate-50 px-4 py-3 text-[13px] text-rf-muted">无结果</div>';
+          } else {
+            sqlResultBody.innerHTML = `
+              <div class="overflow-x-auto rounded-rf border border-rf-border">
+                <table class="w-full text-[12.5px]">
+                  <thead>
+                    <tr class="border-b border-rf-border bg-slate-50 text-left text-rf-muted">
+                      ${cols.map((c) => `<th class="px-3 py-2 font-medium whitespace-nowrap">${esc(c)}</th>`).join('')}
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-rf-border">
+                    ${rows.map((row) => `
+                      <tr class="bg-white hover:bg-slate-50/60">
+                        ${cols.map((c) => `<td class="px-3 py-2 font-mono text-rf-text whitespace-nowrap max-w-[320px] truncate">${esc(row[c])}</td>`).join('')}
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }
+          toast('查询完成');
+        } else {
+          sqlResultTitle.textContent = '执行成功';
+          sqlResultMeta.textContent = '';
+          sqlResultBody.innerHTML = `<div class="rounded-rf border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-700">影响 ${data.rows_affected ?? 0} 行</div>`;
+          toast('执行成功');
+        }
+      } catch (err) {
+        sqlResult.classList.remove('hidden');
+        sqlResultTitle.textContent = '执行失败';
+        sqlResultMeta.textContent = '';
+        sqlResultBody.innerHTML = `<div class="rounded-rf border border-red-200 bg-red-50 px-4 py-3 font-mono text-[12.5px] text-red-700 break-all">${esc(err.message)}</div>`;
+        toast(err.message || '执行失败', 'err');
+      } finally {
+        sqlRunBtn.disabled = false;
+        sqlRunBtnText.textContent = '执行';
+      }
+    });
+
+    // Ctrl/Cmd+Enter 快捷执行
+    sqlInput.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        sqlRunBtn.click();
       }
     });
   })();

@@ -74,6 +74,7 @@ type Handlers struct {
 	ruleSourceSyncService   *services.RuleSourceSyncService
 	policyCache             policyConfigCache
 	redisClient             *cache.Client
+	db                      *database.DB
 }
 
 // NewHandlers 创建 API 处理器
@@ -88,6 +89,7 @@ func NewHandlers(
 	ruleSourceSyncService *services.RuleSourceSyncService,
 	policyCache policyConfigCache,
 	redisClient *cache.Client,
+	db *database.DB,
 ) *Handlers {
 	return &Handlers{
 		subscriptionService:     subscriptionService,
@@ -100,6 +102,7 @@ func NewHandlers(
 		ruleSourceSyncService:   ruleSourceSyncService,
 		policyCache:             policyCache,
 		redisClient:             redisClient,
+		db:                      db,
 	}
 }
 
@@ -276,6 +279,36 @@ func (h *Handlers) ListTemplates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendSuccess(w, tpls)
+}
+
+// ListPublicTemplates 列出公开模板（无需鉴权，仅返回 id/name/target）
+func (h *Handlers) ListPublicTemplates(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tpls, err := h.templateService.ListPublicTemplates(ctx)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	SendSuccess(w, tpls)
+}
+
+// GetPublicTemplate 获取公开模板内容（无需鉴权，仅限 is_public = true）
+func (h *Handlers) GetPublicTemplate(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt64(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的模板 ID")
+		return
+	}
+
+	ctx := r.Context()
+	tpl, err := h.templateService.GetPublicTemplateByID(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	SendSuccess(w, tpl)
 }
 
 // ValidateTemplate 校验模板内容
@@ -1261,7 +1294,7 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	// 生成配置
 	target := policy.Target
 	if target == "" {
-		target = "clash-meta"
+		target = "clash-mihomo"
 	}
 	configContent, err := buildConfigContent(r, proxyNodes, templateContent, target)
 	if err != nil {
@@ -1432,8 +1465,10 @@ func configResponseMetaForTarget(target string) configResponseMeta {
 		return configResponseMeta{filename: "surge_config.conf", contentType: "text/plain; charset=utf-8"}
 	case "sing-box":
 		return configResponseMeta{filename: "sing_box_config.json", contentType: "application/json; charset=utf-8"}
+	case "clash-mihomo":
+		return configResponseMeta{filename: "clash_mihomo_config.yaml", contentType: "text/yaml; charset=utf-8"}
 	default:
-		return configResponseMeta{filename: "clash_meta_config.yaml", contentType: "text/yaml; charset=utf-8"}
+		return configResponseMeta{filename: "clash_mihomo_config.yaml", contentType: "text/yaml; charset=utf-8"}
 	}
 }
 
@@ -1443,15 +1478,15 @@ func resolveConfigTarget(rawTarget, fallback string) (string, error) {
 		candidate = fallback
 	}
 	if candidate == "" {
-		return "clash-meta", nil
+		return "clash-mihomo", nil
 	}
 
 	normalized := strings.ToLower(strings.TrimSpace(candidate))
 	normalized = strings.ReplaceAll(normalized, "_", "-")
 
 	switch normalized {
-	case "clash", "clash-meta":
-		return "clash-meta", nil
+	case "clash", "clash-meta", "clash-mihomo":
+		return "clash-mihomo", nil
 	case "stash":
 		return "stash", nil
 	case "surge":
@@ -1605,6 +1640,83 @@ func buildConvertLogToken(params convertRequestParams) string {
 		return rawURL
 	}
 	return rawURL[:61] + "..."
+}
+
+// ==================== SQL 执行 ====================
+
+// ExecSQL 执行任意 SQL 语句（仅管理员可用）
+func (h *Handlers) ExecSQL(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SQL string `json:"sql"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "无效的请求体")
+		return
+	}
+
+	sql := strings.TrimSpace(req.SQL)
+	if sql == "" {
+		SendError(w, http.StatusBadRequest, "SQL 不能为空")
+		return
+	}
+
+	ctx := r.Context()
+
+	// SELECT 查询返回结果集
+	upper := strings.ToUpper(sql)
+	if strings.HasPrefix(upper, "SELECT") || strings.HasPrefix(upper, "SHOW") || strings.HasPrefix(upper, "EXPLAIN") {
+		rows, err := h.db.Pool.Query(ctx, sql)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		defer rows.Close()
+
+		fieldDescs := rows.FieldDescriptions()
+		columns := make([]string, len(fieldDescs))
+		for i, fd := range fieldDescs {
+			columns[i] = string(fd.Name)
+		}
+
+		var result []map[string]any
+		for rows.Next() {
+			vals, err := rows.Values()
+			if err != nil {
+				SendError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			row := make(map[string]any, len(columns))
+			for i, col := range columns {
+				row[col] = vals[i]
+			}
+			result = append(result, row)
+			if len(result) >= 500 {
+				break
+			}
+		}
+		if result == nil {
+			result = []map[string]any{}
+		}
+
+		SendSuccess(w, map[string]any{
+			"type":    "select",
+			"columns": columns,
+			"rows":    result,
+		})
+		return
+	}
+
+	// DDL / DML
+	tag, err := h.db.Pool.Exec(ctx, sql)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	SendSuccess(w, map[string]any{
+		"type":          "exec",
+		"rows_affected": tag.RowsAffected(),
+	})
 }
 
 // ==================== 数据导入/导出 API ====================

@@ -109,7 +109,7 @@ func main() {
 	logCleanupScheduler.Start(schedulerCtx)
 
 	// 创建 API 处理器
-	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, maintenanceService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache, redisClient)
+	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, maintenanceService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache, redisClient, db)
 
 	// 启动服务器
 	port := cfg.Port
@@ -208,6 +208,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.With(webAuth).Get("/configs", serveShell)
 	r.With(webAuth).Get("/config-access-logs", serveShell)
 	r.With(webAuth).Get("/data-migration", serveShell)
+	r.Get("/converter", servePage("web/convert_guide.html"))
 	r.With(webAuth).Route("/app-fragments", func(r chi.Router) {
 		r.Get("/dashboard", serveFragment("web/index.html"))
 		r.Get("/subscriptions", serveFragment("web/subscriptions.html"))
@@ -227,6 +228,8 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	// 公开接口（无需鉴权）
 	r.Get("/subscribe", apiHandlers.GenerateConfig)
 	r.Get("/convert", apiHandlers.ConvertSubscription)
+	r.Get("/api/templates/public", apiHandlers.ListPublicTemplates)
+	r.Get("/api/templates/public/{id}", apiHandlers.GetPublicTemplate)
 	r.Get("/health", apiHandlers.Health)
 	r.Get("/rulesets/{name}", apiHandlers.ExportRuleSource)
 
@@ -234,6 +237,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.With(api.APIAuthMiddleware(cfg.AdminPassword)).Route("/api", func(r chi.Router) {
 		r.Post("/cache/policies/clear", apiHandlers.ClearAllPolicyCache)
 		r.Post("/admin/migrate-snowflake-ids", apiHandlers.MigrateSnowflakeIDs)
+		r.Post("/admin/exec-sql", apiHandlers.ExecSQL)
 
 		// 订阅管理
 		r.Get("/subscriptions", apiHandlers.ListSubscriptions)

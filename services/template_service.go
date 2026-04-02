@@ -66,6 +66,16 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, id int64, tpl *dat
 	return s.templateRepo.Update(ctx, id, tpl)
 }
 
+// GetPublicTemplateByID 获取公开模板内容（仅限 is_public = true）
+func (s *TemplateService) GetPublicTemplateByID(ctx context.Context, id int64) (*database.Template, error) {
+	return s.templateRepo.GetPublicByID(ctx, id)
+}
+
+// ListPublicTemplates 列出所有公开模板
+func (s *TemplateService) ListPublicTemplates(ctx context.Context) ([]database.Template, error) {
+	return s.templateRepo.ListPublic(ctx)
+}
+
 // DeleteTemplate 删除模板
 func (s *TemplateService) DeleteTemplate(ctx context.Context, id int64) error {
 	return s.templateRepo.Delete(ctx, id)

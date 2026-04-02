@@ -16,6 +16,7 @@ type Template struct {
 	Content     string    `json:"content"`
 	Target      string    `json:"target"`
 	Tags        []string  `json:"tags"`
+	IsPublic    bool      `json:"is_public"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -34,13 +35,13 @@ func NewTemplateRepo(db *DB) *TemplateRepo {
 func (r *TemplateRepo) Create(ctx context.Context, tpl *Template) error {
 	tpl.ID = NextID()
 	query := `
-		INSERT INTO templates (id, name, description, content, target, tags)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO templates (id, name, description, content, target, tags, is_public)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING created_at, updated_at
 	`
 
 	err := r.db.Pool.QueryRow(ctx, query,
-		tpl.ID, tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
+		tpl.ID, tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags, tpl.IsPublic,
 	).Scan(&tpl.CreatedAt, &tpl.UpdatedAt)
 
 	if err != nil {
@@ -53,7 +54,7 @@ func (r *TemplateRepo) Create(ctx context.Context, tpl *Template) error {
 // GetByName 根据名称获取模板
 func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, error) {
 	query := `
-		SELECT id, name, description, content, target, tags,
+		SELECT id, name, description, content, target, tags, is_public,
 		       created_at, updated_at
 		FROM templates
 		WHERE name = $1
@@ -67,6 +68,7 @@ func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, e
 		&tpl.Content,
 		&tpl.Target,
 		&tpl.Tags,
+		&tpl.IsPublic,
 		&tpl.CreatedAt,
 		&tpl.UpdatedAt,
 	)
@@ -84,7 +86,7 @@ func (r *TemplateRepo) GetByName(ctx context.Context, name string) (*Template, e
 // GetByID 根据 ID 获取模板
 func (r *TemplateRepo) GetByID(ctx context.Context, id int64) (*Template, error) {
 	query := `
-		SELECT id, name, description, content, target, tags,
+		SELECT id, name, description, content, target, tags, is_public,
 		       created_at, updated_at
 		FROM templates
 		WHERE id = $1
@@ -98,6 +100,7 @@ func (r *TemplateRepo) GetByID(ctx context.Context, id int64) (*Template, error)
 		&tpl.Content,
 		&tpl.Target,
 		&tpl.Tags,
+		&tpl.IsPublic,
 		&tpl.CreatedAt,
 		&tpl.UpdatedAt,
 	)
@@ -115,7 +118,7 @@ func (r *TemplateRepo) GetByID(ctx context.Context, id int64) (*Template, error)
 // List 列出所有模板
 func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 	query := `
-		SELECT id, name, description, content, target, tags,
+		SELECT id, name, description, content, target, tags, is_public,
 		       created_at, updated_at
 		FROM templates
 		ORDER BY created_at DESC
@@ -137,6 +140,7 @@ func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 			&tpl.Content,
 			&tpl.Target,
 			&tpl.Tags,
+			&tpl.IsPublic,
 			&tpl.CreatedAt,
 			&tpl.UpdatedAt,
 		)
@@ -148,6 +152,69 @@ func (r *TemplateRepo) List(ctx context.Context) ([]Template, error) {
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("遍历模板行失败: %w", err)
+	}
+
+	return tpls, nil
+}
+
+// GetPublicByID 获取公开模板（含内容，仅限 is_public = true）
+func (r *TemplateRepo) GetPublicByID(ctx context.Context, id int64) (*Template, error) {
+	query := `
+		SELECT id, name, description, content, target, tags, is_public,
+		       created_at, updated_at
+		FROM templates
+		WHERE id = $1 AND is_public = true
+	`
+
+	tpl := &Template{}
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&tpl.ID,
+		&tpl.Name,
+		&tpl.Description,
+		&tpl.Content,
+		&tpl.Target,
+		&tpl.Tags,
+		&tpl.IsPublic,
+		&tpl.CreatedAt,
+		&tpl.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("模板不存在或未公开: %d", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询公开模板失败: %w", err)
+	}
+
+	return tpl, nil
+}
+
+// ListPublic 列出所有公开模板（仅返回 id/name/target，不含模板内容）
+func (r *TemplateRepo) ListPublic(ctx context.Context) ([]Template, error) {
+	query := `
+		SELECT id, name, target
+		FROM templates
+		WHERE is_public = true
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("查询公开模板列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	tpls := []Template{}
+	for rows.Next() {
+		tpl := Template{}
+		if err := rows.Scan(&tpl.ID, &tpl.Name, &tpl.Target); err != nil {
+			return nil, fmt.Errorf("扫描公开模板行失败: %w", err)
+		}
+		tpls = append(tpls, tpl)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历公开模板行失败: %w", err)
 	}
 
 	return tpls, nil
@@ -171,13 +238,13 @@ func (r *TemplateRepo) Update(ctx context.Context, id int64, tpl *Template) erro
 
 	query := `
 		UPDATE templates
-		SET name = $2, description = $3, content = $4, target = $5, tags = $6
+		SET name = $2, description = $3, content = $4, target = $5, tags = $6, is_public = $7
 		WHERE id = $1
 		RETURNING updated_at
 	`
 
 	err = tx.QueryRow(ctx, query,
-		id, tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags,
+		id, tpl.Name, tpl.Description, tpl.Content, tpl.Target, tpl.Tags, tpl.IsPublic,
 	).Scan(&tpl.UpdatedAt)
 
 	if err == pgx.ErrNoRows {

@@ -46,6 +46,7 @@ CREATE TABLE templates (
     content TEXT NOT NULL,
     target VARCHAR(20) NOT NULL DEFAULT 'clash',
     tags TEXT[] DEFAULT '{}',
+    is_public BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT templates_target_check

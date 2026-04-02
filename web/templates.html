@@ -25,8 +25,7 @@
       const toastRoot = document.getElementById('templates-toast-root');
 
       const TARGET_OPTIONS = [
-        { value: 'clash', label: 'Clash', tone: 'blue' },
-        { value: 'clash_meta', label: 'Clash Meta', tone: 'blue' },
+        { value: 'clash-mihomo', label: 'Clash Mihomo', tone: 'blue' },
         { value: 'stash', label: 'Stash', tone: 'purple' },
         { value: 'surge', label: 'Surge', tone: 'orange' },
         { value: 'sing_box', label: 'sing-box', tone: 'cyan' },
@@ -71,7 +70,7 @@
       const YAML_BASE_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
 
       function defaultForm() {
-        return { name: '', target: 'clash', description: '', content: '' };
+        return { name: '', target: 'clash', description: '', content: '', is_public: false };
       }
 
       function request(url, options = {}) {
@@ -226,6 +225,7 @@
         state.form.name = modalRoot.querySelector('[name="name"][form="template-form"]')?.value || '';
         state.form.target = modalRoot.querySelector('[name="target"][form="template-form"]')?.value || 'clash';
         state.form.description = modalRoot.querySelector('[name="description"][form="template-form"]')?.value || '';
+        state.form.is_public = modalRoot.querySelector('[name="is_public"][form="template-form"]')?.checked ?? false;
       }
 
       function updateEditQuery() {
@@ -272,6 +272,7 @@
                 <div class="flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-rf-text">
                   <span>${escapeHtml(tpl.name)}</span>
                   ${toneBadge(meta.tone, meta.label)}
+                  ${tpl.is_public ? '<span class="inline-flex items-center gap-[3px] rounded border border-emerald-200 bg-emerald-50 px-[7px] py-[1px] text-[11px] font-medium text-emerald-700">公开</span>' : ''}
                 </div>
                 ${tpl.description ? `<div class="mt-1 text-[12.5px] leading-[1.5] text-rf-muted">${escapeHtml(tpl.description)}</div>` : ''}
                 <div class="mt-[7px] flex flex-wrap items-center gap-3 text-xs text-rf-subtle">
@@ -378,9 +379,16 @@
 
               <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50 px-4 pb-4 pt-[10px]">
                 ${state.showAdvanced ? `
-                  <div class="mb-[10px] rounded-rf border border-rf-border bg-white px-3 py-3">
-                    <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">描述 <span class="ml-1 text-[11px] font-normal text-rf-muted">可选</span></label>
-                    <textarea name="description" form="template-form" rows="2" placeholder="简要描述此模板的用途或适用场景..." class="min-h-[36px] w-full resize-none rounded-rf border border-rf-border bg-white px-[10px] py-[6px] text-[12.5px] leading-[1.35] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">${escapeHtml(state.form.description)}</textarea>
+                  <div class="mb-[10px] rounded-rf border border-rf-border bg-white px-3 py-3 flex flex-col gap-3">
+                    <div>
+                      <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">描述 <span class="ml-1 text-[11px] font-normal text-rf-muted">可选</span></label>
+                      <textarea name="description" form="template-form" rows="2" placeholder="简要描述此模板的用途或适用场景..." class="min-h-[36px] w-full resize-none rounded-rf border border-rf-border bg-white px-[10px] py-[6px] text-[12.5px] leading-[1.35] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">${escapeHtml(state.form.description)}</textarea>
+                    </div>
+                    <label class="flex cursor-pointer items-center gap-2.5 select-none">
+                      <input type="checkbox" name="is_public" form="template-form" ${state.form.is_public ? 'checked' : ''} class="h-[15px] w-[15px] rounded accent-[#18c865] cursor-pointer">
+                      <span class="text-[12.5px] font-medium text-rf-text">在订阅转换页公开此模板</span>
+                      <span class="text-[12px] text-rf-muted">开启后用户可在 /converter 页面选择此模板</span>
+                    </label>
                   </div>
                 ` : ''}
                 <div class="flex min-h-0 flex-1 flex-col">
@@ -666,9 +674,10 @@
         state.editItem = tpl;
         state.form = {
           name: tpl.name || '',
-          target: tpl.target || 'clash',
+          target: tpl.target || 'clash-mihomo',
           description: tpl.description || '',
           content: tpl.content || '',
+          is_public: tpl.is_public || false,
         };
         state.editorContent = tpl.content || '';
         state.validationResult = null;
