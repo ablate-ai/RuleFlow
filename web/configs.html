@@ -49,7 +49,7 @@
       function defaultForm() {
         return {
           name: '',
-          target: 'clash-meta',
+          target: 'clash-mihomo',
           subscription_ids: [],
           node_ids: [],
           template_name: '',
@@ -115,7 +115,7 @@
 
       function targetMeta(target) {
         const map = {
-          'clash-meta': ['Clash Meta', 'blue'],
+          'clash-mihomo': ['Clash Mihomo', 'blue'],
           stash: ['Stash', 'purple'],
           surge: ['Surge', 'orange'],
           'sing-box': ['sing-box', 'cyan'],
@@ -197,7 +197,7 @@
         const formEl = modalRoot.querySelector('form');
         if (!formEl) return;
         state.form.name = formEl.querySelector('[name="name"]')?.value || '';
-        state.form.target = formEl.querySelector('[name="target"]')?.value || 'clash-meta';
+        state.form.target = formEl.querySelector('[name="target"]')?.value || 'clash-mihomo';
         state.form.description = formEl.querySelector('[name="description"]')?.value || '';
         state.form.template_name = formEl.querySelector('[name="template_name"]')?.value || '';
         state.form.enabled = !!formEl.querySelector('[name="enabled"]')?.checked;
@@ -305,7 +305,7 @@
                     <div>
                       <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">目标类型</label>
                       <select name="target" class="w-full rounded-rf border border-rf-border bg-white px-[11px] py-[8px] text-[13.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
-                        <option value="clash-meta" ${state.form.target === 'clash-meta' ? 'selected' : ''}>Clash Meta</option>
+                        <option value="clash-mihomo" ${state.form.target === 'clash-mihomo' ? 'selected' : ''}>Clash Mihomo</option>
                         <option value="stash" ${state.form.target === 'stash' ? 'selected' : ''}>Stash</option>
                         <option value="surge" ${state.form.target === 'surge' ? 'selected' : ''}>Surge</option>
                         <option value="sing-box" ${state.form.target === 'sing-box' ? 'selected' : ''}>sing-box</option>
@@ -453,7 +453,7 @@
         state.editItem = policy;
         state.form = {
           name: policy.name || '',
-          target: policy.target || 'clash-meta',
+          target: policy.target || 'clash-mihomo',
           subscription_ids: (policy.subscription_ids || []).map(Number).filter((id) => validSubIDs.has(id)),
           node_ids: (policy.node_ids || []).map(Number).filter((id) => validNodeIDs.has(id)),
           template_name: policy.template_name || '',

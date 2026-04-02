@@ -120,7 +120,7 @@ func summarizeLintWarnings(warnings []string) map[string]int {
 
 func collectLintInputs(target, configContent string) ([]lintRule, []ruleSetReference, []string) {
 	switch target {
-	case "clash-meta", "stash":
+	case "clash-mihomo", "stash":
 		return collectYAMLLintInputs(configContent)
 	case "surge":
 		return collectSurgeLintInputs(configContent)

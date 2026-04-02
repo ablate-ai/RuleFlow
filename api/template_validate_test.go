@@ -19,8 +19,8 @@ func TestResolveConfigTargetForTemplateValidation(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "clash", target: "clash", want: "clash-meta"},
-		{name: "clash_meta", target: "clash_meta", want: "clash-meta"},
+		{name: "clash", target: "clash", want: "clash-mihomo"},
+		{name: "clash-mihomo", target: "clash-mihomo", want: "clash-mihomo"},
 		{name: "stash", target: "stash", want: "stash"},
 		{name: "surge", target: "surge", want: "surge"},
 		{name: "sing_box", target: "sing_box", want: "sing-box"},

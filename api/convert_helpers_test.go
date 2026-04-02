@@ -13,9 +13,9 @@ func TestResolveConfigTarget(t *testing.T) {
 		want     string
 		wantErr  bool
 	}{
-		{name: "默认 clash meta", want: "clash-meta"},
-		{name: "显式 clash", raw: "clash", want: "clash-meta"},
-		{name: "显式 clash_meta", raw: "clash_meta", want: "clash-meta"},
+		{name: "默认 clash meta", want: "clash-mihomo"},
+		{name: "显式 clash", raw: "clash", want: "clash-mihomo"},
+		{name: "显式 clash-mihomo", raw: "clash-mihomo", want: "clash-mihomo"},
 		{name: "显式 stash", raw: "stash", want: "stash"},
 		{name: "显式 surge", raw: "surge", want: "surge"},
 		{name: "显式 sing_box", raw: "sing_box", want: "sing-box"},

@@ -12,7 +12,7 @@ func TestConfigResponseMetaForTarget(t *testing.T) {
 		wantFilename    string
 		wantContentType string
 	}{
-		{target: "clash-meta", wantFilename: "clash_meta_config.yaml", wantContentType: "text/yaml; charset=utf-8"},
+		{target: "clash-mihomo", wantFilename: "clash-mihomo_config.yaml", wantContentType: "text/yaml; charset=utf-8"},
 		{target: "stash", wantFilename: "stash_config.yaml", wantContentType: "text/yaml; charset=utf-8"},
 		{target: "surge", wantFilename: "surge_config.conf", wantContentType: "text/plain; charset=utf-8"},
 		{target: "sing-box", wantFilename: "sing_box_config.json", wantContentType: "application/json; charset=utf-8"},

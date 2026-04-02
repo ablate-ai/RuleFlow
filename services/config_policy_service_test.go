@@ -35,7 +35,7 @@ func TestSanitizeExistingIDsEmptyResultReturnsEmptySlice(t *testing.T) {
 func TestValidateConfigAfterSanitize(t *testing.T) {
 	policy := &database.ConfigPolicy{
 		Name:            "demo",
-		Target:          "clash-meta",
+		Target:          "clash-mihomo",
 		SubscriptionIDs: sanitizeExistingIDs([]int64{10, 11}, func(int64) bool { return false }),
 		NodeIDs:         sanitizeExistingIDs([]int64{20}, func(int64) bool { return false }),
 	}

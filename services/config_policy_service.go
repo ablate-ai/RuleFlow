@@ -40,7 +40,7 @@ func (s *ConfigPolicyService) Create(ctx context.Context, policy *database.Confi
 	}
 
 	// 验证目标类型
-	if policy.Target != "clash-meta" && policy.Target != "stash" && policy.Target != "surge" && policy.Target != "sing-box" {
+	if policy.Target != "clash-mihomo" && policy.Target != "stash" && policy.Target != "surge" && policy.Target != "sing-box" {
 		return fmt.Errorf("不支持的目标类型: %s", policy.Target)
 	}
 
@@ -75,7 +75,7 @@ func (s *ConfigPolicyService) Update(ctx context.Context, policy *database.Confi
 	}
 
 	// 验证目标类型
-	if policy.Target != "clash-meta" && policy.Target != "stash" && policy.Target != "surge" && policy.Target != "sing-box" {
+	if policy.Target != "clash-mihomo" && policy.Target != "stash" && policy.Target != "surge" && policy.Target != "sing-box" {
 		return fmt.Errorf("不支持的目标类型: %s", policy.Target)
 	}
 
@@ -144,8 +144,8 @@ func (s *ConfigPolicyService) ValidateConfig(policy *database.ConfigPolicy) erro
 	}
 
 	// 验证目标类型
-	if policy.Target != "clash-meta" && policy.Target != "stash" && policy.Target != "surge" && policy.Target != "sing-box" {
-		return fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash, surge, sing-box)", policy.Target)
+	if policy.Target != "clash-mihomo" && policy.Target != "stash" && policy.Target != "surge" && policy.Target != "sing-box" {
+		return fmt.Errorf("不支持的目标类型: %s (支持: clash-mihomo, stash, surge, sing-box)", policy.Target)
 	}
 
 	return nil

@@ -153,7 +153,7 @@ func adaptProxyGroupsForTarget(groups []interface{}, target string) {
 				groupMap["benchmark-url"] = url
 				delete(groupMap, "url")
 			}
-		case "clash-meta":
+		case "clash-mihomo":
 			if benchmarkURL, exists := groupMap["benchmark-url"]; exists {
 				groupMap["url"] = benchmarkURL
 				delete(groupMap, "benchmark-url")
@@ -307,8 +307,8 @@ func adaptTemplateProxyGroups(raw interface{}, nodeNames []string) ([]interface{
 
 // BuildYAMLFromTemplateContent 从模板内容（字符串）构建 YAML 配置
 func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, target string) (string, error) {
-	if target != "clash-meta" && target != "stash" {
-		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash)", target)
+	if target != "clash-mihomo" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-mihomo, stash)", target)
 	}
 
 	// 用 yaml.Node 解析，保留原始格式（含引号风格）
@@ -386,8 +386,8 @@ func BuildYAMLFromTemplateContent(nodes []*ProxyNode, templateContent string, ta
 	return string(yamlData), nil
 }
 func BuildYAMLFromDefaultTemplate(nodes []*ProxyNode, target string) (string, error) {
-	if target != "clash-meta" && target != "stash" {
-		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-meta, stash)", target)
+	if target != "clash-mihomo" && target != "stash" {
+		return "", fmt.Errorf("不支持的目标类型: %s (支持: clash-mihomo, stash)", target)
 	}
 
 	cfg := map[string]interface{}{}

@@ -39,7 +39,7 @@ rules: []
 		},
 	}
 
-	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-meta")
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-mihomo")
 	if err != nil {
 		t.Fatalf("YAML filter 负向前瞻生成失败: %v", err)
 	}
@@ -92,7 +92,7 @@ rules: []
 		},
 	}
 
-	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-meta")
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-mihomo")
 	if err != nil {
 		t.Fatalf("生成 Clash Meta 配置失败: %v", err)
 	}
@@ -129,7 +129,7 @@ rules:
 		},
 	}
 
-	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-meta")
+	config, err := BuildYAMLFromTemplateContent(nodes, templateContent, "clash-mihomo")
 	if err != nil {
 		t.Fatalf("生成 Clash Meta 配置失败: %v", err)
 	}
