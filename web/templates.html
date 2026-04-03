@@ -225,7 +225,8 @@
         state.form.name = modalRoot.querySelector('[name="name"][form="template-form"]')?.value || '';
         state.form.target = modalRoot.querySelector('[name="target"][form="template-form"]')?.value || 'clash';
         state.form.description = modalRoot.querySelector('[name="description"][form="template-form"]')?.value || '';
-        state.form.is_public = modalRoot.querySelector('[name="is_public"][form="template-form"]')?.checked ?? false;
+        const isPublicEl = modalRoot.querySelector('[name="is_public"][form="template-form"]');
+        if (isPublicEl) state.form.is_public = isPublicEl.checked;
       }
 
       function updateEditQuery() {
