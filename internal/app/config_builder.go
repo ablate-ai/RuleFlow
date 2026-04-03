@@ -84,13 +84,21 @@ func flattenWireGuardProxyForStash(proxy Proxy) Proxy {
 }
 
 func proxyPayloadForTarget(proxies []Proxy, target string) interface{} {
-	if target != "stash" {
-		return proxies
-	}
-
 	adapted := make([]Proxy, 0, len(proxies))
 	for _, proxy := range proxies {
-		adapted = append(adapted, flattenWireGuardProxyForStash(proxy))
+		switch target {
+		case "stash":
+			adapted = append(adapted, flattenWireGuardProxyForStash(proxy))
+		case "clash-mihomo":
+			// Clash Mihomo VLESS 使用 servername 字段，Stash 使用 sni
+			if proxy.Type == "vless" && proxy.SNI != "" {
+				proxy.Servername = proxy.SNI
+				proxy.SNI = ""
+			}
+			adapted = append(adapted, proxy)
+		default:
+			adapted = append(adapted, proxy)
+		}
 	}
 	return adapted
 }

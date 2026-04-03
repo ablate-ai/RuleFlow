@@ -38,6 +38,7 @@ type Proxy struct {
 	Flow                     string          `yaml:"flow,omitempty"`
 	TLS                      bool            `yaml:"tls,omitempty"`
 	Alpn                     []string        `yaml:"alpn,omitempty"`
+	Servername               string          `yaml:"servername,omitempty"` // Clash Mihomo VLESS 使用 servername，Stash 使用 sni
 	Fingerprint              string          `yaml:"client-fingerprint,omitempty"`
 	Reality                  *RealityCfg     `yaml:"reality-opts,omitempty"`
 	WSOpts                   *WSOpts         `yaml:"ws-opts,omitempty"`
