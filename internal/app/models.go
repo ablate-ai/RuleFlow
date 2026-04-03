@@ -531,7 +531,8 @@ func mergeFlatTLSFields(tlsObj *TLSOptions, opts map[string]interface{}) {
 	if tlsObj == nil {
 		return
 	}
-	if serverName, ok := stringOption(opts, "sni", "server_name", "server-name"); ok && serverName != "" && tlsObj.ServerName == "" {
+	// servername 是 Clash YAML 格式的 VLESS SNI 字段名
+	if serverName, ok := stringOption(opts, "sni", "server_name", "server-name", "servername"); ok && serverName != "" && tlsObj.ServerName == "" {
 		tlsObj.ServerName = serverName
 	}
 	if insecure, ok := boolOption(opts, "skip-cert-verify", "insecure"); ok {
@@ -553,6 +554,15 @@ func mergeFlatTLSFields(tlsObj *TLSOptions, opts map[string]interface{}) {
 	if tlsObj.Reality == nil {
 		publicKey, _ := stringOption(opts, "pbk", "public-key")
 		shortID, _ := stringOption(opts, "sid", "short-id")
+		// 兼容 Clash YAML 的 reality-opts 嵌套格式（订阅二次转换场景）
+		if realityOpts, ok := nestedMapOption(opts, "reality-opts"); ok {
+			if pk, ok := stringOption(realityOpts, "public-key"); ok && publicKey == "" {
+				publicKey = pk
+			}
+			if si, ok := stringOption(realityOpts, "short-id"); ok && shortID == "" {
+				shortID = si
+			}
+		}
 		if publicKey != "" || shortID != "" {
 			tlsObj.Enabled = true
 			tlsObj.Reality = &RealityConfig{
