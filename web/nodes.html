@@ -175,6 +175,66 @@
         return node.source_id == null ? '手动添加' : (node.source_name || '订阅节点');
       }
 
+      function generateNodeUrl(node) {
+        const cfg = node.config || {};
+        const name = encodeURIComponent(node.name || node.server || '');
+
+        switch (node.protocol) {
+          case 'ss': {
+            const cipher = cfg.cipher || 'aes-256-gcm';
+            const password = cfg.password || '';
+            // 使用标准 ss:// 格式：ss://BASE64(method:password)@server:port#name
+            const userinfo = btoa(unescape(encodeURIComponent(cipher + ':' + password)));
+            return `ss://${userinfo}@${node.server}:${node.port}#${name}`;
+          }
+          case 'trojan': {
+            const password = encodeURIComponent(cfg.password || '');
+            return `trojan://${password}@${node.server}:${node.port}#${name}`;
+          }
+          case 'vless': {
+            const uuid = cfg.uuid || '';
+            return `vless://${uuid}@${node.server}:${node.port}#${name}`;
+          }
+          case 'vmess': {
+            const vmessObj = {
+              v: '2', ps: node.name || '', add: node.server || '',
+              port: String(node.port || 443), id: cfg.uuid || '',
+              aid: '0', net: 'tcp', type: 'none', host: '', path: '', tls: '',
+            };
+            return `vmess://${btoa(unescape(encodeURIComponent(JSON.stringify(vmessObj))))}`;
+          }
+          case 'hysteria2': {
+            const password = encodeURIComponent(cfg.password || '');
+            return `hysteria2://${password}@${node.server}:${node.port}#${name}`;
+          }
+          case 'tuic': {
+            const uuid = cfg.uuid || '';
+            const password = encodeURIComponent(cfg.password || '');
+            return `tuic://${uuid}:${password}@${node.server}:${node.port}#${name}`;
+          }
+          case 'anytls': {
+            const password = encodeURIComponent(cfg.password || '');
+            return `anytls://${password}@${node.server}:${node.port}#${name}`;
+          }
+          default:
+            return null;
+        }
+      }
+
+      async function copyNodeUrl(node) {
+        const url = generateNodeUrl(node);
+        if (!url) {
+          addToast('该协议暂不支持导出链接（' + node.protocol + '）', 'err');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(url);
+          addToast('节点链接已复制');
+        } catch (err) {
+          addToast('复制失败: ' + err.message, 'err');
+        }
+      }
+
       function renderSourceOptions() {
         const options = ['<option value="">所有来源</option>', `<option value="manual" ${state.filter.source === 'manual' ? 'selected' : ''}>手动添加</option>`];
         state.subscriptions.forEach((sub) => {
@@ -352,6 +412,7 @@
                       </td>
                       <td class="border-b border-rf-border px-[14px] py-[11px] align-middle last:border-b-0">
                         <div class="flex items-center gap-1">
+                          ${generateNodeUrl(node) !== null ? `<button type="button" data-action="copy-url" data-id="${node.id}" class="inline-flex items-center rounded-[12px] border-none bg-transparent p-2 text-rf-muted transition hover:bg-emerald-50 hover:text-emerald-600" title="复制节点链接">${icons.link}</button>` : ''}
                           <button type="button" data-action="edit" data-id="${node.id}" class="inline-flex items-center rounded-[12px] border-none bg-transparent p-2 text-rf-muted transition hover:bg-blue-50 hover:text-blue-500" title="编辑节点">
                             ${icons.edit}
                           </button>
@@ -693,6 +754,7 @@
         if (action === 'create-share') openCreate('share');
         if (action === 'create-wireguard') openCreate('wireguard');
         if (action === 'edit' && node) openEdit(node);
+        if (action === 'copy-url' && node) await copyNodeUrl(node);
         if (action === 'delete' && node) openDelete(node);
         if (action === 'batch-enable') await handleBatch('enable');
         if (action === 'batch-disable') await handleBatch('disable');
@@ -769,6 +831,7 @@
         trash: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>',
         batch: '<svg class="h-[14px] w-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
         serverBig: '<svg class="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"></rect><rect x="2" y="14" width="20" height="7" rx="2"></rect><path d="M6 6h.01"></path><path d="M6 17h.01"></path></svg>',
+        link: '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>',
       };
 
       renderAll();
