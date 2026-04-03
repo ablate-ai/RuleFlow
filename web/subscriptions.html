@@ -224,9 +224,11 @@
                     ${icons.linkMini}${escapeHtml(sub.url)}
                   </button>
                   ${userInfo ? `
-                    <span class="flex items-center gap-[3px] text-blue-500 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.uploadMini}已用 ${formatGiB(used)}</span>
-                    <span class="flex items-center gap-[3px] text-emerald-600 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.plusCircleMini}剩余 ${formatGiB(remaining)}</span>
-                    ${userInfo.expire ? `<span class="flex items-center gap-[3px] text-orange-500 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.calendarMini}${escapeHtml(formatExpire(userInfo.expire))}</span>` : ''}
+                    <span class="flex items-center gap-x-3 gap-y-1 flex-wrap">
+                      <span class="flex items-center gap-[3px] whitespace-nowrap text-blue-500 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.uploadMini}已用 ${formatGiB(used)}</span>
+                      <span class="flex items-center gap-[3px] whitespace-nowrap text-emerald-600 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.plusCircleMini}剩余 ${formatGiB(remaining)}</span>
+                      ${userInfo.expire ? `<span class="flex items-center gap-[3px] whitespace-nowrap text-orange-500 [&_svg]:h-[11px] [&_svg]:w-[11px] [&_svg]:shrink-0">${icons.calendarMini}${escapeHtml(formatExpire(userInfo.expire))}</span>` : ''}
+                    </span>
                   ` : ''}
                 </div>
               </div>
