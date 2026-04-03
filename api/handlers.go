@@ -1291,10 +1291,12 @@ func (h *Handlers) GenerateConfig(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// 生成配置
-	target := policy.Target
-	if target == "" {
-		target = "clash-mihomo"
+	// 生成配置，规范化 target（兼容数据库中旧的 clash-meta 等值）
+	target, err := resolveConfigTarget(policy.Target, "clash-mihomo")
+	if err != nil {
+		h.recordConfigAccess(r, policy, token, http.StatusInternalServerError, false, false, nil, "配置策略目标类型无效: "+err.Error())
+		http.Error(w, "配置策略目标类型无效: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 	configContent, err := buildConfigContent(r, proxyNodes, templateContent, target)
 	if err != nil {
@@ -1466,9 +1468,9 @@ func configResponseMetaForTarget(target string) configResponseMeta {
 	case "sing-box":
 		return configResponseMeta{filename: "sing_box_config.json", contentType: "application/json; charset=utf-8"}
 	case "clash-mihomo":
-		return configResponseMeta{filename: "clash_mihomo_config.yaml", contentType: "text/yaml; charset=utf-8"}
+		return configResponseMeta{filename: "clash-mihomo_config.yaml", contentType: "text/yaml; charset=utf-8"}
 	default:
-		return configResponseMeta{filename: "clash_mihomo_config.yaml", contentType: "text/yaml; charset=utf-8"}
+		return configResponseMeta{filename: "clash-mihomo_config.yaml", contentType: "text/yaml; charset=utf-8"}
 	}
 }
 
