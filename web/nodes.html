@@ -647,8 +647,8 @@
         if (node.protocol !== 'wireguard') {
           try {
             const res = await get('/api/nodes/' + node.id + '/share');
-            if (res && res.share_url) {
-              state.form.shareUrl = res.share_url;
+            if (res && res.data && res.data.share_url) {
+              state.form.shareUrl = res.data.share_url;
               renderModal();
             }
           } catch (_) {
