@@ -1,42 +1,42 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --sw: 276px;
-  --shell-pad: 22px;
-  --shell-gap: 20px;
-  --bg: #eef2f7;
-  --bg-soft: rgba(255, 255, 255, 0.72);
-  --bg-strong: rgba(255, 255, 255, 0.92);
-  --card: rgba(255, 255, 255, 0.78);
-  --card-solid: #ffffff;
-  --bdr: rgba(15, 23, 42, 0.08);
-  --bdr-strong: rgba(15, 23, 42, 0.13);
-  --t1: #101828;
-  --t2: #475467;
-  --t3: #667085;
-  --t4: #98a2b3;
-  --grn: #12b76a;
-  --grnd: #079455;
-  --grnbg: rgba(18, 183, 106, 0.12);
-  --red: #f04438;
-  --redbg: rgba(240, 68, 56, 0.12);
-  --blu: #2e90fa;
-  --blubg: rgba(46, 144, 250, 0.14);
-  --org: #f79009;
-  --orgbg: rgba(247, 144, 9, 0.14);
-  --pur: #7a5af8;
-  --purbg: rgba(122, 90, 248, 0.14);
-  --cyn: #06aed4;
-  --cynbg: rgba(6, 174, 212, 0.14);
-  --ylw: #fdb022;
-  --ylwbg: rgba(253, 176, 34, 0.16);
-  --sh1: 0 10px 30px rgba(15, 23, 42, 0.06);
-  --sh2: 0 24px 48px rgba(15, 23, 42, 0.1);
-  --sh3: 0 32px 64px rgba(15, 23, 42, 0.14);
-  --rs: 10px;
-  --rm: 14px;
-  --rl: 18px;
-  --rxl: 28px;
+  --sw: 240px;
+  --shell-pad: 20px;
+  --shell-gap: 16px;
+  --bg: #030712;
+  --bg-soft: rgba(17, 24, 39, 0.95);
+  --bg-strong: rgba(17, 24, 39, 1);
+  --card: #111827;
+  --card-solid: #111827;
+  --bdr: #1f2937;
+  --bdr-strong: #374151;
+  --t1: #f3f4f6;
+  --t2: #9ca3af;
+  --t3: #6b7280;
+  --t4: #4b5563;
+  --grn: #6366f1;
+  --grnd: #4f46e5;
+  --grnbg: rgba(99, 102, 241, 0.2);
+  --red: #ef4444;
+  --redbg: rgba(239, 68, 68, 0.15);
+  --blu: #3b82f6;
+  --blubg: rgba(59, 130, 246, 0.15);
+  --org: #f59e0b;
+  --orgbg: rgba(245, 158, 11, 0.15);
+  --pur: #8b5cf6;
+  --purbg: rgba(139, 92, 246, 0.15);
+  --cyn: #06b6d4;
+  --cynbg: rgba(6, 182, 212, 0.15);
+  --ylw: #fbbf24;
+  --ylwbg: rgba(251, 191, 36, 0.15);
+  --sh1: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --sh2: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --sh3: 0 20px 60px rgba(0, 0, 0, 0.5);
+  --rs: 8px;
+  --rm: 10px;
+  --rl: 12px;
+  --rxl: 14px;
   --rf: 9999px;
 }
 
@@ -47,7 +47,7 @@ body {
   font-family: "SF Pro Display", "SF Pro Text", "Segoe UI Variable", "Inter", "PingFang SC", "Hiragino Sans GB", sans-serif;
   color: var(--t1);
   line-height: 1.5;
-  background: #eef2f7;
+  background: #030712;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -77,11 +77,9 @@ input, textarea, select {
   align-self: flex-start;
   width: var(--sw);
   max-height: calc(100vh - (var(--shell-pad) * 2));
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  box-shadow: var(--sh2);
-  backdrop-filter: blur(22px) saturate(160%);
-  border-radius: 30px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -99,44 +97,45 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 22px 22px 18px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid #1f2937;
 }
 
 .sb-logo {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
   flex-shrink: 0;
 }
 
 .sb-logo img { width: 100%; height: 100%; display: block; }
 
 .sb-name {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  color: #f3f4f6;
+  letter-spacing: -0.02em;
 }
 
 .sb-sub {
   margin-top: 1px;
-  font-size: 12px;
-  color: var(--t3);
+  font-size: 11px;
+  color: var(--t4);
 }
 
 .sb-nav {
   flex: 1;
-  padding: 8px 14px 14px;
+  padding: 8px 10px 10px;
   overflow-y: auto;
 }
 
 .sb-actions {
-  padding: 0 14px 14px;
+  padding: 0 10px 10px;
 }
 
 .sb-sec {
-  padding: 10px 10px 8px;
+  padding: 10px 8px 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -147,15 +146,15 @@ input, textarea, select {
 .nav-lnk {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   width: 100%;
-  padding: 11px 12px;
-  border-radius: 18px;
+  padding: 8px 10px;
+  border-radius: 8px;
   color: var(--t2);
   text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-  transition: transform .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background .15s ease, color .15s ease;
 }
 
 .nav-lnk svg {
@@ -165,25 +164,21 @@ input, textarea, select {
 }
 
 .nav-lnk:hover {
-  color: var(--t1);
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+  color: #e5e7eb;
+  background: rgba(55, 65, 81, 0.5);
 }
 
 .nav-lnk.active {
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    0 12px 24px rgba(15, 23, 42, 0.08),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.2);
 }
 
-.nav-lnk.active svg { color: var(--grn); }
+.nav-lnk.active svg { color: #818cf8; }
 
 .sb-foot {
   margin-top: auto;
-  padding: 16px 18px 18px;
-  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 14px 16px 16px;
+  border-top: 1px solid #1f2937;
 }
 
 .sb-meta {
@@ -191,25 +186,25 @@ input, textarea, select {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .sb-ftxt {
-  font-size: 12px;
-  color: var(--t3);
+  font-size: 11px;
+  color: var(--t4);
 }
 
 .sb-gh {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--t2);
+  gap: 5px;
+  color: var(--t3);
   text-decoration: none;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
 }
 
-.sb-gh:hover { color: var(--t1); }
+.sb-gh:hover { color: var(--t2); }
 
 .sb-gh svg {
   width: 13px;
@@ -223,19 +218,18 @@ input, textarea, select {
   gap: 7px;
   width: 100%;
   justify-content: center;
-  padding: 10px 14px;
-  border-radius: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
   text-decoration: none;
   font-size: 13px;
-  font-weight: 600;
-  color: #b42318;
-  background: rgba(240, 68, 56, 0.08);
-  transition: background .18s ease, transform .18s ease;
+  font-weight: 500;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  transition: background .15s ease;
 }
 
 .sb-logout:hover {
-  background: rgba(240, 68, 56, 0.13);
-  transform: translateY(-1px);
+  background: rgba(239, 68, 68, 0.18);
 }
 
 .shell-topbar {
@@ -246,12 +240,12 @@ input, textarea, select {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  box-shadow: var(--sh1);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  color: #9ca3af;
 }
 
 .shell-mobile-toggle svg { width: 18px; height: 18px; }
@@ -260,70 +254,62 @@ input, textarea, select {
   position: relative;
   flex: 1;
   min-height: 0;
-  padding: 18px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  box-shadow: var(--sh3);
-  backdrop-filter: blur(28px) saturate(160%);
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.5);
+  border: 1px solid #1f2937;
   overflow: hidden;
-}
-
-.shell-stage::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.12);
-  pointer-events: none;
 }
 
 #app-content {
   position: relative;
-  z-index: 1;
 }
 
 #app-content > section > header {
   margin-bottom: 4px;
 }
 
+/* 所有按钮统一圆角 */
 #app-content > section > header button,
 #app-content > section > header a,
 #app-content [data-modal-card="true"] button,
 #app-content [data-delete-card="true"] button,
 #app-content [id$="-modal-root"] button,
 #app-content [id$="-delete-root"] button {
-  border-radius: 16px !important;
-  font-weight: 600 !important;
-  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: background .15s ease, border-color .15s ease, color .15s ease !important;
 }
 
+/* 次要/outline 按钮 */
 #app-content > section > header button[class*="border-rf-border"][class*="bg-white"],
 #app-content > section > header a[class*="border-rf-border"][class*="bg-white"],
 #app-content [id$="-modal-root"] button[class*="border-rf-border"][class*="bg-white"],
 #app-content [id$="-delete-root"] button[class*="border-rf-border"][class*="bg-white"] {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border-color: var(--bdr) !important;
-  color: var(--t1) !important;
-  box-shadow: var(--sh1);
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #e5e7eb !important;
+  box-shadow: none !important;
 }
 
 #app-content > section > header button[class*="border-rf-border"][class*="bg-white"]:hover,
 #app-content > section > header a[class*="border-rf-border"][class*="bg-white"]:hover,
 #app-content [id$="-modal-root"] button[class*="border-rf-border"][class*="bg-white"]:hover,
 #app-content [id$="-delete-root"] button[class*="border-rf-border"][class*="bg-white"]:hover {
-  background: rgba(255, 255, 255, 0.96) !important;
-  transform: translateY(-1px);
+  background: #374151 !important;
+  transform: none;
 }
 
+/* 主要按钮（原绿色 → indigo） */
 #app-content > section > header button[class*="bg-[#18c865]"],
 #app-content > section > header a[class*="bg-[#18c865]"],
 #app-content [id$="-modal-root"] button[class*="bg-[#18c865]"],
 #app-content [id$="-delete-root"] button[class*="bg-[#18c865]"],
 #app-content button[class*="bg-[#18c865]"] {
-  background: #12b76a !important;
-  border-color: #12b76a !important;
+  background: #6366f1 !important;
+  border-color: #6366f1 !important;
   color: #fff !important;
-  box-shadow: 0 16px 30px rgba(18, 183, 106, 0.18);
+  box-shadow: none !important;
 }
 
 #app-content > section > header button[class*="bg-[#18c865]"]:hover,
@@ -331,25 +317,27 @@ input, textarea, select {
 #app-content [id$="-modal-root"] button[class*="bg-[#18c865]"]:hover,
 #app-content [id$="-delete-root"] button[class*="bg-[#18c865]"]:hover,
 #app-content button[class*="bg-[#18c865]"]:hover {
-  background: #079455 !important;
-  border-color: #079455 !important;
-  transform: translateY(-1px);
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  transform: none;
 }
 
+/* 卡片圆角 */
 #app-content article[class*="rounded-rf"],
 #app-content section[class*="rounded-rf"],
 #app-content div[class*="rounded-rf-lg"][class*="bg-white"],
 #app-content div[class*="rounded-rf-xl"][class*="bg-white"] {
-  border-radius: 22px !important;
+  border-radius: 10px !important;
 }
 
+/* 白色卡片 → 深色卡片 */
 #app-content article[class*="border-rf-border"][class*="bg-white"],
 #app-content section[class*="border-rf-border"][class*="bg-white"],
 #app-content div[class*="border-rf-border"][class*="bg-white"] {
-  background: rgba(255, 255, 255, 0.84) !important;
-  border-color: var(--bdr) !important;
+  background: #111827 !important;
+  border-color: #1f2937 !important;
   box-shadow: var(--sh1) !important;
-  backdrop-filter: blur(16px);
+  backdrop-filter: none !important;
 }
 
 #app-content article[class*="border-rf-border"][class*="bg-white"]:hover,
@@ -357,70 +345,80 @@ input, textarea, select {
   box-shadow: var(--sh2) !important;
 }
 
+/* 表单控件 */
 #app-content input[class*="border-rf-border"],
 #app-content textarea[class*="border-rf-border"],
 #app-content select[class*="border-rf-border"] {
-  border-radius: 16px !important;
-  border-color: var(--bdr) !important;
-  background: rgba(255, 255, 255, 0.9) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-radius: 8px !important;
+  border-color: #374151 !important;
+  background: #1f2937 !important;
+  color: #f3f4f6 !important;
+  box-shadow: none !important;
+}
+
+#app-content input[class*="border-rf-border"]::placeholder,
+#app-content textarea[class*="border-rf-border"]::placeholder {
+  color: #6b7280 !important;
 }
 
 #app-content input[class*="border-rf-border"]:focus,
 #app-content textarea[class*="border-rf-border"]:focus,
 #app-content select[class*="border-rf-border"]:focus {
-  border-color: rgba(18, 183, 106, 0.45) !important;
-  box-shadow:
-    0 0 0 4px rgba(18, 183, 106, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+  outline: none !important;
 }
 
+/* Modal 遮罩 */
 #app-content [id$="-modal-root"] > div,
 #app-content [id$="-delete-root"] > div {
   backdrop-filter: blur(4px);
 }
 
+/* Modal 卡片 */
 #app-content [data-modal-card="true"],
 #app-content [data-delete-card="true"],
 #app-content [id$="-modal-root"] .rounded-rf-xl.bg-white,
 #app-content [id$="-delete-root"] .rounded-rf-xl.bg-white {
-  border-radius: 28px !important;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.9) !important;
-  backdrop-filter: blur(24px);
+  border-radius: 12px !important;
+  border: 1px solid #1f2937 !important;
+  background: #111827 !important;
+  backdrop-filter: none !important;
   box-shadow: var(--sh3) !important;
 }
 
+/* Toggle 开关 */
 .tg { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
 .tg input { display: none; }
 .tg-tr {
-  width: 38px;
-  height: 22px;
-  background: rgba(15, 23, 42, 0.08);
+  width: 36px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 99px;
   position: relative;
   transition: background .2s;
   flex-shrink: 0;
 }
-.tg input:checked + .tg-tr { background: rgba(18, 183, 106, 0.28); }
+.tg input:checked + .tg-tr { background: rgba(99, 102, 241, 0.5); }
 .tg-th {
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   width: 16px;
   height: 16px;
   background: #fff;
   border-radius: 50%;
   transition: transform .2s;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 .tg input:checked + .tg-tr .tg-th { transform: translateX(16px); }
 .tg-lb { font-size: 13px; color: var(--t1); user-select: none; }
 
+/* Toast 容器 */
 .tc {
   position: fixed;
-  bottom: 22px;
-  left: 22px;
+  bottom: 20px;
+  left: 20px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -434,19 +432,17 @@ input, textarea, select {
   gap: 9px;
   min-width: 260px;
   max-width: 380px;
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 10px 14px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 600;
-  box-shadow: var(--sh2);
-  backdrop-filter: blur(18px);
+  font-weight: 500;
   pointer-events: auto;
-  animation: si .28s ease;
+  animation: si .22s ease;
 }
 
 .toast svg { flex-shrink: 0; }
-.t-ok { background: rgba(236, 253, 243, 0.92); color: #067647; border: 1px solid rgba(18, 183, 106, 0.18); }
-.t-err { background: rgba(254, 243, 242, 0.94); color: #b42318; border: 1px solid rgba(240, 68, 56, 0.18); }
+.t-ok { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+.t-err { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .shell-overlay {
   display: none;
@@ -454,8 +450,8 @@ input, textarea, select {
 
 @media (max-width: 980px) {
   :root {
-    --shell-pad: 16px;
-    --shell-gap: 16px;
+    --shell-pad: 14px;
+    --shell-gap: 14px;
   }
 
   .app {
@@ -465,15 +461,16 @@ input, textarea, select {
 
   .sidebar {
     position: fixed;
-    top: 16px;
-    left: 16px;
-    bottom: 16px;
-    width: min(84vw, 320px);
+    top: 14px;
+    left: 14px;
+    bottom: 14px;
+    width: min(84vw, 300px);
     max-height: none;
     overflow-y: auto;
     overflow-x: hidden;
     transform: translateX(calc(-100% - 24px));
-    transition: transform .24s ease;
+    transition: transform .22s ease;
+    border-radius: 12px;
   }
 
   .sb-nav {
@@ -495,13 +492,13 @@ input, textarea, select {
     padding: 2px 0 10px;
   }
   .shell-mobile-toggle { display: inline-flex; }
-  .shell-stage { padding: 14px; border-radius: 22px; }
+  .shell-stage { padding: 12px; border-radius: 10px; }
   .shell-overlay {
     position: fixed;
     inset: 0;
     display: block;
-    background: rgba(15, 23, 42, 0.28);
-    backdrop-filter: blur(6px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
     opacity: 0;
     pointer-events: none;
     transition: opacity .2s ease;
@@ -514,10 +511,300 @@ input, textarea, select {
 }
 
 @media (max-width: 640px) {
-  .shell-topbar { padding-bottom: 10px; }
+  .shell-topbar { padding-bottom: 8px; }
 }
 
 @keyframes si {
-  from { transform: translateY(10px); opacity: 0; }
+  from { transform: translateY(8px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── 深色主题全局覆盖：白色/浅色背景 ── */
+
+/* bg-white → gray-900 */
+#app-content .bg-white {
+  background-color: #111827 !important;
+}
+
+/* bg-white/* 透明变体 → gray-900 半透明 */
+#app-content .bg-white\/70,
+#app-content .bg-white\/72,
+#app-content .bg-white\/78,
+#app-content .bg-white\/80,
+#app-content .bg-white\/82,
+#app-content .bg-white\/84,
+#app-content .bg-white\/85,
+#app-content .bg-white\/86,
+#app-content .bg-white\/88,
+#app-content .bg-white\/90,
+#app-content .bg-white\/92,
+#app-content .bg-white\/95 {
+  background-color: rgba(17, 24, 39, 0.9) !important;
+}
+
+/* bg-slate-50 / bg-gray-50 → gray-800 */
+#app-content .bg-slate-50,
+#app-content .bg-slate-100,
+#app-content .bg-gray-50,
+#app-content .bg-gray-100,
+#app-content .bg-zinc-50 {
+  background-color: #1f2937 !important;
+}
+
+/* bg-slate-50/* 透明变体 */
+#app-content .bg-slate-50\/40,
+#app-content .bg-slate-50\/50,
+#app-content .bg-slate-50\/60 {
+  background-color: rgba(31, 41, 55, 0.5) !important;
+}
+
+/* hover 状态 */
+#app-content .hover\:bg-white:hover {
+  background-color: #1f2937 !important;
+}
+#app-content .hover\:bg-slate-50:hover,
+#app-content .hover\:bg-slate-100:hover,
+#app-content .hover\:bg-gray-50:hover,
+#app-content .hover\:bg-gray-100:hover {
+  background-color: #374151 !important;
+}
+#app-content .hover\:bg-slate-50\/60:hover {
+  background-color: rgba(55, 65, 81, 0.5) !important;
+}
+
+/* 深色文字 → 浅色（用于被强制置于深色卡片上的 hardcoded 颜色） */
+#app-content .text-gray-900,
+#app-content .text-gray-800,
+#app-content .text-slate-900,
+#app-content .text-slate-800 {
+  color: #f3f4f6 !important;
+}
+#app-content .text-gray-700,
+#app-content .text-slate-700,
+#app-content .text-gray-600,
+#app-content .text-slate-600 {
+  color: #9ca3af !important;
+}
+#app-content .text-gray-500,
+#app-content .text-slate-500 {
+  color: #6b7280 !important;
+}
+
+/* 浅色边框 → 深色边框 */
+#app-content .border-gray-200,
+#app-content .border-slate-200,
+#app-content .border-gray-100,
+#app-content .border-slate-100,
+#app-content .border-white\/60,
+#app-content .border-white\/65,
+#app-content .border-white\/70,
+#app-content .border-white\/72 {
+  border-color: #374151 !important;
+}
+#app-content .border-gray-300,
+#app-content .border-slate-300 {
+  border-color: #4b5563 !important;
+}
+
+/* 表格行 */
+#app-content tr.bg-white,
+#app-content tbody tr.bg-white {
+  background-color: transparent !important;
+}
+#app-content thead tr,
+#app-content th {
+  background-color: #1f2937 !important;
+  color: #9ca3af !important;
+  border-color: #374151 !important;
+}
+#app-content tbody tr:hover {
+  background-color: rgba(55, 65, 81, 0.4) !important;
+}
+#app-content td {
+  border-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+}
+
+/* 错误/警告行的浅色背景 */
+#app-content .bg-red-50\/30,
+#app-content .bg-red-50\/50,
+#app-content .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+#app-content .bg-amber-50,
+#app-content .bg-yellow-50 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+#app-content .bg-green-50,
+#app-content .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+#app-content .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Textarea / select 背景 */
+#app-content textarea.bg-white,
+#app-content select.bg-white,
+#app-content input.bg-white {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #f3f4f6 !important;
+}
+#app-content textarea.bg-slate-50,
+#app-content input.bg-slate-50 {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+}
+
+/* Divide 分割线颜色 */
+#app-content .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+#app-content .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+#app-content .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1f2937 !important;
+}
+
+/* bg-slate-100 / bg-slate-200 → gray-700/800 (icon 容器、badge、进度条背景等) */
+#app-content .bg-slate-100,
+#app-content .bg-slate-200 {
+  background-color: #374151 !important;
+}
+#app-content .bg-slate-200\/70,
+#app-content .bg-slate-100\/70 {
+  background-color: rgba(55, 65, 81, 0.7) !important;
+}
+#app-content .hover\:bg-slate-100:hover,
+#app-content .hover\:bg-slate-200:hover {
+  background-color: #4b5563 !important;
+}
+/* text-slate-600 用于 badge 文字，在深色背景上改为浅色 */
+#app-content .bg-slate-100 .text-slate-600,
+#app-content .text-slate-600 {
+  color: #d1d5db !important;
+}
+
+/* bg-blue-100 / text-blue-600 → 深色蓝 badge */
+#app-content .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+#app-content .text-blue-600,
+#app-content .text-blue-700 {
+  color: #93c5fd !important;
+}
+
+/* 全局 focus 颜色：emerald → indigo */
+#app-content input:focus,
+#app-content textarea:focus,
+#app-content select:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+  outline: none !important;
+}
+
+/* focus:bg-white（data_migration 里的 SQL 框） */
+#app-content textarea:focus.focus\:bg-white,
+#app-content input:focus.focus\:bg-white {
+  background-color: #1f2937 !important;
+}
+
+/* bg-white/* 更多变体 */
+#app-content .bg-white\/55,
+#app-content .bg-white\/60,
+#app-content .bg-white\/65,
+#app-content .bg-white\/68 {
+  background-color: rgba(17, 24, 39, 0.85) !important;
+}
+
+/* 进度条背景 */
+#app-content .bg-slate-200.rounded-full {
+  background-color: #374151 !important;
+}
+
+/* animate-pulse 骨架屏 */
+#app-content .animate-pulse .bg-slate-100,
+#app-content .animate-pulse .bg-gray-100 {
+  background-color: #1f2937 !important;
+}
+
+/* ── Badge 颜色（bg-*-100 系列）→ 深色半透明 ── */
+#app-content .bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+#app-content .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+#app-content .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+#app-content .bg-orange-100 {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+}
+#app-content .bg-purple-100,
+#app-content .bg-violet-100 {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+}
+#app-content .bg-yellow-100,
+#app-content .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Badge 文字颜色 → 更亮以确保对比度 */
+#app-content .text-green-700,
+#app-content .text-green-600 {
+  color: #6ee7b7 !important;
+}
+#app-content .text-blue-600 {
+  color: #93c5fd !important;
+}
+#app-content .text-blue-500 {
+  color: #60a5fa !important;
+}
+#app-content .text-red-600,
+#app-content .text-red-500 {
+  color: #fca5a5 !important;
+}
+#app-content .text-orange-600,
+#app-content .text-orange-500 {
+  color: #fdba74 !important;
+}
+#app-content .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+#app-content .text-purple-600,
+#app-content .text-violet-600 {
+  color: #c4b5fd !important;
+}
+#app-content .text-amber-600,
+#app-content .text-amber-500 {
+  color: #fcd34d !important;
+}
+
+/* URL chip 及其 opacity 变体 */
+#app-content .bg-slate-100\/80,
+#app-content .bg-slate-100\/70,
+#app-content .bg-slate-100\/60 {
+  background-color: rgba(55, 65, 81, 0.5) !important;
+}
+#app-content .hover\:bg-slate-200\/70:hover,
+#app-content .hover\:bg-slate-100\/80:hover {
+  background-color: rgba(75, 85, 99, 0.6) !important;
+}
+
+/* 图标按钮 hover（sync / delete） */
+#app-content .hover\:bg-blue-50:hover {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+#app-content .hover\:text-blue-500:hover {
+  color: #60a5fa !important;
+}
+#app-content .hover\:bg-red-50:hover {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+#app-content .hover\:text-red-500:hover {
+  color: #fca5a5 !important;
+}
+
+/* Spinner 颜色（JS 模板中 border-[#18c865]） */
+#app-content .border-\[\#18c865\] {
+  border-color: #6366f1 !important;
 }

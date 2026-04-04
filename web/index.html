@@ -1,16 +1,14 @@
 <style>
     .dashboard-card {
-      transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
       border: 1px solid var(--bdr);
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.82);
+      border-radius: 12px;
+      background: #111827;
       box-shadow: var(--sh1);
-      backdrop-filter: blur(18px);
     }
     .dashboard-card:hover {
       box-shadow: var(--sh2);
       border-color: var(--bdr-strong);
-      transform: translateY(-1px);
     }
     .stat-number {
       font-size: 1.5rem;
@@ -61,10 +59,8 @@
       gap: 4px 10px;
       padding: 6px 8px;
       border: 1px solid var(--bdr);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.82);
-      box-shadow: var(--sh1);
-      backdrop-filter: blur(18px);
+      border-radius: 10px;
+      background: #111827;
     }
     .metric-sep {
       width: 1px;
@@ -80,6 +76,19 @@
     .dashboard-muted {
       color: var(--t3);
     }
+    /* 状态 badge：浅色 → 深色半透明 */
+    .bg-green-50  { background-color: rgba(16, 185, 129, 0.15) !important; }
+    .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.15) !important; }
+    .bg-red-50    { background-color: rgba(239, 68, 68, 0.15) !important; }
+    .bg-amber-50  { background-color: rgba(245, 158, 11, 0.15) !important; }
+    .bg-yellow-50 { background-color: rgba(245, 158, 11, 0.15) !important; }
+    .text-green-700, .text-emerald-700 { color: #6ee7b7 !important; }
+    .text-red-600  { color: #fca5a5 !important; }
+    .text-amber-700 { color: #fcd34d !important; }
+    .border-green-200, .border-emerald-100 { border-color: rgba(16, 185, 129, 0.3) !important; }
+    .border-red-100   { border-color: rgba(239, 68, 68, 0.3) !important; }
+    .border-amber-100 { border-color: rgba(245, 158, 11, 0.3) !important; }
+    .border-yellow-200 { border-color: rgba(245, 158, 11, 0.3) !important; }
   </style>
 <section id="dashboard-page" class="space-y-3">
     <div id="dashboard-hero-meta" class="flex flex-wrap justify-end gap-2"></div>

@@ -21,14 +21,14 @@
       align-items: center;
       justify-content: center;
       min-height: 280px;
-      color: #667085;
+      color: #6b7280;
       font-size: 13px;
     }
     .shell-spin {
       width: 20px;
       height: 20px;
       margin-right: 10px;
-      border: 2px solid #12b76a;
+      border: 2px solid #6366f1;
       border-top-color: transparent;
       border-radius: 999px;
       animation: shell-rot .6s linear infinite;
@@ -184,7 +184,7 @@
     function renderShellToasts() {
       if (!shellToastRoot) return;
       shellToastRoot.innerHTML = shellToasts.map((toast) => `
-        <div class="pointer-events-auto flex min-w-[260px] max-w-[380px] items-center gap-[9px] rounded-rf-xl border px-[14px] py-[11px] text-[13px] font-semibold shadow-rf2 ${toast.type === 'ok' ? 'border-emerald-200 bg-emerald-50/90 text-emerald-700' : 'border-red-200 bg-red-50/95 text-red-700'}">
+        <div class="pointer-events-auto flex min-w-[260px] max-w-[380px] items-center gap-[9px] rounded-lg border px-[14px] py-[10px] text-[13px] font-medium ${toast.type === 'ok' ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400' : 'border-red-500/30 bg-red-500/15 text-red-400'}">
           ${toast.type === 'ok' ? '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '<svg class="h-[15px] w-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>'}
           <span>${escapeHtml(toast.message)}</span>
         </div>
