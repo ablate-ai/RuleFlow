@@ -275,6 +275,81 @@ func TestBuildSingBoxTrojanWebSocket(t *testing.T) {
 	}
 }
 
+func TestBuildSingBoxVLESSWebSocketFiltersH2ALPN(t *testing.T) {
+	nodes := []*ProxyNode{
+		{
+			Protocol: "vless",
+			Name:     "TW Node",
+			Server:   "origin.mcmtn.net",
+			Port:     2083,
+			Options: map[string]interface{}{
+				"uuid": "1d09bd75-a4ba-4103-a20c-28019af3ab82",
+				"tls": map[string]interface{}{
+					"enabled":     true,
+					"server_name": "twhn.1391399.xyz",
+					"alpn":        []interface{}{"h2", "http/1.1"},
+				},
+				"transport": map[string]interface{}{
+					"type": "ws",
+					"path": "/pan_transportation",
+					"headers": map[string]interface{}{
+						"Host": "twhn.1391399.xyz",
+					},
+				},
+			},
+		},
+	}
+
+	minimalTemplate := `{"outbounds": ["__OUTBOUNDS__", {"type": "direct", "tag": "DIRECT"}]}`
+	config, err := BuildSingBoxFromTemplateContent(nodes, minimalTemplate)
+	if err != nil {
+		t.Fatalf("生成 sing-box 配置失败: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &parsed); err != nil {
+		t.Fatalf("解析生成配置失败: %v", err)
+	}
+
+	outbounds := parsed["outbounds"].([]interface{})
+	var tlsObj map[string]interface{}
+	for _, raw := range outbounds {
+		ob, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if ob["uuid"] == "1d09bd75-a4ba-4103-a20c-28019af3ab82" {
+			tlsObj, _ = ob["tls"].(map[string]interface{})
+			break
+		}
+	}
+	if tlsObj == nil {
+		t.Fatalf("未找到 VLESS 节点的 tls 配置，实际配置为:\n%s", config)
+	}
+
+	// WebSocket 节点不应包含 h2，否则 TLS 协商到 h2 后 WebSocket 握手失败
+	alpnRaw, hasALPN := tlsObj["alpn"]
+	if hasALPN {
+		alpn, _ := alpnRaw.([]interface{})
+		for _, a := range alpn {
+			if a == "h2" {
+				t.Fatalf("WebSocket 节点的 sing-box 配置不应包含 h2 ALPN，实际配置为:\n%s", config)
+			}
+		}
+		// 保留 http/1.1
+		found := false
+		for _, a := range alpn {
+			if a == "http/1.1" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("WebSocket 节点应保留 http/1.1 ALPN，实际配置为:\n%s", config)
+		}
+	}
+}
+
 func TestBuildSingBoxUsesNestedTLSAndTransport(t *testing.T) {
 	nodes := []*ProxyNode{
 		{

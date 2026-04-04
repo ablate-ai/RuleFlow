@@ -325,7 +325,20 @@ func singBoxTLSObject(opts map[string]interface{}, server string, force bool) ma
 			tlsObj["insecure"] = tlsOptions.Insecure
 		}
 		if len(tlsOptions.ALPN) > 0 {
-			tlsObj["alpn"] = tlsOptions.ALPN
+			alpn := tlsOptions.ALPN
+			// WebSocket 通过 HTTP/1.1 Upgrade 建立连接，若 TLS 协商出 h2 则握手失败
+			if transport, tOk := extractTransportOptions(opts); tOk && transport != nil && transport.Type == "ws" {
+				filtered := make([]string, 0, len(alpn))
+				for _, a := range alpn {
+					if a != "h2" {
+						filtered = append(filtered, a)
+					}
+				}
+				alpn = filtered
+			}
+			if len(alpn) > 0 {
+				tlsObj["alpn"] = alpn
+			}
 		}
 		if tlsOptions.UTLS != nil && tlsOptions.UTLS.Fingerprint != "" {
 			tlsObj["utls"] = map[string]interface{}{
