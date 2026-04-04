@@ -286,7 +286,7 @@ func normalizeSingBoxProtocol(protocol string) string {
 }
 
 func singBoxTransportObject(opts map[string]interface{}) map[string]interface{} {
-	if transport, ok := extractTransportOptions(opts); ok && transport != nil && transport.Type != "" {
+	if transport, ok := extractTransportOptions(opts); ok && transport != nil && transport.Type != "" && transport.Type != "tcp" {
 		obj := map[string]interface{}{
 			"type": transport.Type,
 		}
