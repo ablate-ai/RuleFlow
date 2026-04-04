@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	iofs "io/fs"
 	"log"
 	"net/http"
@@ -19,6 +20,9 @@ import (
 	"github.com/ablate-ai/RuleFlow/database"
 	"github.com/ablate-ai/RuleFlow/services"
 )
+
+// version 由构建时 ldflags 注入：-X main.version=vX.Y.Z
+var version = "dev"
 
 func main() {
 	// 加载配置
@@ -113,7 +117,7 @@ func main() {
 
 	// 启动服务器
 	port := cfg.Port
-	log.Printf("🚀 服务器启动: http://localhost:%s\n", port)
+	log.Printf("🚀 RuleFlow %s 启动: http://localhost:%s\n", version, port)
 	log.Printf("💡 管理界面: http://localhost:%s/dashboard\n", port)
 	log.Printf("💡 管理接口: http://localhost:%s/api/subscriptions\n", port)
 	log.Printf("💡 模板接口: http://localhost:%s/api/templates\n", port)
@@ -231,6 +235,10 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.Get("/api/templates/public", apiHandlers.ListPublicTemplates)
 	r.Get("/api/templates/public/{id}", apiHandlers.GetPublicTemplate)
 	r.Get("/health", apiHandlers.Health)
+	r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"version":%q}`, version)
+	})
 	r.Get("/rulesets/{name}", apiHandlers.ExportRuleSource)
 
 	// API 路由（整体加鉴权）
