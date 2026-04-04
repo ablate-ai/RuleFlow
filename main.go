@@ -300,6 +300,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 		r.Patch("/nodes/batch", apiHandlers.BatchNodeOperation)
 		r.Route("/nodes/{id}", func(r chi.Router) {
 			r.Get("/", apiHandlers.GetNode)
+			r.Get("/share", apiHandlers.GetNodeShareURL)
 			r.Put("/", apiHandlers.UpdateNode)
 			r.Patch("/", apiHandlers.UpdateNode)
 			r.Delete("/", apiHandlers.DeleteNode)

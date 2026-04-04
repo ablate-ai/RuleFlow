@@ -482,9 +482,9 @@
                     </div>
                   ` : `
                     <div>
-                      <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">分享链接 <span class="ml-1 text-[11px] font-normal text-rf-muted">${state.editNode ? '留空则只更新名称/标签/启用状态' : '支持 ss/vless/vmess/trojan/anytls/hysteria2/tuic'}</span></label>
+                      <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">分享链接 <span class="ml-1 text-[11px] font-normal text-rf-muted">${state.editNode ? '可直接修改链接中的地址、端口、密码等参数' : '支持 ss/vless/vmess/trojan/anytls/hysteria2/tuic'}</span></label>
                       <textarea name="shareUrl" rows="4" ${state.editNode ? '' : 'required'} placeholder='ss://YWVzLTI1Ni1nY206...\nvless://700229f2-...\ntrojan://password@...' class="min-h-[88px] w-full resize-y rounded-rf border border-rf-border bg-white px-[11px] py-[8px] font-mono text-[12.5px] leading-[1.5] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">${escapeHtml(state.form.shareUrl)}</textarea>
-                      ${state.editNode ? `<div class="mt-1 text-[11.5px] text-rf-muted">当前节点：${escapeHtml(state.editNode.protocol)} / ${escapeHtml(state.editNode.server)}:${escapeHtml(state.editNode.port)}</div>` : ''}
+                      ${state.editNode ? `<div class="mt-1 text-[11.5px] text-rf-muted">留空则只更新名称/标签/启用状态</div>` : ''}
                     </div>
                   `}
 
@@ -627,7 +627,7 @@
         renderModal();
       }
 
-      function openEdit(node) {
+      async function openEdit(node) {
         state.modalMode = 'form';
         state.editNode = node;
         state.form = {
@@ -642,6 +642,19 @@
         };
         state.configErr = '';
         renderModal();
+
+        // 非 WireGuard 节点，异步获取分享链接预填
+        if (node.protocol !== 'wireguard') {
+          try {
+            const res = await get('/api/nodes/' + node.id + '/share');
+            if (res && res.share_url) {
+              state.form.shareUrl = res.share_url;
+              renderModal();
+            }
+          } catch (_) {
+            // 获取失败不影响编辑，保持空白即可
+          }
+        }
       }
 
       function closeModal() {

@@ -990,6 +990,30 @@ func (h *Handlers) buildManualNodeFromRequest(req manualNodeRequest, existing *d
 	}, nil
 }
 
+// GetNodeShareURL 获取节点的分享链接（用于编辑时预填）
+func (h *Handlers) GetNodeShareURL(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt64(r, "id")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "无效的节点 ID")
+		return
+	}
+
+	ctx := r.Context()
+	node, err := h.nodeService.GetNode(ctx, id)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	shareURL, err := app.SerializeNodeURL(node.Name, node.Protocol, node.Server, node.Port, node.Config)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "该协议不支持生成分享链接: "+err.Error())
+		return
+	}
+
+	SendSuccess(w, map[string]string{"share_url": shareURL})
+}
+
 // DeleteNode 删除节点
 func (h *Handlers) DeleteNode(w http.ResponseWriter, r *http.Request) {
 	id, err := urlParamInt64(r, "id")
