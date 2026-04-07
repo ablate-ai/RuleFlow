@@ -23,7 +23,7 @@ func FetchSubscriptionContent(ctx context.Context, subURL string) (string, http.
 		return "", nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "clash-verge/v1.3.8")
+	req.Header.Set("User-Agent", "clash.meta/v1.19.16")
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Encoding", "gzip, deflate")
 	req.Header.Set("Connection", "keep-alive")
@@ -45,12 +45,13 @@ func FetchSubscriptionContent(ctx context.Context, subURL string) (string, http.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		// 尝试解压错误响应体（部分服务器对非 200 响应也启用 gzip）
+		errorBody, _ := readResponseBody(resp)
 		errorHint := ""
-		if len(body) > 0 {
-			preview := string(body)
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
+		if len(errorBody) > 0 {
+			preview := string(errorBody)
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
 			}
 			errorHint = fmt.Sprintf("，响应内容: %s", preview)
 		}
