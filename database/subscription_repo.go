@@ -26,21 +26,22 @@ type UserInfo struct {
 
 // Subscription 订阅模型
 type Subscription struct {
-	ID              int64               `json:"id"`
-	Name            string              `json:"name"`
-	URL             *string             `json:"url"`
-	Enabled         bool                `json:"enabled"`
-	AutoRefresh     bool                `json:"auto_refresh"`
-	RefreshInterval int                 `json:"refresh_interval"`
-	Description     string              `json:"description"`
-	Tags            []string            `json:"tags"`
-	LastFetchedAt   *time.Time          `json:"last_fetched_at"`
-	LastFetchError  *string             `json:"last_fetch_error"`
-	NodeCount       int                 `json:"node_count"`
-	FilterRules     *SubscriptionFilter `json:"filter_rules,omitempty"`
-	CreatedAt       time.Time           `json:"created_at"`
-	UpdatedAt       time.Time           `json:"updated_at"`
-	UserInfo        *UserInfo           `json:"userinfo,omitempty"`
+	ID                int64               `json:"id"`
+	Name              string              `json:"name"`
+	URL               *string             `json:"url"`
+	Enabled           bool                `json:"enabled"`
+	AutoRefresh       bool                `json:"auto_refresh"`
+	RefreshInterval   int                 `json:"refresh_interval"`
+	Description       string              `json:"description"`
+	Tags              []string            `json:"tags"`
+	LastFetchedAt     *time.Time          `json:"last_fetched_at"`
+	LastFetchError    *string             `json:"last_fetch_error"`
+	NodeCount         int                 `json:"node_count"`
+	FilterRules       *SubscriptionFilter `json:"filter_rules,omitempty"`
+	DisableNamePrefix bool                `json:"disable_name_prefix"`
+	CreatedAt         time.Time           `json:"created_at"`
+	UpdatedAt         time.Time           `json:"updated_at"`
+	UserInfo          *UserInfo           `json:"userinfo,omitempty"`
 }
 
 // SubscriptionRepo 订阅仓储
@@ -62,7 +63,7 @@ func scanSubscription(scan func(...any) error) (*Subscription, error) {
 		&sub.ID, &sub.Name, &sub.URL, &sub.Enabled, &sub.AutoRefresh,
 		&sub.RefreshInterval, &sub.Description, &sub.Tags,
 		&sub.LastFetchedAt, &sub.LastFetchError, &sub.NodeCount,
-		&filterRulesJSON, &userInfoJSON,
+		&filterRulesJSON, &userInfoJSON, &sub.DisableNamePrefix,
 		&sub.CreatedAt, &sub.UpdatedAt,
 	)
 	if err != nil {
@@ -85,7 +86,7 @@ func scanSubscription(scan func(...any) error) (*Subscription, error) {
 
 const selectSubFields = `
 	SELECT id, name, url, enabled, auto_refresh, refresh_interval, description, tags,
-	       last_fetched_at, last_fetch_error, node_count, filter_rules, userinfo, created_at, updated_at
+	       last_fetched_at, last_fetch_error, node_count, filter_rules, userinfo, disable_name_prefix, created_at, updated_at
 	FROM subscriptions
 `
 
@@ -98,14 +99,14 @@ func (r *SubscriptionRepo) Create(ctx context.Context, sub *Subscription) error 
 	sub.ID = NextID()
 
 	query := `
-		INSERT INTO subscriptions (id, name, url, enabled, auto_refresh, refresh_interval, description, tags, filter_rules)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO subscriptions (id, name, url, enabled, auto_refresh, refresh_interval, description, tags, filter_rules, disable_name_prefix)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING created_at, updated_at
 	`
 
 	err = r.db.Pool.QueryRow(ctx, query,
 		sub.ID, sub.Name, sub.URL, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval,
-		sub.Description, sub.Tags, filterRulesJSON,
+		sub.Description, sub.Tags, filterRulesJSON, sub.DisableNamePrefix,
 	).Scan(&sub.CreatedAt, &sub.UpdatedAt)
 
 	if err != nil {
@@ -177,14 +178,14 @@ func (r *SubscriptionRepo) Update(ctx context.Context, sub *Subscription) error 
 	query := `
 		UPDATE subscriptions
 		SET name = $2, url = $3, enabled = $4, auto_refresh = $5, refresh_interval = $6,
-		    description = $7, tags = $8, filter_rules = $9
+		    description = $7, tags = $8, filter_rules = $9, disable_name_prefix = $10
 		WHERE id = $1
 		RETURNING updated_at
 	`
 
 	err = r.db.Pool.QueryRow(ctx, query,
 		sub.ID, sub.Name, sub.URL, sub.Enabled, sub.AutoRefresh, sub.RefreshInterval,
-		sub.Description, sub.Tags, filterRulesJSON,
+		sub.Description, sub.Tags, filterRulesJSON, sub.DisableNamePrefix,
 	).Scan(&sub.UpdatedAt)
 
 	if err == pgx.ErrNoRows {

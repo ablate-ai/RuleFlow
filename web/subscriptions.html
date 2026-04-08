@@ -64,6 +64,7 @@
           auto_refresh: false,
           refresh_interval: 3600,
           description: '',
+          disable_name_prefix: false,
           filter_rules: {
             exclude_keywords: [],
             exclude_regex: '',
@@ -271,7 +272,16 @@
                   <div class="mb-3.5">
                     <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">名称</label>
                     <input id="sub-name" class="w-full rounded-rf border border-rf-border bg-white px-[11px] py-2 text-[13.5px] text-rf-text outline-none transition placeholder:text-rf-subtle focus:border-[#18c865] focus:ring-4 focus:ring-emerald-500/10" type="text" required placeholder="例如：my-subscription" value="${escapeHtml(form.name)}">
-                    <div class="mt-1 text-[11.5px] text-rf-muted">同步节点时会自动使用该名称作为前缀，例如 <code>${escapeHtml(form.name || 'my-subscription')}-节点A</code></div>
+                    <div class="mt-1.5 flex items-center gap-2">
+                      <label class="inline-flex cursor-pointer items-center gap-1.5">
+                        <input id="sub-disable-name-prefix" class="h-4 w-4 accent-emerald-500" type="checkbox" ${form.disable_name_prefix ? 'checked' : ''}>
+                        <span class="text-[12.5px] text-rf-text">不添加订阅名前缀</span>
+                      </label>
+                    </div>
+                    ${form.disable_name_prefix
+                      ? `<div class="mt-1 text-[11.5px] text-rf-muted">节点名称将保持原始名称，不添加任何前缀</div>`
+                      : `<div class="mt-1 text-[11.5px] text-rf-muted">同步节点时会自动使用该名称作为前缀，例如 <code>${escapeHtml(form.name || 'my-subscription')}-节点A</code></div>`
+                    }
                   </div>
 
                   <div class="mb-3.5">
@@ -435,6 +445,7 @@
         const refreshEl = document.getElementById('sub-refresh-interval');
         const kwEl = document.getElementById('sub-kw-input');
         const regexEl = document.getElementById('sub-exclude-regex');
+        const disablePrefixEl = document.getElementById('sub-disable-name-prefix');
 
         state.form.name = nameEl ? nameEl.value : state.form.name;
         state.form.url = urlEl ? urlEl.value : state.form.url;
@@ -442,6 +453,7 @@
         state.form.enabled = enabledEl ? enabledEl.checked : state.form.enabled;
         state.form.auto_refresh = autoRefreshEl ? autoRefreshEl.checked : state.form.auto_refresh;
         state.form.refresh_interval = refreshEl ? Math.max(60, Number(refreshEl.value || 3600)) : state.form.refresh_interval;
+        state.form.disable_name_prefix = disablePrefixEl ? disablePrefixEl.checked : state.form.disable_name_prefix;
         state.kwInput = kwEl ? kwEl.value : state.kwInput;
         state.form.filter_rules.exclude_regex = regexEl ? regexEl.value : state.form.filter_rules.exclude_regex;
       }
@@ -470,6 +482,7 @@
           auto_refresh: !!item.auto_refresh,
           refresh_interval: item.refresh_interval || 3600,
           description: item.description || '',
+          disable_name_prefix: !!item.disable_name_prefix,
           filter_rules: {
             exclude_keywords: Array.isArray(filter.exclude_keywords) ? [...filter.exclude_keywords] : [],
             exclude_regex: filter.exclude_regex || '',

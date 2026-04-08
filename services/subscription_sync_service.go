@@ -220,7 +220,10 @@ func (s *SubscriptionSyncService) applyPreparedSubscriptionSync(ctx context.Cont
 		return 0, prepared.err
 	}
 
-	namePrefix := fmt.Sprintf("%s-", strings.TrimSpace(prepared.sub.Name))
+	namePrefix := ""
+	if !prepared.sub.DisableNamePrefix {
+		namePrefix = fmt.Sprintf("%s-", strings.TrimSpace(prepared.sub.Name))
+	}
 	deleted, err := s.nodeRepo.DeleteBySourceID(ctx, prepared.sub.ID)
 	if err != nil {
 		return 0, fmt.Errorf("删除旧节点失败: %w", err)
