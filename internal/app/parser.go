@@ -525,7 +525,12 @@ func decodeURLFragment(u *url.URL) string {
 	if u == nil || u.Fragment == "" {
 		return ""
 	}
-	if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
+	// 优先用 RawFragment 解码，支持订阅源用 + 代替空格的编码方式
+	raw := u.RawFragment
+	if raw == "" {
+		raw = u.Fragment
+	}
+	if decoded, err := url.QueryUnescape(raw); err == nil && decoded != "" {
 		return decoded
 	}
 	return u.Fragment
@@ -719,7 +724,7 @@ func parseServerPart(serverPart string) (server string, port int, fragment strin
 	fragmentIndex := strings.Index(serverPart, "#")
 	if fragmentIndex > 0 {
 		fragment = serverPart[fragmentIndex+1:]
-		if decoded, err := url.PathUnescape(fragment); err == nil {
+		if decoded, err := url.QueryUnescape(fragment); err == nil {
 			fragment = decoded
 		}
 		serverPart = serverPart[:fragmentIndex]
@@ -777,7 +782,11 @@ func parseTrojanURL(trojanURL string) (*TrojanNode, error) {
 		name = query.Get("hash")
 	}
 	if name == "" && u.Fragment != "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
+		raw := u.RawFragment
+		if raw == "" {
+			raw = u.Fragment
+		}
+		if decoded, err := url.QueryUnescape(raw); err == nil && decoded != "" {
 			name = decoded
 		} else {
 			name = u.Fragment
