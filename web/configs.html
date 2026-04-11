@@ -359,7 +359,7 @@
                   <div>
                     <label class="mb-[5px] block text-[12.5px] font-medium text-rf-text">规则模板</label>
                     <select name="template_name" class="w-full rounded-rf border border-rf-border bg-white px-[11px] py-[8px] text-[13.5px] text-rf-text outline-none transition focus:border-[#18c865] focus:ring-4 focus:ring-[rgba(24,200,101,0.1)]">
-                      <option value="">内置模板</option>
+                      <option value="" disabled ${!state.form.template_name ? 'selected' : ''}>请选择模板</option>
                       ${templates.map((tpl) => `<option value="${escapeHtml(tpl.name)}" ${state.form.template_name === tpl.name ? 'selected' : ''}>${escapeHtml(tpl.name)}</option>`).join('')}
                     </select>
                   </div>
@@ -488,6 +488,10 @@
         syncFormFromDom();
         if (!state.form.name.trim()) {
           addToast('策略名称不能为空', 'err');
+          return;
+        }
+        if (!state.form.template_name) {
+          addToast('请选择一个规则模板', 'err');
           return;
         }
         if (state.form.subscription_ids.length === 0 && state.form.node_ids.length === 0) {
