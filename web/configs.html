@@ -206,8 +206,8 @@
       function filteredTemplates() {
         return state.templates.filter((tpl) => {
           if (state.form.target === 'surge') return tpl.target === 'surge';
-          if (state.form.target === 'sing-box') return tpl.target === 'sing_box';
-          return tpl.target !== 'surge' && tpl.target !== 'sing_box';
+          if (state.form.target === 'sing-box') return tpl.target === 'sing-box';
+          return tpl.target !== 'surge' && tpl.target !== 'sing-box';
         });
       }
 
