@@ -59,9 +59,12 @@ func WriteSRS(rules []RuleSetRule, w io.Writer) error {
 }
 
 func writeSRSDefaultRule(w *bufio.Writer, rules []RuleSetRule) error {
-	// 按类型分组
+	// 按类型分组，过滤空值（防止 domain.NewMatcher 对空字符串 panic）
 	var domains, suffixes, keywords, cidrs []string
 	for _, r := range rules {
+		if r.Value == "" {
+			continue
+		}
 		switch r.Type {
 		case "domain":
 			domains = append(domains, r.Value)
@@ -137,10 +140,19 @@ func writeSRSIPCIDR(w *bufio.Writer, cidrs []string) error {
 	ranges := make([]ipRange, 0, len(cidrs))
 	for _, s := range cidrs {
 		if prefix, err := netip.ParsePrefix(s); err == nil {
-			from := prefix.Masked().Addr().AsSlice()
+			// 规范化 IPv4-mapped IPv6（::ffff:1.2.3.4/120 → 1.2.3.0/24），
+			// 确保 from 和 to 的字节长度一致
+			prefix = prefix.Masked()
+			if prefix.Addr().Is4In6() {
+				prefix = netip.PrefixFrom(prefix.Addr().Unmap(), prefix.Bits()-96)
+			}
+			from := prefix.Addr().AsSlice()
 			to := srsLastAddr(prefix).AsSlice()
 			ranges = append(ranges, ipRange{from, to})
 		} else if addr, err := netip.ParseAddr(s); err == nil {
+			if addr.Is4In6() {
+				addr = addr.Unmap()
+			}
 			b := addr.AsSlice()
 			ranges = append(ranges, ipRange{b, b})
 		}
