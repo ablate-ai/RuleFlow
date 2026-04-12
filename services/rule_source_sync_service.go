@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -70,24 +71,39 @@ func (s *RuleSourceSyncService) SyncRuleSource(ctx context.Context, id int64) (i
 	return ruleCount, nil
 }
 
-func (s *RuleSourceSyncService) ExportRuleSource(ctx context.Context, name string, target string) (string, error) {
+func (s *RuleSourceSyncService) loadSourceRules(ctx context.Context, name string) ([]app.RuleSetRule, error) {
 	source, err := s.repo.GetByName(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if len(source.ParsedRules) == 0 {
+		return nil, fmt.Errorf("规则源尚未同步: %s", source.Name)
+	}
+	var rules []app.RuleSetRule
+	if err := json.Unmarshal(source.ParsedRules, &rules); err != nil {
+		return nil, fmt.Errorf("读取已同步规则失败: %w", err)
+	}
+	if len(rules) == 0 {
+		return nil, fmt.Errorf("规则源没有可导出的规则: %s", source.Name)
+	}
+	return rules, nil
+}
+
+func (s *RuleSourceSyncService) ExportRuleSource(ctx context.Context, name string, target string) (string, error) {
+	rules, err := s.loadSourceRules(ctx, name)
 	if err != nil {
 		return "", err
 	}
-
-	var rules []app.RuleSetRule
-	if len(source.ParsedRules) == 0 {
-		return "", fmt.Errorf("规则源尚未同步: %s", source.Name)
-	}
-	if err := json.Unmarshal(source.ParsedRules, &rules); err != nil {
-		return "", fmt.Errorf("读取已同步规则失败: %w", err)
-	}
-	if len(rules) == 0 {
-		return "", fmt.Errorf("规则源没有可导出的规则: %s", source.Name)
-	}
-
 	return app.ExportRuleSet(rules, target)
+}
+
+// ExportRuleSourceSRS 将规则源编译为 sing-box SRS 二进制格式写入 w
+func (s *RuleSourceSyncService) ExportRuleSourceSRS(ctx context.Context, name string, w io.Writer) error {
+	rules, err := s.loadSourceRules(ctx, name)
+	if err != nil {
+		return err
+	}
+	return app.WriteSRS(rules, w)
 }
 
 func (s *RuleSourceSyncService) SyncDueSources(ctx context.Context) {

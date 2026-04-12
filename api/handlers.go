@@ -516,21 +516,30 @@ func (h *Handlers) ExportRuleSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+
+	if target == "sing-box" {
+		h.exportRuleSourceSRS(w, ctx, name)
+		return
+	}
+
 	content, err := h.ruleSourceSyncService.ExportRuleSource(ctx, name, target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	switch target {
-	case "sing-box":
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	case "clash-classical", "clash-domain", "clash-ipcidr", "surge":
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	default:
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, content)
+}
+
+// exportRuleSourceSRS 将规则源编译为 sing-box SRS 二进制格式（原生实现，无需外部依赖）
+func (h *Handlers) exportRuleSourceSRS(w http.ResponseWriter, ctx context.Context, name string) {
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.srs"`, name))
+	if err := h.ruleSourceSyncService.ExportRuleSourceSRS(ctx, name, w); err != nil {
+		// 头已发出，只能记录错误
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // ConfigResponse 配置响应
