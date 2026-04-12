@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -534,12 +535,19 @@ func (h *Handlers) ExportRuleSource(w http.ResponseWriter, r *http.Request) {
 
 // exportRuleSourceSRS 将规则源编译为 sing-box SRS 二进制格式（原生实现，无需外部依赖）
 func (h *Handlers) exportRuleSourceSRS(w http.ResponseWriter, ctx context.Context, name string) {
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.srs"`, name))
-	if err := h.ruleSourceSyncService.ExportRuleSourceSRS(ctx, name, w); err != nil {
-		// 头已发出，只能记录错误
+	// 先写入缓冲，确保编译失败时可以返回正确的错误状态码
+	var buf bytes.Buffer
+	if err := h.ruleSourceSyncService.ExportRuleSourceSRS(ctx, name, &buf); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	// 过滤文件名中可能破坏 header 结构的字符
+	safeName := strings.NewReplacer(`"`, "", "\r", "", "\n", "").Replace(name)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.srs"`, safeName))
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	buf.WriteTo(w) //nolint:errcheck
 }
 
 // ConfigResponse 配置响应

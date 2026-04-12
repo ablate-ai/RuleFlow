@@ -177,11 +177,16 @@ func writeSRSIPCIDR(w *bufio.Writer, cidrs []string) error {
 // srsLastAddr 计算前缀的最后一个地址（广播地址）
 func srsLastAddr(prefix netip.Prefix) netip.Addr {
 	addr := prefix.Masked().Addr()
+	// 将 IPv4-mapped IPv6（如 ::ffff:1.2.3.4）规范为纯 IPv4
+	if addr.Is4In6() {
+		addr = addr.Unmap()
+	}
 	bits := prefix.Bits()
 	if addr.Is4() {
 		a := addr.As4()
 		n := binary.BigEndian.Uint32(a[:])
-		n |= (uint32(1) << uint(32-bits)) - 1
+		// bits=0 时 1<<32 在 uint32 中溢出为 0，用 ^uint32(0)>>bits 替代
+		n |= ^uint32(0) >> bits
 		var res [4]byte
 		binary.BigEndian.PutUint32(res[:], n)
 		return netip.AddrFrom4(res)
