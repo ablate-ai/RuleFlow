@@ -28,7 +28,7 @@
         { value: 'clash-mihomo', label: 'Clash Mihomo', tone: 'blue' },
         { value: 'stash', label: 'Stash', tone: 'purple' },
         { value: 'surge', label: 'Surge', tone: 'orange' },
-        { value: 'sing_box', label: 'sing-box', tone: 'cyan' },
+        { value: 'sing-box', label: 'sing-box', tone: 'cyan' },
         { value: 'loon', label: 'Loon', tone: 'cyan' },
         { value: 'shadowrocket', label: 'Shadowrocket', tone: 'cyan' },
       ];
@@ -70,7 +70,7 @@
       const YAML_BASE_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
 
       function defaultForm() {
-        return { name: '', target: 'clash', description: '', content: '', is_public: false };
+        return { name: '', target: 'clash-mihomo', description: '', content: '', is_public: false };
       }
 
       function request(url, options = {}) {
@@ -159,18 +159,18 @@
 
       function builtinTemplateURL(target) {
         if (target === 'surge') return '/rules/surge.conf';
-        if (target === 'sing_box') return '/rules/sing-box.json.template';
+        if (target === 'sing-box') return '/rules/sing-box.json.template';
         return '/rules/clash.yaml';
       }
 
       function builtinTemplateLabel(target) {
         if (target === 'surge') return 'INI';
-        if (target === 'sing_box') return 'JSON';
+        if (target === 'sing-box') return 'JSON';
         return 'YAML';
       }
 
       function editorLanguage(target) {
-        if (target === 'sing_box') return 'json';
+        if (target === 'sing-box') return 'json';
         if (target === 'surge') return 'ini';
         return 'yaml';
       }
@@ -223,7 +223,7 @@
         const formEl = modalRoot.querySelector('#template-form');
         if (!formEl) return;
         state.form.name = modalRoot.querySelector('[name="name"][form="template-form"]')?.value || '';
-        state.form.target = modalRoot.querySelector('[name="target"][form="template-form"]')?.value || 'clash';
+        state.form.target = modalRoot.querySelector('[name="target"][form="template-form"]')?.value || 'clash-mihomo';
         state.form.description = modalRoot.querySelector('[name="description"][form="template-form"]')?.value || '';
         const isPublicEl = modalRoot.querySelector('[name="is_public"][form="template-form"]');
         if (isPublicEl) state.form.is_public = isPublicEl.checked;
@@ -590,7 +590,7 @@
         state.formatting = true;
         try {
           let formatted = content;
-          if (state.form.target === 'sing_box') {
+          if (state.form.target === 'sing-box') {
             formatted = JSON.stringify(JSON.parse(content), null, 2) + '\n';
           } else if (state.form.target === 'surge') {
             formatted = formatSurgeContent(content);
