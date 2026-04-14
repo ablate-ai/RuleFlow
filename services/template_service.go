@@ -3,9 +3,32 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ablate-ai/RuleFlow/database"
 )
+
+// normalizeTemplateTarget 将旧版 target 值规范化为数据库约束允许的值
+func normalizeTemplateTarget(target string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(target))
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+	switch normalized {
+	case "clash", "clash-meta", "clash-mihomo":
+		return "clash-mihomo", nil
+	case "stash":
+		return "stash", nil
+	case "surge":
+		return "surge", nil
+	case "sing-box", "singbox":
+		return "sing-box", nil
+	case "loon":
+		return "loon", nil
+	case "shadowrocket":
+		return "shadowrocket", nil
+	default:
+		return "", fmt.Errorf("不支持的 target: %s", target)
+	}
+}
 
 // TemplateService 模板服务
 type TemplateService struct {
@@ -21,6 +44,12 @@ func NewTemplateService(templateRepo *database.TemplateRepo) *TemplateService {
 
 // CreateTemplate 创建模板
 func (s *TemplateService) CreateTemplate(ctx context.Context, tpl *database.Template) error {
+	normalized, err := normalizeTemplateTarget(tpl.Target)
+	if err != nil {
+		return err
+	}
+	tpl.Target = normalized
+
 	// 检查名称是否已存在
 	exists, err := s.templateRepo.Exists(ctx, tpl.Name)
 	if err != nil {
@@ -49,6 +78,12 @@ func (s *TemplateService) ListTemplates(ctx context.Context) ([]database.Templat
 
 // UpdateTemplate 更新模板
 func (s *TemplateService) UpdateTemplate(ctx context.Context, id int64, tpl *database.Template) error {
+	normalized, err := normalizeTemplateTarget(tpl.Target)
+	if err != nil {
+		return err
+	}
+	tpl.Target = normalized
+
 	current, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
