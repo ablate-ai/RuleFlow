@@ -168,10 +168,23 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r := chi.NewRouter()
 	webAuth := api.WebAuthMiddleware(cfg.AdminPassword)
 
-	// 登录页
-	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFileFS(w, r, webFS, "web/login.html")
+	// ── SPA 静态资源 ──────────────────────────────────────
+	distFS, _ := iofs.Sub(webFS, "web-ui/dist")
+	indexHTML, _ := iofs.ReadFile(distFS, "index.html")
+
+	serveSPA := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(indexHTML)
 	})
+
+	// 静态资源（JS/CSS/SVG）必须公开，否则登录页无法加载
+	fileServer := http.FileServer(http.FS(distFS))
+	r.Handle("/assets/*", fileServer)
+	r.Handle("/favicon.svg", fileServer)
+	r.Handle("/icons.svg", fileServer)
+
+	// ── 登录 / 退出 ──────────────────────────────────────
+	r.Get("/login", serveSPA)
 	r.Post("/login", func(w http.ResponseWriter, req *http.Request) {
 		pass := req.FormValue("password")
 		if cfg.AdminPassword == "" || pass == cfg.AdminPassword {
@@ -185,51 +198,28 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 			http.Redirect(w, req, "/login?error=1&next="+req.FormValue("next"), http.StatusFound)
 		}
 	})
-
-	// 退出登录
 	r.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
 		api.ClearSessionCookie(w)
 		http.Redirect(w, r, "/login", http.StatusFound)
 	})
 
-	// 静态文件服务（需要鉴权）
-	webSubFS, _ := iofs.Sub(webFS, "web")
-	webFileServer := http.FileServer(http.FS(webSubFS))
-	r.With(webAuth).Handle("/web/*", http.StripPrefix("/web/", webFileServer))
+	// ── 公开 SPA 路由 ────────────────────────────────────
+	r.Get("/converter", serveSPA)
 
-	// 页面路由（无 .html 后缀，需要鉴权）
-	servePage := func(file string) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFileFS(w, r, webFS, file)
-		}
-	}
-	serveShell := servePage("web/app_shell.html")
-	r.With(webAuth).Get("/dashboard", serveShell)
-	r.With(webAuth).Get("/subscriptions", serveShell)
-	r.With(webAuth).Get("/nodes", serveShell)
-	r.With(webAuth).Get("/rule-sources", serveShell)
-	r.With(webAuth).Get("/templates", serveShell)
-	r.With(webAuth).Get("/configs", serveShell)
-	r.With(webAuth).Get("/config-access-logs", serveShell)
-	r.With(webAuth).Get("/data-migration", serveShell)
-	r.Get("/converter", servePage("web/convert_guide.html"))
-	r.With(webAuth).Route("/app-fragments", func(r chi.Router) {
-		r.Get("/dashboard", serveFragment("web/index.html"))
-		r.Get("/subscriptions", serveFragment("web/subscriptions.html"))
-		r.Get("/nodes", serveFragment("web/nodes.html"))
-		r.Get("/rule-sources", serveFragment("web/rule_sources.html"))
-		r.Get("/templates", serveFragment("web/templates.html"))
-		r.Get("/configs", serveFragment("web/configs.html"))
-		r.Get("/config-access-logs", serveFragment("web/config_access_logs.html"))
-		r.Get("/data-migration", serveFragment("web/data_migration.html"))
-	})
-
-	// 根路径重定向到仪表盘
+	// ── 受保护 SPA 路由（需鉴权，未登录重定向到 /login）───
 	r.With(webAuth).Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard", http.StatusFound)
 	})
+	r.With(webAuth).Get("/dashboard", serveSPA)
+	r.With(webAuth).Get("/subscriptions", serveSPA)
+	r.With(webAuth).Get("/nodes", serveSPA)
+	r.With(webAuth).Get("/rule-sources", serveSPA)
+	r.With(webAuth).Get("/templates", serveSPA)
+	r.With(webAuth).Get("/configs", serveSPA)
+	r.With(webAuth).Get("/config-access-logs", serveSPA)
+	r.With(webAuth).Get("/data-migration", serveSPA)
 
-	// 公开接口（无需鉴权）
+	// ── 公开接口（无需鉴权）──────────────────────────────
 	r.Get("/subscribe", apiHandlers.GenerateConfig)
 	r.Get("/convert", apiHandlers.ConvertSubscription)
 	r.Get("/api/templates/public", apiHandlers.ListPublicTemplates)
@@ -241,7 +231,13 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	})
 	r.Get("/rulesets/{name}", apiHandlers.ExportRuleSource)
 
-	// API 路由（整体加鉴权）
+	// ── 鉴权检查接口（供 SPA 验证会话状态）───────────────
+	r.Get("/api/auth/check", func(w http.ResponseWriter, r *http.Request) {
+		valid := api.ValidateSession(r, cfg.AdminPassword)
+		api.SendSuccess(w, map[string]bool{"authenticated": valid})
+	})
+
+	// ── API 路由（整体加鉴权）────────────────────────────
 	r.With(api.APIAuthMiddleware(cfg.AdminPassword)).Route("/api", func(r chi.Router) {
 		r.Post("/cache/policies/clear", apiHandlers.ClearAllPolicyCache)
 		r.Post("/admin/migrate-snowflake-ids", apiHandlers.MigrateSnowflakeIDs)
@@ -316,17 +312,4 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	})
 
 	return r
-}
-
-func serveFragment(file string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		content, err := webFS.ReadFile(file)
-		if err != nil {
-			http.Error(w, "页面不存在", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(content)
-	}
 }
