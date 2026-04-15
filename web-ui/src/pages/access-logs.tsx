@@ -75,7 +75,7 @@ export default function AccessLogsPage() {
         <Card>
           <div className="max-h-[calc(100vh-300px)] overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead>Time</TableHead>
                   <TableHead>Token</TableHead>
