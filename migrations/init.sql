@@ -23,6 +23,7 @@ CREATE TABLE subscriptions (
     node_count INTEGER DEFAULT 0,
     filter_rules JSONB DEFAULT '{}',
     userinfo JSONB,
+    disable_name_prefix BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

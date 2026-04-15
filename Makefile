@@ -3,13 +3,16 @@ MIGRATION_FILE := migrations/init.sql
 GOFLAGS ?= -buildvcs=false
 GOCACHE_DIR ?= $(CURDIR)/.cache/go-build
 
-.PHONY: help env-check migrate build run test release
+.PHONY: help env-check migrate build run test release dev web-dev web-build
 
 help:
 	@echo "可用命令:"
+	@echo "  make dev               # 一键启动开发环境（后端 + 前端热重建）"
+	@echo "  make run               # 读取 .env 后启动后端服务"
+	@echo "  make web-dev           # 启动前端开发服务器（需后端运行）"
+	@echo "  make web-build         # 构建前端（minified 生产版本）"
+	@echo "  make build             # 编译 Go 二进制（含前端）"
 	@echo "  make migrate           # 读取 .env 并初始化数据库"
-	@echo "  make build             # 编译程序"
-	@echo "  make run               # 读取 .env 后启动服务"
 	@echo "  make test              # 运行测试"
 	@echo "  make release V=x.y.z   # 打 tag 并推送，触发 GitHub Actions 发布"
 
@@ -22,7 +25,7 @@ env-check:
 migrate: env-check
 	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; test -n "$$DATABASE_URL" || { echo "DATABASE_URL 未设置"; exit 1; }; psql "$$DATABASE_URL" -f "$(MIGRATION_FILE)"'
 
-build:
+build: web-build
 	GOCACHE=$(GOCACHE_DIR) GOFLAGS="$(GOFLAGS)" go build -o ruleflow .
 
 run: env-check
@@ -53,3 +56,17 @@ release:
 	git tag $$NEW; \
 	git push origin $$NEW; \
 	echo "已推送 tag $$NEW，GitHub Actions 开始构建"
+
+web-dev:
+	cd web-ui && bun run dev
+
+web-build:
+	cd web-ui && bun run build
+
+dev: env-check
+	@echo "🚀 启动开发环境：后端 :8080 + 前端 :3000"
+	@bash -lc 'set -a; source "$(ENV_FILE)"; set +a; \
+		GOCACHE="$(GOCACHE_DIR)" GOFLAGS="$(GOFLAGS)" go run . & GO_PID=$$!; \
+		cd web-ui && PORT=3000 bun run dev & WEB_PID=$$!; \
+		trap "kill $$GO_PID $$WEB_PID 2>/dev/null; exit" INT TERM; \
+		wait'
