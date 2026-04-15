@@ -15,7 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, RefreshCw, Copy, Loader2, BookOpen, AlertCircle } from "lucide-react";
 
-const FORMATS = ["sing-box", "clash", "other"];
+const FORMATS = ["sing-box", "surge", "clash-classical", "clash-domain", "clash-ipcidr", "other"];
+const EXPORT_TARGETS = [
+  { key: "sing-box", label: "sing-box" },
+  { key: "surge", label: "Surge" },
+  { key: "clash-classical", label: "Clash" },
+] as const;
 const INTERVALS = [
   { label: "30 min", value: "1800" },
   { label: "1 hour", value: "3600" },
@@ -24,7 +29,7 @@ const INTERVALS = [
   { label: "24 hours", value: "86400" },
 ];
 
-const emptyForm = { name: "", description: "", url: "", source_format: "sing-box", enabled: true, auto_refresh: false, refresh_interval: 3600 };
+const emptyForm = { name: "", description: "", url: "", raw_content: "", source_format: "clash-classical", enabled: true, auto_refresh: false, refresh_interval: 3600 };
 
 function timeAgo(d: string | null) {
   if (!d) return "Never";
@@ -74,7 +79,7 @@ export default function RuleSourcesPage() {
   function openCreate() { setEditId(null); setForm(emptyForm); setDialogOpen(true); }
   function openEdit(s: RuleSource) {
     setEditId(s.id);
-    setForm({ name: s.name, description: s.description, url: s.url, source_format: s.source_format, enabled: s.enabled, auto_refresh: s.auto_refresh, refresh_interval: s.refresh_interval });
+    setForm({ name: s.name, description: s.description, url: s.url, raw_content: s.raw_content || "", source_format: s.source_format, enabled: s.enabled, auto_refresh: s.auto_refresh, refresh_interval: s.refresh_interval });
     setDialogOpen(true);
   }
 
@@ -88,10 +93,10 @@ export default function RuleSourcesPage() {
     finally { setSyncingId(null); }
   }
 
-  async function copyExportUrl(name: string) {
-    const url = `${window.location.origin}/rulesets/${encodeURIComponent(name)}`;
+  async function copyExportUrl(name: string, target: string, label: string) {
+    const url = `${window.location.origin}/rulesets/${encodeURIComponent(name)}?target=${encodeURIComponent(target)}`;
     await navigator.clipboard.writeText(url);
-    toast.success("Export URL copied");
+    toast.success(`${label} export URL copied`);
   }
 
   return (
@@ -136,12 +141,16 @@ export default function RuleSourcesPage() {
                   <span>{s.rule_count} rules</span>
                   <span>Synced: {timeAgo(s.last_synced_at)}</span>
                 </div>
-                <div className="flex gap-1.5 pt-1">
+                <div className="flex flex-wrap gap-1.5 pt-1">
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openEdit(s)}><Pencil className="size-3 mr-1" /> Edit</Button>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleSync(s.id)} disabled={syncingId === s.id}>
                     {syncingId === s.id ? <Loader2 className="size-3 mr-1 animate-spin" /> : <RefreshCw className="size-3 mr-1" />} Sync
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => copyExportUrl(s.name)}><Copy className="size-3 mr-1" /> URL</Button>
+                  {EXPORT_TARGETS.map((t) => (
+                    <Button key={t.key} variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => copyExportUrl(s.name, t.key, t.label)}>
+                      <Copy className="size-3 mr-1" /> {t.label}
+                    </Button>
+                  ))}
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="size-3 mr-1" /> Delete</Button>
                 </div>
               </CardContent>
@@ -151,11 +160,21 @@ export default function RuleSourcesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editId ? "Edit Rule Source" : "New Rule Source"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>URL</Label><Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>URL</Label><Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="Remote rule source URL (leave empty for inline rules)" /></div>
+            <div className="space-y-2">
+              <Label>Rule Content</Label>
+              <Textarea
+                value={form.raw_content}
+                onChange={(e) => setForm((f) => ({ ...f, raw_content: e.target.value }))}
+                rows={10}
+                className="min-h-[200px] font-mono text-xs"
+                placeholder="每行一条规则（支持 # 或 // 开头的注释行）"
+              />
+            </div>
             <div className="space-y-2">
               <Label>Format</Label>
               <Select value={form.source_format} onValueChange={(v) => setForm((f) => ({ ...f, source_format: v }))}>

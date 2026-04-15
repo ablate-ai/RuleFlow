@@ -167,9 +167,9 @@ export default function TemplatesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] flex flex-col">
           <DialogHeader><DialogTitle>{editId ? "Edit Template" : "New Template"}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
               <div className="space-y-2">
@@ -181,7 +181,7 @@ export default function TemplatesPage() {
               </div>
             </div>
             <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-h-0 flex flex-col">
               <div className="flex items-center justify-between">
                 <Label>Content</Label>
                 <Button variant="outline" size="sm" className="h-7" onClick={handleValidate} disabled={validating || !form.content}>
@@ -193,7 +193,7 @@ export default function TemplatesPage() {
                 onChange={(v) => setForm((f) => ({ ...f, content: v }))}
                 language={editorLang(form.target)}
                 placeholder="YAML / JSON template content..."
-                className="h-[50vh]"
+                className="min-h-[200px] max-h-[40vh] flex-1"
               />
               {validResult && <p className={`text-xs ${validResult.startsWith("✅") ? "text-emerald-500" : "text-destructive"}`}>{validResult}</p>}
             </div>
