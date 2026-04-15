@@ -217,8 +217,7 @@ export default function NodesPage() {
         <Skeleton className="h-64 rounded-xl" />
       ) : (
         <Card className="overflow-hidden">
-          <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
-          <Table>
+          <Table containerClassName="max-h-[calc(100vh-280px)] overflow-y-auto">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
                 <TableHead className="w-10"><Checkbox checked={selected.size === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} /></TableHead>
@@ -253,7 +252,6 @@ export default function NodesPage() {
               )}
             </TableBody>
           </Table>
-          </div>
         </Card>
       )}
 

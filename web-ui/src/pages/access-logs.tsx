@@ -72,9 +72,8 @@ export default function AccessLogsPage() {
       {isLoading ? (
         <Skeleton className="h-64 rounded-xl" />
       ) : (
-        <Card>
-          <div className="max-h-[calc(100vh-300px)] overflow-auto">
-            <Table>
+        <Card className="overflow-hidden">
+            <Table containerClassName="max-h-[calc(100vh-300px)] overflow-y-auto">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead>Time</TableHead>
@@ -113,7 +112,6 @@ export default function AccessLogsPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
         </Card>
       )}
     </div>
