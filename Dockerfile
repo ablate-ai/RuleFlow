@@ -1,3 +1,11 @@
+FROM oven/bun:1 AS frontend
+
+WORKDIR /app/web-ui
+COPY web-ui/package.json web-ui/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY web-ui/ .
+RUN bun run build
+
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
@@ -10,6 +18,9 @@ RUN go mod download
 
 # 复制源代码
 COPY . .
+
+# 复制前端构建产物
+COPY --from=frontend /app/web-ui/dist ./web-ui/dist
 
 # 编译
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o ruleflow .
