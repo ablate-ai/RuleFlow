@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, CheckCircle2, FileCode2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, CheckCircle2, FileCode2, Globe, GlobeLock } from "lucide-react";
 import CodeEditor from "@/components/shared/code-editor";
 
 const TARGETS = [
@@ -60,6 +60,15 @@ export default function TemplatesPage() {
       toast.success("Deleted");
       qc.invalidateQueries({ queryKey: ["templates"] });
       setDeleteId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const togglePublicMut = useMutation({
+    mutationFn: (t: Template) => put(`/api/templates/${t.id}`, { ...t, is_public: !t.is_public }),
+    onSuccess: (_data, t) => {
+      toast.success(t.is_public ? "Set to private" : "Set to public");
+      qc.invalidateQueries({ queryKey: ["templates"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -135,6 +144,15 @@ export default function TemplatesPage() {
                   <pre className="text-[10px] text-muted-foreground whitespace-pre-wrap break-all">{t.content.slice(0, 200)}{t.content.length > 200 ? "..." : ""}</pre>
                 </div>
                 <div className="flex gap-1.5 pt-1">
+                  <Button
+                    variant="ghost" size="sm"
+                    className={`h-7 px-2 text-xs ${t.is_public ? "text-emerald-500 hover:text-emerald-600" : ""}`}
+                    onClick={() => togglePublicMut.mutate(t)}
+                    title={t.is_public ? "Set to private" : "Set to public"}
+                  >
+                    {t.is_public ? <Globe className="size-3 mr-1" /> : <GlobeLock className="size-3 mr-1" />}
+                    {t.is_public ? "Public" : "Private"}
+                  </Button>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openEdit(t)}>
                     <Pencil className="size-3 mr-1" /> Edit
                   </Button>

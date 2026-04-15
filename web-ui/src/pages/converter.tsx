@@ -30,7 +30,7 @@ export default function ConverterPage() {
 
   useEffect(() => {
     fetch("/api/templates/public").then((r) => r.json()).then((d) => {
-      if (d.code === 0) setTemplates(d.data || []);
+      if (d.success) setTemplates(d.data || []);
     }).catch(() => {});
   }, []);
 
@@ -39,7 +39,7 @@ export default function ConverterPage() {
   useEffect(() => {
     if (!templateId) { setTemplateContent(""); return; }
     fetch(`/api/templates/public/${templateId}`).then((r) => r.json()).then((d) => {
-      if (d.code === 0) setTemplateContent(d.data?.content || "");
+      if (d.success) setTemplateContent(d.data?.content || "");
     }).catch(() => {});
   }, [templateId]);
 

@@ -49,7 +49,7 @@ export default function DataMigrationPage() {
       const res = await fetch("/api/import", { method: "POST", body: formData, credentials: "include" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      if (json.code !== 0) throw new Error(json.msg);
+      if (!json.success) throw new Error(json.error || "Import failed");
       setImportResult(json.data);
       toast.success("Import complete");
     } catch (e: unknown) {
