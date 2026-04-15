@@ -27,3 +27,7 @@ coverage.html
 # 环境变量
 .env
 .env.docker
+
+# 前端
+web-ui/node_modules/
+web-ui/dist/
