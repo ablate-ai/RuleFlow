@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   Rss,
   Server,
@@ -23,6 +24,7 @@ import {
   AlertCircle,
   Clock,
   Wifi,
+  CalendarClock,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -229,6 +231,43 @@ function TrafficBar({ sub }: { sub: Subscription }) {
   );
 }
 
+function ExpiryInfo({ sub }: { sub: Subscription }) {
+  if (!sub.userinfo?.expire) return null;
+
+  const expireDate = new Date(sub.userinfo.expire * 1000);
+  const now = Date.now();
+  const diffMs = expireDate.getTime() - now;
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const dateStr = expireDate.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const expired = diffDays <= 0;
+  const soon = !expired && diffDays <= 7;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 text-xs",
+        expired
+          ? "font-medium text-red-400"
+          : soon
+            ? "text-orange-400"
+            : "text-muted-foreground",
+      )}
+    >
+      <CalendarClock className="size-3 shrink-0" />
+      <span>
+        {expired
+          ? `已过期 (${dateStr})`
+          : `${dateStr}，剩余 ${diffDays} 天`}
+      </span>
+    </div>
+  );
+}
+
 function SubscriptionHealthCard({ sub }: { sub: Subscription }) {
   const health = subscriptionHealth(sub);
 
@@ -274,6 +313,9 @@ function SubscriptionHealthCard({ sub }: { sub: Subscription }) {
 
         {/* Traffic */}
         <TrafficBar sub={sub} />
+
+        {/* Expiry */}
+        <ExpiryInfo sub={sub} />
       </CardContent>
     </Card>
   );
