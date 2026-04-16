@@ -56,9 +56,8 @@ export default function CodeEditor({ value, onChange, language, placeholder, cla
         }),
         placeholder ? EditorView.contentAttributes.of({ "data-placeholder": placeholder }) : [],
         EditorView.theme({
-          "&": { height: "100%", flex: "1", fontSize: "12px" },
+          "&.cm-editor": { position: "absolute", inset: "0", fontSize: "12px" },
           ".cm-scroller": { overflow: "auto" },
-          ".cm-content": { minHeight: "100px" },
         }),
       ],
     });
@@ -97,8 +96,7 @@ export default function CodeEditor({ value, onChange, language, placeholder, cla
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col rounded-md border border-input ${className ?? "h-80"}`}
-      style={{ overflow: "hidden" }}
+      className={`relative rounded-md border border-input ${className ?? "h-80"}`}
     />
   );
 }

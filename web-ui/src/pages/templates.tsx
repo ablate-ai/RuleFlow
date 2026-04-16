@@ -193,7 +193,7 @@ export default function TemplatesPage() {
                 onChange={(v) => setForm((f) => ({ ...f, content: v }))}
                 language={editorLang(form.target)}
                 placeholder="YAML / JSON template content..."
-                className="min-h-[200px] max-h-[40vh] flex-1"
+                className="h-[40vh]"
               />
               {validResult && <p className={`text-xs ${validResult.startsWith("✅") ? "text-emerald-500" : "text-destructive"}`}>{validResult}</p>}
             </div>
