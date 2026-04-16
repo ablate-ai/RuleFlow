@@ -167,7 +167,7 @@ export default function TemplatesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-4xl w-[90vw] max-h-[90vh] flex flex-col">
           <DialogHeader><DialogTitle>{editId ? "Edit Template" : "New Template"}</DialogTitle></DialogHeader>
           <div className="space-y-4 min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">

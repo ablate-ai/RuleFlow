@@ -156,7 +156,7 @@ export default function ConfigsPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editId ? "Edit Policy" : "New Policy"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>

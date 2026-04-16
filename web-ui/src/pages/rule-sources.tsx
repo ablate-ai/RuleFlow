@@ -160,7 +160,7 @@ export default function RuleSourcesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editId ? "Edit Rule Source" : "New Rule Source"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
