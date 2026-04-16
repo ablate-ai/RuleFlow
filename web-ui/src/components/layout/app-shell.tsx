@@ -92,7 +92,7 @@ export default function AppShell() {
               to="/dashboard"
               className="flex items-center gap-2.5 font-heading text-base font-semibold tracking-tight text-sidebar-foreground"
             >
-              <div className="flex size-7 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+              <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <svg viewBox="0 0 20 20" fill="none" className="size-4">
                   <circle cx="6" cy="5" r="2" fill="currentColor"/>
                   <path d="M6 7v3q0 2 2 3l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

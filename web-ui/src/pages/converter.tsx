@@ -74,7 +74,7 @@ export default function ConverterPage() {
       <Toaster position="bottom-right" richColors closeButton />
       <div className="mx-auto max-w-4xl p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Shield className="size-5" />
           </div>
           <div>
