@@ -169,36 +169,36 @@ export default function TemplatesPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-4xl w-[90vw] max-h-[90vh] flex flex-col">
           <DialogHeader><DialogTitle>{editId ? "Edit Template" : "New Template"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 min-h-0 flex-1 overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-              <div className="space-y-2">
-                <Label>Target</Label>
-                <Select value={form.target} onValueChange={(v) => setForm((f) => ({ ...f, target: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{TARGETS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
+            <div className="space-y-2">
+              <Label>Target</Label>
+              <Select value={form.target} onValueChange={(v) => setForm((f) => ({ ...f, target: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{TARGETS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
-            <div className="space-y-2 min-h-0 flex flex-col">
-              <div className="flex items-center justify-between">
-                <Label>Content</Label>
-                <Button variant="outline" size="sm" className="h-7" onClick={handleValidate} disabled={validating || !form.content}>
-                  {validating ? <Loader2 className="size-3 mr-1 animate-spin" /> : <CheckCircle2 className="size-3 mr-1" />} Validate
-                </Button>
-              </div>
-              <CodeEditor
-                value={form.content}
-                onChange={(v) => setForm((f) => ({ ...f, content: v }))}
-                language={editorLang(form.target)}
-                placeholder="YAML / JSON template content..."
-                className="h-[40vh]"
-              />
-              {validResult && <p className={`text-xs ${validResult.startsWith("✅") ? "text-emerald-500" : "text-destructive"}`}>{validResult}</p>}
+          </div>
+          <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
+          <div className="space-y-2 min-h-0 flex-1 flex flex-col">
+            <div className="flex items-center justify-between">
+              <Label>Content</Label>
+              <Button variant="outline" size="sm" className="h-7" onClick={handleValidate} disabled={validating || !form.content}>
+                {validating ? <Loader2 className="size-3 mr-1 animate-spin" /> : <CheckCircle2 className="size-3 mr-1" />} Validate
+              </Button>
             </div>
-            <div className="space-y-2"><Label>Tags</Label><Input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="comma-separated" /></div>
-            <div className="flex items-center justify-between"><Label>Public</Label><Switch checked={form.is_public} onCheckedChange={(v) => setForm((f) => ({ ...f, is_public: v }))} /></div>
+            <CodeEditor
+              value={form.content}
+              onChange={(v) => setForm((f) => ({ ...f, content: v }))}
+              language={editorLang(form.target)}
+              placeholder="YAML / JSON template content..."
+              className="min-h-0 flex-1"
+            />
+            {validResult && <p className={`text-xs ${validResult.startsWith("✅") ? "text-emerald-500" : "text-destructive"}`}>{validResult}</p>}
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 flex-1"><Label className="shrink-0">Tags</Label><Input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="comma-separated" /></div>
+            <div className="flex items-center gap-2"><Label>Public</Label><Switch checked={form.is_public} onCheckedChange={(v) => setForm((f) => ({ ...f, is_public: v }))} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
