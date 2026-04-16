@@ -56,7 +56,7 @@ export default function CodeEditor({ value, onChange, language, placeholder, cla
         }),
         placeholder ? EditorView.contentAttributes.of({ "data-placeholder": placeholder }) : [],
         EditorView.theme({
-          "&.cm-editor": { position: "absolute", inset: "0", fontSize: "12px" },
+          "&": { height: "100%", fontSize: "12px" },
           ".cm-scroller": { overflow: "auto" },
         }),
       ],
@@ -72,7 +72,6 @@ export default function CodeEditor({ value, onChange, language, placeholder, cla
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync external value changes into the editor
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -84,7 +83,6 @@ export default function CodeEditor({ value, onChange, language, placeholder, cla
     }
   }, [value]);
 
-  // Swap language when prop changes
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -93,10 +91,15 @@ export default function CodeEditor({ value, onChange, language, placeholder, cla
     });
   }, [language]);
 
+  // Outer div takes layout space (flex-1, h-80, etc.)
+  // Inner div uses absolute positioning to get exact pixel dimensions
+  // cm-editor (position:relative !important, height:100%) fills the inner div
   return (
-    <div
-      ref={containerRef}
-      className={`relative rounded-md border border-input ${className ?? "h-80"}`}
-    />
+    <div className={`relative ${className ?? "h-80"}`}>
+      <div
+        ref={containerRef}
+        className="absolute inset-0 overflow-hidden rounded-md border border-input"
+      />
+    </div>
   );
 }
