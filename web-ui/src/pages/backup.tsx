@@ -32,7 +32,6 @@ export default function BackupPage() {
   const { data: r2Objects, isLoading: loadingR2, refetch: refetchR2 } = useQuery({
     queryKey: ["r2Objects"],
     queryFn: () => get<R2Object[]>("/api/backup/r2-objects"),
-    enabled: false, // 手动触发加载
     retry: false,
   });
 
@@ -251,18 +250,16 @@ export default function BackupPage() {
               disabled={loadingR2}
             >
               {loadingR2 ? <Loader2 className="size-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="size-3.5 mr-1.5" />}
-              从 R2 加载
+              刷新
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {!r2Objects ? (
-            <p className="text-sm text-muted-foreground text-center py-8">点击「从 R2 加载」查询远程文件</p>
-          ) : loadingR2 ? (
+          {loadingR2 ? (
             <div className="p-4 space-y-2">
               {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
-          ) : r2Objects.length === 0 ? (
+          ) : !r2Objects?.length ? (
             <p className="text-sm text-muted-foreground text-center py-8">R2 中暂无备份文件</p>
           ) : (
             <Table>
