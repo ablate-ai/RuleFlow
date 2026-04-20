@@ -112,10 +112,17 @@ func main() {
 	)
 	logCleanupScheduler.Start(schedulerCtx)
 
+	// 创建备份服务并启动调度器
+	backupRepo := database.NewBackupRepo(db)
+	backupService := services.NewBackupService(backupRepo, db.Pool)
+	backupScheduler := services.NewBackupScheduler(backupService)
+	backupScheduler.Start(schedulerCtx)
+	backupHandlers := api.NewBackupHandlers(backupService)
+
 	// 创建 API 处理器
 	apiHandlers := api.NewHandlers(subscriptionService, templateService, configPolicyService, ruleSourceService, nodeService, maintenanceService, subscriptionSyncService, ruleSourceSyncService, subscriptionCache, redisClient, db)
 
-	// 启动服务器
+	// 启动服务器（backupHandlers 通过 setupRoutes 注册）
 	port := cfg.Port
 	log.Printf("🚀 RuleFlow %s 启动: http://localhost:%s\n", version, port)
 	log.Printf("💡 管理界面: http://localhost:%s/dashboard\n", port)
@@ -125,7 +132,7 @@ func main() {
 	log.Printf("💡 健康检查: http://localhost:%s/health\n", port)
 
 	// 优雅关闭
-	r := setupRoutes(cfg, apiHandlers)
+	r := setupRoutes(cfg, apiHandlers, backupHandlers)
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: api.LoggingMiddleware(api.CORSMiddleware(cfg.CORSAllowedOrigins)(api.RecoveryMiddleware(r))),
@@ -158,7 +165,7 @@ func main() {
 	os.Exit(0)
 }
 
-func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
+func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, backupHandlers *api.BackupHandlers) chi.Router {
 	if cfg.AdminPassword != "" {
 		log.Printf("🔒 Web 控制台鉴权已启用\n")
 	} else {
@@ -218,6 +225,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 	r.With(webAuth).Get("/configs", serveSPA)
 	r.With(webAuth).Get("/config-access-logs", serveSPA)
 	r.With(webAuth).Get("/data-migration", serveSPA)
+	r.With(webAuth).Get("/backup", serveSPA)
 
 	// ── 公开接口（无需鉴权）──────────────────────────────
 	r.Get("/subscribe", apiHandlers.GenerateConfig)
@@ -293,7 +301,16 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers) chi.Router {
 
 		// 数据导入/导出
 		r.Get("/export", apiHandlers.ExportData)
-		r.Post("/import", apiHandlers.ImportData)
+
+		// 数据库备份
+		r.Get("/backup/settings", backupHandlers.GetSettings)
+		r.Put("/backup/settings", backupHandlers.SaveSettings)
+		r.Post("/backup/test", backupHandlers.TestConnection)
+		r.Post("/backup/trigger", backupHandlers.TriggerBackup)
+		r.Get("/backup/records", backupHandlers.ListRecords)
+		r.Delete("/backup/records/{id}", backupHandlers.DeleteRecord)
+		r.Get("/backup/r2-objects", backupHandlers.ListR2Objects)
+		r.Post("/backup/restore", backupHandlers.Restore)
 
 		// 节点管理
 		r.Get("/nodes", apiHandlers.ListNodes)

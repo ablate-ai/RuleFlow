@@ -118,12 +118,28 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-export interface ImportResult {
-  subscriptions: { created: number; updated: number; skipped: number; errors: string[] };
-  manual_nodes: { created: number; updated: number; skipped: number; errors: string[] };
-  templates: { created: number; updated: number; skipped: number; errors: string[] };
-  config_policies: { created: number; updated: number; skipped: number; errors: string[] };
-  rule_sources: { created: number; updated: number; skipped: number; errors: string[] };
+export interface BackupSettings {
+  enabled: boolean;
+  r2_account_id: string;
+  r2_access_key_id: string;
+  r2_secret_access_key: string;
+  r2_bucket_name: string;
+  updated_at: string;
+}
+
+export interface BackupRecord {
+  id: number;
+  file_key: string;
+  file_size: number;
+  status: "success" | "failed";
+  error_message?: string;
+  created_at: string;
+}
+
+export interface R2Object {
+  key: string;
+  size: number;
+  last_modified: string;
 }
 
 export interface SqlResult {
