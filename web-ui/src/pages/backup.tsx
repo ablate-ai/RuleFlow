@@ -1,20 +1,19 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { get, put, post, del } from "@/lib/api";
+import { get, put, post } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CloudUpload, Play, Plug, Trash2, Loader2, ShieldCheck, RefreshCw, RotateCcw, Terminal } from "lucide-react";
-import type { BackupSettings, BackupRecord, R2Object, SqlResult } from "@/types";
+import { CloudUpload, Play, Plug, Loader2, ShieldCheck, RefreshCw, RotateCcw, Terminal, Trash2 } from "lucide-react";
+import type { BackupSettings, R2Object, SqlResult } from "@/types";
 
 export default function BackupPage() {
   const qc = useQueryClient();
@@ -22,11 +21,6 @@ export default function BackupPage() {
   const { data: settings, isLoading: loadingSettings } = useQuery({
     queryKey: ["backupSettings"],
     queryFn: () => get<BackupSettings>("/api/backup/settings"),
-  });
-
-  const { data: records, isLoading: loadingRecords } = useQuery({
-    queryKey: ["backupRecords"],
-    queryFn: () => get<BackupRecord[]>("/api/backup/records"),
   });
 
   const { data: r2Objects, isLoading: loadingR2, refetch: refetchR2 } = useQuery({
@@ -78,17 +72,7 @@ export default function BackupPage() {
     mutationFn: () => post("/api/backup/trigger"),
     onSuccess: () => {
       toast.success("备份已完成");
-      qc.invalidateQueries({ queryKey: ["backupRecords"] });
       refetchR2();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteRecordMut = useMutation({
-    mutationFn: (id: number) => del(`/api/backup/records/${id}`),
-    onSuccess: () => {
-      toast.success("记录已删除");
-      qc.invalidateQueries({ queryKey: ["backupRecords"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -290,65 +274,6 @@ export default function BackupPage() {
                       >
                         <RotateCcw className="size-3 mr-1" />
                         恢复
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 本地备份记录 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">本地备份记录</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loadingRecords ? (
-            <div className="p-4 space-y-2">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          ) : !records?.length ? (
-            <p className="text-sm text-muted-foreground text-center py-8">暂无备份记录</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>文件</TableHead>
-                  <TableHead>大小</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>时间</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((rec) => (
-                  <TableRow key={rec.id}>
-                    <TableCell className="font-mono text-xs max-w-[200px] truncate" title={rec.file_key}>
-                      {rec.file_key || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">{formatBytes(rec.file_size)}</TableCell>
-                    <TableCell>
-                      {rec.status === "success" ? (
-                        <Badge variant="secondary" className="text-green-600">成功</Badge>
-                      ) : (
-                        <Badge variant="destructive" title={rec.error_message}>失败</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {formatDate(rec.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => deleteRecordMut.mutate(rec.id)}
-                        disabled={deleteRecordMut.isPending}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="size-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>

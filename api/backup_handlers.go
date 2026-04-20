@@ -3,9 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/ablate-ai/RuleFlow/database"
 	"github.com/ablate-ai/RuleFlow/services"
@@ -120,33 +117,6 @@ func (h *BackupHandlers) TriggerBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	SendSuccess(w, map[string]bool{"triggered": true})
-}
-
-// ListRecords GET /api/backup/records
-func (h *BackupHandlers) ListRecords(w http.ResponseWriter, r *http.Request) {
-	records, err := h.svc.ListRecords(r.Context())
-	if err != nil {
-		SendError(w, http.StatusInternalServerError, "读取备份记录失败: "+err.Error())
-		return
-	}
-	if records == nil {
-		records = []*database.BackupRecord{}
-	}
-	SendSuccess(w, records)
-}
-
-// DeleteRecord DELETE /api/backup/records/{id}
-func (h *BackupHandlers) DeleteRecord(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		SendError(w, http.StatusBadRequest, "无效的记录 ID")
-		return
-	}
-	if err := h.svc.DeleteRecord(r.Context(), id); err != nil {
-		SendError(w, http.StatusInternalServerError, "删除记录失败: "+err.Error())
-		return
-	}
-	SendSuccess(w, map[string]bool{"deleted": true})
 }
 
 // ListR2Objects GET /api/backup/r2-objects

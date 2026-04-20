@@ -72,13 +72,6 @@ func (s *BackupService) SaveSettings(ctx context.Context, settings *database.Bac
 	return s.repo.SaveSettings(ctx, settings)
 }
 
-func (s *BackupService) ListRecords(ctx context.Context) ([]*database.BackupRecord, error) {
-	return s.repo.ListRecords(ctx)
-}
-
-func (s *BackupService) DeleteRecord(ctx context.Context, id int64) error {
-	return s.repo.DeleteRecord(ctx, id)
-}
 
 func (s *BackupService) newS3Client(settings *database.BackupSettings) *s3.Client {
 	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", settings.R2AccountID)

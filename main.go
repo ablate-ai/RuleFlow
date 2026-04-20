@@ -307,9 +307,7 @@ func setupRoutes(cfg *config.Config, apiHandlers *api.Handlers, backupHandlers *
 		r.Put("/backup/settings", backupHandlers.SaveSettings)
 		r.Post("/backup/test", backupHandlers.TestConnection)
 		r.Post("/backup/trigger", backupHandlers.TriggerBackup)
-		r.Get("/backup/records", backupHandlers.ListRecords)
-		r.Delete("/backup/records/{id}", backupHandlers.DeleteRecord)
-		r.Get("/backup/r2-objects", backupHandlers.ListR2Objects)
+r.Get("/backup/r2-objects", backupHandlers.ListR2Objects)
 		r.Post("/backup/restore", backupHandlers.Restore)
 
 		// 节点管理

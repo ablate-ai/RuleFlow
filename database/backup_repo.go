@@ -65,31 +65,6 @@ func (r *BackupRepo) CreateRecord(ctx context.Context, rec *BackupRecord) error 
 	`, rec.FileKey, rec.FileSize, rec.Status, rec.ErrorMessage).Scan(&rec.ID, &rec.CreatedAt)
 }
 
-func (r *BackupRepo) ListRecords(ctx context.Context) ([]*BackupRecord, error) {
-	rows, err := r.db.Pool.Query(ctx, `
-		SELECT id, file_key, file_size, status, COALESCE(error_message, ''), created_at
-		FROM backup_records ORDER BY created_at DESC LIMIT 50
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var records []*BackupRecord
-	for rows.Next() {
-		var rec BackupRecord
-		if err := rows.Scan(&rec.ID, &rec.FileKey, &rec.FileSize, &rec.Status,
-			&rec.ErrorMessage, &rec.CreatedAt); err != nil {
-			return nil, err
-		}
-		records = append(records, &rec)
-	}
-	return records, nil
-}
-
-func (r *BackupRepo) DeleteRecord(ctx context.Context, id int64) error {
-	_, err := r.db.Pool.Exec(ctx, `DELETE FROM backup_records WHERE id = $1`, id)
-	return err
-}
 
 // PruneOldRecords 删除超出 keep 数量的旧记录，返回被删除的记录（用于同步删除 R2 文件）
 func (r *BackupRepo) PruneOldRecords(ctx context.Context, keep int) ([]*BackupRecord, error) {
