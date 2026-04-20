@@ -21,7 +21,6 @@ import {
   FileCode2,
   ShieldCheck,
   ScrollText,
-  DatabaseBackup,
   CloudUpload,
   RefreshCw,
   PanelLeft,
@@ -42,7 +41,6 @@ const navItems: NavItem[] = [
   { label: "Templates", href: "/templates", icon: FileCode2 },
   { label: "Config Policies", href: "/configs", icon: ShieldCheck },
   { label: "Access Logs", href: "/config-access-logs", icon: ScrollText },
-  { label: "Data Migration", href: "/data-migration", icon: DatabaseBackup },
   { label: "DB Backup", href: "/backup", icon: CloudUpload },
 ];
 

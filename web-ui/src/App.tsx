@@ -8,7 +8,6 @@ import RuleSourcesPage from "@/pages/rule-sources";
 import TemplatesPage from "@/pages/templates";
 import ConfigsPage from "@/pages/configs";
 import AccessLogsPage from "@/pages/access-logs";
-import DataMigrationPage from "@/pages/data-migration";
 import BackupPage from "@/pages/backup";
 import ConverterPage from "@/pages/converter";
 
@@ -29,7 +28,6 @@ export default function App() {
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/configs" element={<ConfigsPage />} />
         <Route path="/config-access-logs" element={<AccessLogsPage />} />
-        <Route path="/data-migration" element={<DataMigrationPage />} />
         <Route path="/backup" element={<BackupPage />} />
       </Route>
     </Routes>

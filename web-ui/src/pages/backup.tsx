@@ -12,8 +12,9 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { CloudUpload, Play, Plug, Trash2, Loader2, ShieldCheck, RefreshCw, RotateCcw } from "lucide-react";
-import type { BackupSettings, BackupRecord, R2Object } from "@/types";
+import { Textarea } from "@/components/ui/textarea";
+import { CloudUpload, Play, Plug, Trash2, Loader2, ShieldCheck, RefreshCw, RotateCcw, Terminal } from "lucide-react";
+import type { BackupSettings, BackupRecord, R2Object, SqlResult } from "@/types";
 
 export default function BackupPage() {
   const qc = useQueryClient();
@@ -95,6 +96,25 @@ export default function BackupPage() {
 
   // 恢复确认弹窗
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
+
+  // SQL Executor
+  const [sql, setSql] = useState("");
+  const [sqlRunning, setSqlRunning] = useState(false);
+  const [sqlResult, setSqlResult] = useState<SqlResult | null>(null);
+
+  async function handleSql() {
+    if (!sql.trim()) return;
+    setSqlRunning(true);
+    setSqlResult(null);
+    try {
+      const data = await post<SqlResult>("/api/admin/exec-sql", { sql: sql.trim() });
+      setSqlResult(data);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "SQL failed");
+    } finally {
+      setSqlRunning(false);
+    }
+  }
   const restoreMut = useMutation({
     mutationFn: (fileKey: string) => post("/api/backup/restore", { file_key: fileKey }),
     onSuccess: () => {
@@ -338,6 +358,65 @@ export default function BackupPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* SQL Executor */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Terminal className="size-4" />
+            SQL Executor
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>SQL Query</Label>
+            <Textarea
+              value={sql}
+              onChange={(e) => setSql(e.target.value)}
+              rows={4}
+              className="font-mono text-xs"
+              placeholder="SELECT * FROM ..."
+              onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSql(); }}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleSql} disabled={sqlRunning || !sql.trim()} size="sm">
+              {sqlRunning ? <Loader2 className="size-3.5 mr-1.5 animate-spin" /> : <Play className="size-3.5 mr-1.5" />}
+              Run
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setSql(""); setSqlResult(null); }}>
+              <Trash2 className="size-3.5 mr-1.5" /> Clear
+            </Button>
+          </div>
+          {sqlResult && (
+            <div className="space-y-2">
+              <Separator />
+              {sqlResult.type === "select" && sqlResult.rows?.length > 0 ? (
+                <div className="max-h-96 overflow-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>{sqlResult.columns.map((c) => <TableHead key={c} className="text-xs">{c}</TableHead>)}</TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sqlResult.rows.slice(0, 500).map((row, i) => (
+                        <TableRow key={i}>
+                          {sqlResult.columns.map((c) => (
+                            <TableCell key={c} className="text-xs font-mono max-w-[200px] truncate">{String(row[c] ?? "NULL")}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {sqlResult.type === "select" ? "No rows returned" : `${sqlResult.rows_affected} row(s) affected`}
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
