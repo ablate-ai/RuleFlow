@@ -24,8 +24,8 @@ import (
 
 const backupRetentionCount = 6
 
-// backupKeyPattern 合法备份文件名格式：backup-2006-01-02-15-04-05.tar.gz
-var backupKeyPattern = regexp.MustCompile(`^backup-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.tar\.gz$`)
+// backupKeyPattern 合法备份文件名格式：ruleflow/backup-2006-01-02-15-04-05.tar.gz
+var backupKeyPattern = regexp.MustCompile(`^ruleflow/backup-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.tar\.gz$`)
 
 // backupTables 备份时的导出顺序
 var backupTables = []string{
@@ -113,7 +113,7 @@ func (s *BackupService) RunBackup(ctx context.Context) error {
 		return nil
 	}
 
-	fileKey := fmt.Sprintf("backup-%s.tar.gz", time.Now().UTC().Format("2006-01-02-15-04-05"))
+	fileKey := fmt.Sprintf("ruleflow/backup-%s.tar.gz", time.Now().UTC().Format("2006-01-02-15-04-05"))
 
 	data, err := s.buildArchive(ctx)
 	if err != nil {
