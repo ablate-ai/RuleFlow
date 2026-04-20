@@ -263,6 +263,7 @@ func (s *BackupService) ListR2Objects(ctx context.Context) ([]*R2Object, error) 
 	client := s.newS3Client(settings)
 	out, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(settings.R2BucketName),
+		Prefix: aws.String("ruleflow/"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("列出 R2 文件失败: %w", err)
