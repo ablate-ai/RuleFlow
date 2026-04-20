@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
 
 // NodeService 节点服务
@@ -24,8 +24,7 @@ func (s *NodeService) AddManualNode(ctx context.Context, node *database.Node) er
 		return fmt.Errorf("不支持的协议类型: %s", node.Protocol)
 	}
 
-	// 设置来源为手动
-	node.Source = "manual"
+	// 手动节点不关联订阅
 	node.SourceID = nil
 
 	// 默认启用
@@ -41,18 +40,36 @@ func (s *NodeService) AddManualNode(ctx context.Context, node *database.Node) er
 	return s.repo.Create(ctx, node)
 }
 
+// ImportManualNode 手动导入节点；若节点已存在则更新协议与配置。
+func (s *NodeService) ImportManualNode(ctx context.Context, node *database.Node) (bool, error) {
+	// 验证协议类型
+	if !isValidProtocol(node.Protocol) {
+		return false, fmt.Errorf("不支持的协议类型: %s", node.Protocol)
+	}
+
+	node.SourceID = nil
+	if !node.Enabled {
+		node.Enabled = true
+	}
+	if node.Tags == nil {
+		node.Tags = []string{}
+	}
+
+	return s.repo.UpsertManualImported(ctx, node)
+}
+
 // ListNodes 列出节点
 func (s *NodeService) ListNodes(ctx context.Context, filter database.NodeFilter) ([]database.Node, error) {
 	return s.repo.List(ctx, filter)
 }
 
 // GetNode 获取节点详情
-func (s *NodeService) GetNode(ctx context.Context, id int) (*database.Node, error) {
+func (s *NodeService) GetNode(ctx context.Context, id int64) (*database.Node, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
 // UpdateNode 更新节点
-func (s *NodeService) UpdateNode(ctx context.Context, id int, node *database.Node) error {
+func (s *NodeService) UpdateNode(ctx context.Context, id int64, node *database.Node) error {
 	// 验证协议类型
 	if !isValidProtocol(node.Protocol) {
 		return fmt.Errorf("不支持的协议类型: %s", node.Protocol)
@@ -64,7 +81,6 @@ func (s *NodeService) UpdateNode(ctx context.Context, id int, node *database.Nod
 		return err
 	}
 
-	node.Source = existing.Source
 	node.SourceID = existing.SourceID
 	node.ID = id
 
@@ -72,12 +88,12 @@ func (s *NodeService) UpdateNode(ctx context.Context, id int, node *database.Nod
 }
 
 // DeleteNode 删除节点
-func (s *NodeService) DeleteNode(ctx context.Context, id int) error {
+func (s *NodeService) DeleteNode(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
 
 // BatchEnable 批量启用/禁用节点
-func (s *NodeService) BatchEnable(ctx context.Context, ids []int, enabled bool) (int64, error) {
+func (s *NodeService) BatchEnable(ctx context.Context, ids []int64, enabled bool) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
@@ -87,18 +103,25 @@ func (s *NodeService) BatchEnable(ctx context.Context, ids []int, enabled bool) 
 
 // GetNodesBySubscription 获取指定订阅的所有节点
 func (s *NodeService) GetNodesBySubscription(ctx context.Context, subscriptionName string) ([]database.Node, error) {
-	source := fmt.Sprintf("subscription:%s", subscriptionName)
-	filter := database.NodeFilter{
-		Source: source,
+	nodes, err := s.repo.List(ctx, database.NodeFilter{})
+	if err != nil {
+		return nil, err
 	}
 
-	return s.repo.List(ctx, filter)
+	result := make([]database.Node, 0)
+	for _, node := range nodes {
+		if node.SourceID != nil && node.SourceName == subscriptionName {
+			result = append(result, node)
+		}
+	}
+
+	return result, nil
 }
 
 // GetManualNodes 获取所有手动添加的节点
 func (s *NodeService) GetManualNodes(ctx context.Context) ([]database.Node, error) {
 	filter := database.NodeFilter{
-		Source: "manual",
+		ManualOnly: true,
 	}
 
 	return s.repo.List(ctx, filter)
@@ -130,6 +153,8 @@ func isValidProtocol(protocol string) bool {
 		"vmess":     true,
 		"vless":     true,
 		"ss":        true,
+		"wireguard": true,
+		"anytls":    true,
 		"hysteria2": true,
 		"tuic":      true,
 	}
@@ -196,7 +221,15 @@ func (s *NodeService) GetNodeStats(ctx context.Context) (map[string]interface{},
 	// 按来源统计
 	sourceCounts := make(map[string]int)
 	for _, node := range allNodes {
-		sourceCounts[node.Source]++
+		if node.SourceID == nil {
+			sourceCounts["manual"]++
+			continue
+		}
+		key := node.SourceName
+		if key == "" {
+			key = "subscription"
+		}
+		sourceCounts[key]++
 	}
 	stats["by_source"] = sourceCounts
 

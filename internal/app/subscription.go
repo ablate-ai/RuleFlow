@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"compress/flate"
 	"compress/gzip"
 	"compress/zlib"
@@ -8,25 +9,27 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
-// fetchSubscriptionContent 从订阅地址获取原始内容
-func fetchSubscriptionContent(subURL string) (string, error) {
+// FetchSubscriptionContent 从订阅地址获取原始内容和响应头。
+func FetchSubscriptionContent(ctx context.Context, subURL string) (string, http.Header, error) {
 	if subURL == "" {
-		return "", fmt.Errorf("订阅地址不能为空")
+		return "", nil, fmt.Errorf("订阅地址不能为空")
 	}
 
-	req, err := http.NewRequest("GET", subURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, subURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("创建请求失败: %w", err)
+		return "", nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "clash-verge/v1.3.8")
+	req.Header.Set("User-Agent", "clash.meta/v1.19.16")
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Encoding", "gzip, deflate")
 	req.Header.Set("Connection", "keep-alive")
 
 	client := &http.Client{
+		Timeout: 30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return fmt.Errorf("重定向次数过多")
@@ -37,43 +40,34 @@ func fetchSubscriptionContent(subURL string) (string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("获取订阅失败（网络错误）: %w", err)
+		return "", nil, fmt.Errorf("获取订阅失败（网络错误）: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		// 尝试解压错误响应体（部分服务器对非 200 响应也启用 gzip）
+		errorBody, _ := readResponseBody(resp)
 		errorHint := ""
-		if len(body) > 0 {
-			preview := string(body)
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
+		if len(errorBody) > 0 {
+			preview := string(errorBody)
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
 			}
 			errorHint = fmt.Sprintf("，响应内容: %s", preview)
 		}
-		return "", fmt.Errorf("订阅服务器返回错误（HTTP %d）%s", resp.StatusCode, errorHint)
+		return "", nil, fmt.Errorf("订阅服务器返回错误（HTTP %d）%s", resp.StatusCode, errorHint)
 	}
 
 	content, err := readResponseBody(resp)
 	if err != nil {
-		return "", fmt.Errorf("读取订阅内容失败: %w", err)
+		return "", nil, fmt.Errorf("读取订阅内容失败: %w", err)
 	}
 
 	if len(content) == 0 {
-		return "", fmt.Errorf("订阅服务器返回了空内容")
+		return "", nil, fmt.Errorf("订阅服务器返回了空内容")
 	}
 
-	return string(content), nil
-}
-
-// fetchSubscription 从订阅地址获取并解析节点链接（向后兼容）
-func fetchSubscription(subURL string) ([]string, error) {
-	content, err := fetchSubscriptionContent(subURL)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseSubscriptionToURLs(content)
+	return string(content), resp.Header, nil
 }
 
 func readResponseBody(resp *http.Response) ([]byte, error) {

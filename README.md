@@ -1,520 +1,432 @@
-# RuleFlow - Clash & Stash 规则转换工具
+<div align="center">
 
-将 Trojan 节点订阅转换为 Clash 和 Stash 配置文件的 Web 服务。
+# RuleFlow
+
+**自托管订阅转换服务** — 将代理订阅转换为多客户端配置文件
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://go.dev/)
+
+</div>
+
+## 简介
+
+RuleFlow 是一个功能强大的自托管订阅转换服务，可将代理订阅源转换为多种主流代理客户端的配置文件。无论是个人使用还是团队部署，RuleFlow 都提供了灵活的订阅管理、节点过滤和规则模板功能。
+
+### 核心能力
+
+- **多协议支持** — Trojan、VMess、VLESS、Shadowsocks、Hysteria2、TUIC v5、WireGuard
+- **多客户端输出** — Clash Meta、Stash、Surge、Sing-Box
+- **智能节点管理** — 正则过滤、分组管理、链式代理
+- **规则模板引擎** — 支持 YAML/INI 模板，灵活配置分流规则
+- **可视化控制台** — React SPA，Bun 构建，shadcn/ui + Tailwind CSS
+- **高性能架构** — Redis 缓存、并发同步、定时任务
 
 ## ✨ 功能特性
 
-- 🔗 **单节点转换** - 支持单个 Trojan 节点链接解析
-- 📋 **订阅转换** - 支持批量订阅内容（原始或 Base64 编码）
-- 🎯 **多客户端支持** - 支持 Clash 和 Stash 客户端配置生成
-- 🌐 **Web 界面** - 简洁美观的在线转换界面
-- ⚙️ **自动配置** - 生成完整的代理配置文件
-- 📥 **一键下载** - 直接下载生成的 YAML 配置
-- 🎯 **规则模板** - 通过 YAML 文件维护多套分流规则
-- 🗄️ **数据库支持** - PostgreSQL 持久化订阅配置（可选）
-- ⚡ **缓存加速** - Redis 缓存订阅内容，提升性能（可选）
-- 🔄 **管理 API** - 完整的订阅管理和缓存管理接口（可选）
+### 客户端支持
+- **Clash Meta** — 完整 YAML 配置，支持 proxy-groups、rules 等高级特性
+- **Stash** — iOS/macOS 平台优化配置
+- **Surge** — INI 格式，支持 `#!MANAGED-CONFIG` 远程更新
+- **Sing-Box** — 通用代理配置格式
+
+### 协议解析
+- Trojan、VMess、VLESS
+- Shadowsocks（含 AEAD 加密）
+- Hysteria2、TUIC v5
+- WireGuard
+
+### 高级特性
+- **规则模板** — 自定义 YAML/INI 模板，自动注入节点
+- **节点过滤** — 正则表达式精准匹配节点
+- **链式代理** — 一键配置中转落地链路
+- **规则源管理** — 内置规则集同步与缓存
+- **访问日志** — 配置访问记录与统计分析
+
+### 运维能力
+- **Web 管理控制台** — 可视化管理订阅、节点、模板、配置策略
+- **REST API** — 完整 CRUD 接口，支持程序化集成
+- **Redis 缓存** — 配置缓存加速，减轻订阅源压力
+- **定时同步** — 自动拉取和刷新订阅源与规则集
+- **鉴权保护** — Session 鉴权保护管理接口
+
+---
 
 ## 🚀 快速开始
 
-### 编译
+### 前置要求
+
+- **Go** 1.24 或更高版本
+- **Bun** — 前端构建和包管理
+- **PostgreSQL** 数据库（必需）
+- **Redis**（可选，用于缓存）
+- **psql** 客户端（用于数据库初始化）
+
+### 方式一：本地运行
 
 ```bash
-go build -o ruleflow ./cmd/ruleflow
-```
-
-### 运行（基础模式）
-
-```bash
-./ruleflow
-```
-
-服务将在 `http://localhost:8080` 启动。
-
-### 运行（完整模式 - 带数据库和缓存）
-
-```bash
-# 复制环境变量配置文件
+# 1. 复制环境变量配置
 cp .env.example .env
+# 编辑 .env，填写数据库、Redis 连接信息和管理密码
 
-# 编辑 .env 文件，配置数据库和 Redis 连接信息
-# 然后运行
-./ruleflow
-```
-
-### 自定义端口
-
-```bash
-PORT=3000 ./ruleflow
-```
-
-## 📖 使用方法
-
-### 方式 1: 单节点转换
-
-1. 打开浏览器访问 `http://localhost:8080`
-2. 点击「单节点转换」标签
-3. 粘贴 Trojan 节点链接
-4. 点击「转换配置」
-5. 下载生成的配置文件
-
-### 方式 2: 订阅转换
-
-1. 点击「订阅转换」标签
-2. 粘贴订阅内容（支持 Base64 编码）
-3. 点击「转换配置」
-4. 下载生成的配置文件
-
-### 方式 3: 数据库模式（新增）
-
-如果启用了数据库和 Redis 支持，可以通过订阅名称访问配置：
-
-```bash
-# 创建订阅（需要先执行数据库迁移）
-curl -X POST http://localhost:8080/api/subscriptions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "my-subscription",
-    "url": "https://example.com/trojan-sub",
-    "target": "clash",
-    "enabled": true
-  }'
-
-# 通过订阅名称获取配置
-curl "http://localhost:8080/sub/my-subscription?target=clash"
-```
-
-## 🔗 Trojan 链接格式
-
-```
-trojan://password@server:port?sni=domain&name=节点名称
-```
-
-### 参数说明
-
-| 参数 | 说明 | 必填 | 默认值 |
-|------|------|------|--------|
-| password | Trojan 密码 | ✅ | - |
-| server | 服务器地址 | ✅ | - |
-| port | 端口 | ❌ | 443 |
-| sni | SNI 域名 | ❌ | 服务器地址 |
-| name | 节点名称 | ❌ | 服务器地址 |
-
-### 示例
-
-```
-# 完整参数
-trojan://my-pass@node.example.com:443?sni=example.com&name=香港节点
-
-# 最简参数
-trojan://my-pass@node.example.com
-```
-
-## 🗄️ 数据库设置（可选）
-
-### PostgreSQL 安装和配置
-
-#### macOS
-```bash
-brew install postgresql@14
-brew services start postgresql@14
-createdb ruleflow
-```
-
-#### Ubuntu/Debian
-```bash
-sudo apt-get install postgresql postgresql-contrib
-sudo -u postgres createdb ruleflow
-```
-
-#### 数据库初始化
-
-```bash
-# 推荐：自动加载 .env 后执行
+# 2. 初始化数据库
 make migrate
 
-# 或者手动执行 SQL
-psql ruleflow < migrations/init.sql
-psql $DATABASE_URL < migrations/init.sql
+# 3. 启动服务
+make run
 ```
 
-### Redis 安装和配置
+内置模板位于 `rules/clash.yaml` 和 `rules/surge.conf`；也可以在 Web 控制台中上传自定义模板。
 
-#### macOS
-```bash
-brew install redis
-brew services start redis
-```
+### 方式二：一键安装（Linux 服务器）
 
-#### Ubuntu/Debian
-```bash
-sudo apt-get install redis-server
-sudo systemctl start redis
-```
-
-## 📡 API 接口
-
-### GET /sub
-
-把订阅地址转换为 Clash 或 Stash YAML 配置（推荐用于客户端订阅）。
-
-**查询参数:**
-
-- `url`（必填）: 原始订阅地址
-- `target`（可选）: 目标客户端类型，支持 `clash`（默认）或 `stash`
-
-**示例:**
+> 依赖：`docker`、`docker compose`，需以 **root** 身份运行。
 
 ```bash
-# 生成 Clash 配置（默认）
-curl "http://localhost:8080/sub?url=https%3A%2F%2Fexample.com%2Fsub"
-
-# 生成 Stash 配置
-curl "http://localhost:8080/sub?url=https%3A%2F%2Fexample.com%2Fsub&target=stash"
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sh
 ```
 
-**响应头:**
+安装脚本会自动完成：
 
-- `X-Node-Count`: 节点数量
-- `X-Rule-Template`: 实际使用的模板名（`clash` 或 `stash`）
-- `Content-Disposition`: 文件名（`clash_config.yaml` 或 `stash_config.yaml`）
+1. 检测 `PORT`（默认 8080）、`5432`、`6379` 端口占用，冲突时交互询问
+2. 下载 `docker-compose.yaml`、`migrations/init.sql`、`uninstall.sh` 到 `$HOME/ruleflow/`
+3. 初始化 `$HOME/ruleflow/.env`（含数据库、Redis 连接信息）
+4. 下载适合当前架构（amd64 / arm64）的预编译二进制
+5. 用 Docker Compose 启动 PostgreSQL + Redis 基础设施
+6. 注册并启动 systemd 服务 `ruleflow`
 
-### GET /sub/{name}（数据库模式）
+安装完成后打印真实访问地址，例如：
 
-通过订阅名称获取配置（需要启用数据库和 Redis）。
+```
+访问地址: http://1.2.3.4:8080
+查看日志: journalctl -u ruleflow -f
+```
 
-**查询参数:**
-
-- `target`（可选）: 目标客户端类型，支持 `clash`（默认）或 `stash`
-
-**示例:**
+**一键卸载：**
 
 ```bash
-curl "http://localhost:8080/sub/my-subscription?target=clash"
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sh
 ```
 
-**响应头:**
+卸载脚本会停止并移除：systemd 服务、Docker 容器/网络/数据卷、二进制文件、安装目录。**PostgreSQL 数据将被清除。**
 
-- `X-Node-Count`: 节点数量
-- `X-Rule-Template`: 实际使用的模板名
-- `X-Cache`: `HIT` 或 `MISS`（标识是否来自缓存）
-- `Content-Disposition`: 文件名
-
-### 订阅管理 API
-
-#### POST /api/subscriptions
-
-创建订阅配置。
-
-**请求体:**
-
-```json
-{
-  "name": "my-subscription",
-  "url": "https://example.com/trojan-sub",
-  "target": "clash",
-  "enabled": true,
-  "description": "我的订阅",
-  "tags": ["premium", "hk"]
-}
-```
-
-**响应:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "my-subscription",
-    "url": "https://example.com/trojan-sub",
-    "target": "clash",
-    "enabled": true,
-    "description": "我的订阅",
-    "tags": ["premium", "hk"],
-    "node_count": 0,
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-#### GET /api/subscriptions
-
-获取所有订阅列表。
-
-**响应:**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "my-subscription",
-      "url": "https://example.com/trojan-sub",
-      "enabled": true,
-      "node_count": 10
-    }
-  ]
-}
-```
-
-#### GET /api/subscriptions/{name}
-
-获取单个订阅信息。
-
-#### PUT /api/subscriptions/{name}
-
-更新订阅配置。
-
-**请求体:** 同 POST 请求。
-
-#### DELETE /api/subscriptions/{name}
-
-删除订阅配置。
-
-**响应:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "message": "订阅已删除"
-  }
-}
-```
-
-### 缓存管理 API
-
-#### POST /api/subscriptions/{name}/refresh
-
-手动刷新订阅缓存。
-
-**示例:**
+**自定义安装目录：**
 
 ```bash
-curl -X POST "http://localhost:8080/api/subscriptions/my-subscription/refresh?target=clash"
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/install.sh | sudo RULEFLOW_DIR=/opt/ruleflow sh
+curl -fsSL https://raw.githubusercontent.com/ablate-ai/RuleFlow/main/uninstall.sh | sudo RULEFLOW_DIR=/opt/ruleflow sh
 ```
 
-#### DELETE /api/cache/{name}
+---
 
-清除指定订阅的缓存。
+## 🛠️ 技术栈
 
-**示例:**
+| 层 | 技术 |
+|----|------|
+| **后端** | Go 1.24+, PostgreSQL, Redis |
+| **前端运行时/构建** | Bun (原生 bundler) |
+| **UI 框架** | React 19, TypeScript |
+| **组件库** | shadcn/ui (Radix UI) |
+| **样式** | Tailwind CSS v4 |
+| **路由** | React Router v7 |
+| **状态管理** | TanStack Query |
+| **代码编辑器** | CodeMirror 6 |
+| **图标** | Lucide React |
 
-```bash
-curl -X DELETE "http://localhost:8080/api/cache/my-subscription"
+---
+
+## 📖 使用流程
+
+### 基础用法
+
+1. **添加订阅源**：在控制台「订阅源」页面填入订阅 URL
+2. **同步节点**：点击同步按钮拉取节点列表
+3. **配置规则源**（可选）：添加规则集订阅源，自动同步分流规则
+4. **选择或上传模板**：使用内置模板或在「规则模板」页面上传自定义模板
+5. **创建配置策略**：绑定订阅源 + 模板 + 目标客户端，生成专属订阅链接
+6. **在客户端中使用**：将生成的 `/subscribe?token=xxx` 链接填入客户端
+
+### 高级用法
+
+- **链式代理**：在模板中使用 `dialer-proxy` 配置中转落地
+- **节点过滤**：使用正则表达式精准筛选节点
+- **访问监控**：查看配置访问日志，分析使用情况
+
+### 订阅链接格式
+
+```
+http://your-server:8080/subscribe?token=<token>
 ```
 
-#### DELETE /api/cache
+Surge 客户端会自动识别响应中的 `#!MANAGED-CONFIG` 头，支持远程更新。
 
-清除所有缓存。
+---
 
-**示例:**
+## 🔧 规则模板
 
-```bash
-curl -X DELETE "http://localhost:8080/api/cache"
-```
+### Clash Meta / Stash 模板（YAML）
 
-### 健康检查 API
+在 `proxy-groups` 中支持两个扩展字段，生成配置时自动处理并从输出中删除：
 
-#### GET /health
+`url` 和 `benchmark-url` 可混写；生成时会按目标客户端自动规范化：Clash Meta 输出 `url`，Stash 输出 `benchmark-url`。
 
-检查服务健康状态。
-
-**响应:**
-
-```json
-{
-  "status": "healthy",
-  "database": {
-    "status": "healthy",
-    "connections": "1/10"
-  },
-  "redis": {
-    "status": "healthy",
-    "connected": "true"
-  }
-}
-```
-
-可用模板示例：
-
-- `bcnkd4jv_full`（完整模板，含 `rule-providers`）
-
-### POST /convert
-
-转换 Trojan 节点为 Clash 配置。
-
-**请求体:**
-
-```json
-{
-  "urls": ["trojan://password@server:443?sni=server.com&name=节点名"]
-}
-```
-
-或使用订阅内容:
-
-```json
-{
-  "subscription": "base64编码的订阅内容或原始多行链接"
-}
-```
-
-**响应:**
-
-```json
-{
-  "config": "port: 7890\nproxies:\n...",
-  "count": 1
-}
-```
-
-**错误响应:**
-
-```json
-{
-  "error": "错误信息"
-}
-```
-
-## ⚙️ 配置说明
-
-### 默认端口
-
-| 端口 | 用途 |
-|------|------|
-| 7890 | HTTP 代理 |
-| 7891 | SOCKS5 代理 |
-| 7892 | Redir 代理 |
-| 7893 | Mixed 代理 |
-
-### 代理组
-
-- **🚀 节点选择** - 手动选择节点
-- **♻️ 自动选择** - URL 测试自动选择
-
-### 分流规则
-
-规则集中维护在 `rules/template.yaml`。
-
-默认文件示例：
+#### `filter` — 节点过滤
 
 ```yaml
-rule-providers:
-  ai_non_ip:
-    type: http
-    behavior: classical
-    format: text
-    interval: 43200
-    url: https://ruleset.skk.moe/Clash/non_ip/ai.txt
-    path: ./sukkaw_ruleset/ai_non_ip.txt
+proxy-groups:
+  - name: 🇸🇬 新加坡
+    type: url-test
+    filter: "SG|新加坡|Singapore"    # 正则，仅匹配的节点进入该组
+    proxies: ["__NODES__"]
+    url: http://cp.cloudflare.com/generate_204
+    interval: 300
 ```
 
-程序会直接读取该完整模板文件（支持 `rule-providers`、自定义 `proxy-groups`、`rules`），并把订阅解析出来的节点注入到 `proxies`。
-`rules/external/*` 仅作为导入参考。
+#### `exclude-filter` — 排除节点
 
-## 🔧 自定义配置
+```yaml
+  - name: 🇸🇬 新加坡（直连）
+    type: url-test
+    filter: "SG|新加坡"
+    exclude-filter: "IPLC|BGP|中转"  # 在 filter 结果中再排除
+    proxies: ["__NODES__"]
+```
 
-优先通过模板文件维护规则，不需要改代码：直接编辑 `rules/template.yaml`。
+#### `dialer-proxy` — 链式代理（中转落地）
 
-也可以通过环境变量修改模板文件路径：
+```yaml
+  - name: 🇺🇸 美国 via 新加坡
+    type: select
+    filter: "US|美国"
+    dialer-proxy: "SG|新加坡"        # 正则匹配第一个新加坡节点作为中转
+    proxies: ["__NODES__"]
+```
+
+生成效果：
+
+```yaml
+proxies:
+  - name: 🇸🇬 SG-01
+    type: trojan
+    ...                              # 中转节点，无 dialer-proxy
+  - name: 🇺🇸 US-01
+    type: vmess
+    dialer-proxy: 🇸🇬 SG-01         # 自动注入
+    ...
+```
+
+### Surge 模板（INI）
+
+```ini
+[Proxy]
+__NODES__
+
+[Proxy Group]
+🇸🇬 SG = url-test, __NODES__, policy-regex-filter=SG|新加坡, url=http://cp.cloudflare.com/generate_204, interval=300
+🤖 AI = select, __NODES__, policy-regex-filter=US|美国, exclude-filter=IPLC|BGP, dialer-proxy=🇸🇬 SG
+
+[Rule]
+RULE-SET,https://ruleset.skk.moe/Clash/non_ip/ai.txt,🤖 AI
+FINAL,🇸🇬 SG
+```
+
+Surge 模板使用 `policy-regex-filter=` 按正则筛选节点。
+生成后 `policy-regex-filter=`、`exclude-filter=`、`dialer-proxy=` 均不保留；`dialer-proxy` 会被翻译为节点行的 `underlying-proxy=` 参数。
+
+> **注意**：`dialer-proxy` 只会作用到该组最终展开出的实际节点。
+> 中转目标会优先按组名匹配，找不到时再按节点名匹配；如果整组只引用其他组、不直接包含节点，则不会给任何节点注入 `underlying-proxy=`。
+
+---
+
+## 📡 API 参考
+
+设置 `ADMIN_PASSWORD` 后，`/api/*` 接口需登录后方可访问（Cookie session）。
+
+| 资源 | 方法 | 路径 | 说明 |
+|------|------|------|------|
+| **订阅源** |
+| 订阅源 | CRUD | `/api/subscriptions` | 管理订阅源 |
+| 订阅同步 | POST | `/api/subscriptions/{id}/sync` | 手动同步节点 |
+| **节点** |
+| 节点 | CRUD + 批量导入 | `/api/nodes` | 管理节点 |
+| **规则模板** |
+| 规则模板 | CRUD | `/api/templates` | 管理配置模板 |
+| 模板检测 | POST | `/api/templates/lint` | 检测模板语法 |
+| **配置策略** |
+| 配置策略 | CRUD | `/api/config-policies` | 管理输出策略 |
+| 清除缓存 | DELETE | `/api/config-policies/{id}/cache` | 清除策略缓存 |
+| **规则源** |
+| 规则源 | CRUD | `/api/rule-sources` | 管理规则集源 |
+| 规则同步 | POST | `/api/rule-sources/{id}/sync` | 同步规则集 |
+| **访问日志** |
+| 访问日志 | 查询 | `/api/config-access-logs` | 查询访问记录 |
+| **订阅分发** |
+| 生成配置 | GET | `/subscribe?token=xxx` | 获取客户端配置 |
+| 健康检查 | GET | `/health` | 服务健康状态 |
+
+---
+
+## ⚙️ 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| **服务配置** |
+| `PORT` | HTTP 服务端口 | `8080` |
+| `ADMIN_PASSWORD` | 控制台登录密码；为空则不启用鉴权 | 空 |
+| `CORS_ALLOWED_ORIGINS` | CORS 允许来源（逗号分隔） | `*` |
+| **数据库** |
+| `DATABASE_URL` | PostgreSQL 连接串（必需） | - |
+| **缓存** |
+| `REDIS_ADDR` | Redis 地址；为空时禁用缓存 | `localhost:6379` |
+| `REDIS_PASSWORD` | Redis 密码 | 空 |
+| `REDIS_DB` | Redis 数据库编号 | `0` |
+| `CACHE_TTL_SECONDS` | 配置缓存有效期（秒） | `3600` |
+| **外部访问** |
+| `PUBLIC_BASE_URL` | 对外访问基地址，用于补全相对路径 | 空 |
+| `SURGE_MANAGED_CONFIG_BASE_URL` | Surge `#!MANAGED-CONFIG` 更新地址 | 空 |
+| **日志清理** |
+| `LOG_KEEP_DAYS` | 访问日志保留天数 | `30` |
+| `LOG_MAX_RECORDS` | 访问日志最大记录数 | `10000` |
+| `LOG_CHECK_INTERVAL` | 日志清理检查间隔（小时） | `1` |
+
+---
+
+## 🗄️ 数据库初始化
 
 ```bash
-RULE_TEMPLATE_FILE=/path/to/template.yaml ./ruleflow
+# 推荐（自动读取 .env）
+make migrate
+
+# 手动执行
+psql "$DATABASE_URL" -f migrations/init.sql
 ```
 
-## 🎯 Clash vs Stash 配置差异
+数据库初始化使用 `migrations/init.sql`；如需升级已有库，请按发布内容执行对应的增量迁移脚本，例如 `migrations/20260315_drop_nodes_source.sql`。
 
-本工具支持为 Clash 和 Stash 客户端生成优化的配置文件：
-
-### Clash 配置
-- 包含代理端口设置（`port`、`socks-port` 等）
-- 支持外部控制器（`external-controller`）
-- 支持 TUN 模式配置
-- 完整的 DNS 和规则集支持
-
-### Stash 配置
-- 移除 Clash 特定的端口设置（Stash 使用系统代理）
-- 移除外部控制器配置
-- 移除 TUN 模式配置（iOS 系统限制）
-- 优化 DNS 配置以兼容 Stash
-- 保持完整的代理组和规则支持
-
-### 使用建议
-- **iOS/macOS 用户**: 使用 `target=stash` 参数生成 Stash 配置
-- **其他平台用户**: 使用默认的 Clash 配置或 `target=clash` 参数
-
-## 🐳 Docker 部署
-
-```dockerfile
-FROM golang:1.24-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o ruleflow ./cmd/ruleflow
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/ruleflow .
-COPY --from=builder /app/web ./web
-COPY --from=builder /app/rules ./rules
-EXPOSE 8080
-CMD ["./ruleflow"]
-```
-
-构建并运行：
-
-```bash
-docker build -t ruleflow .
-docker run -p 8080:8080 ruleflow
-```
+---
 
 ## 📦 项目结构
 
 ```
 RuleFlow/
-├── cmd/
-│   └── ruleflow/
-│       └── main.go             # 程序入口
-├── internal/
-│   └── app/                    # 核心转换逻辑和页面处理
-│       ├── handlers.go
-│       ├── models.go
-│       ├── subscription.go
-│       ├── parser.go
-│       └── config_builder.go
-├── config/                      # 配置管理
-│   └── config.go               # 配置结构和环境变量
-├── database/                    # 数据访问层
-│   ├── database.go             # 数据库连接管理
-│   └── subscription_repo.go    # 订阅仓储
-├── cache/                       # 缓存层
-│   ├── redis.go                # Redis 客户端
-│   └── subscription_cache.go   # 订阅缓存
-├── services/                    # 业务逻辑层
-│   └── subscription_service.go # 订阅服务
-├── api/                         # API 处理器
-│   ├── handlers.go             # HTTP 处理器
-│   ├── middleware.go           # 中间件
-│   └── response.go             # 响应格式化
-├── migrations/                  # 数据库初始化脚本
-│   └── init.sql
-├── web/                         # Web 静态文件
-├── rules/                       # 规则模板
-├── go.mod                       # Go 模块依赖
-├── .env.example                 # 环境变量示例
-└── README.md                    # 本文件
+├── main.go                          # 入口，路由注册
+├── internal/app/                    # 核心逻辑
+│   ├── parser.go                    # 多协议节点 URL 解析
+│   ├── config_builder.go            # Clash Meta / Stash 配置生成
+│   ├── surge_builder.go             # Surge INI 配置生成
+│   ├── singbox_builder.go           # Sing-Box 配置生成
+│   ├── models.go                    # 数据模型
+│   ├── subscription.go              # 订阅拉取
+│   ├── rule_set.go                  # 规则集管理
+│   ├── country_emoji.go             # 节点名称地区 emoji
+│   └── wireguard.go                 # WireGuard 配置处理
+├── api/                             # HTTP 处理层
+│   ├── handlers.go                  # REST API 处理器
+│   ├── middleware.go                # 鉴权、CORS
+│   ├── template_lint.go             # 模板语法检测
+│   └── surge_managed_config.go      # Surge #!MANAGED-CONFIG 支持
+├── services/                        # 业务逻辑层
+│   ├── subscription_service.go      # 订阅服务
+│   ├── subscription_sync_service.go # 订阅同步
+│   ├── subscription_scheduler.go    # 订阅定时任务
+│   ├── node_service.go              # 节点服务
+│   ├── template_service.go          # 模板服务
+│   ├── config_policy_service.go     # 配置策略服务
+│   ├── rule_source_service.go       # 规则源服务
+│   ├── rule_source_sync_service.go  # 规则源同步
+│   ├── rule_source_scheduler.go     # 规则源定时任务
+│   ├── maintenance_service.go       # 维护服务
+│   ├── log_cleanup_scheduler.go     # 日志清理任务
+│   └── scheduler_loop.go            # 定时任务调度器
+├── database/                        # 数据访问层
+│   ├── database.go                  # 数据库连接
+│   ├── subscription_repo.go         # 订阅仓储
+│   ├── node_repo.go                 # 节点仓储
+│   ├── template_repo.go             # 模板仓储
+│   ├── config_policy_repo.go        # 策略仓储
+│   ├── rule_source_repo.go          # 规则源仓储
+│   ├── config_access_log_repo.go    # 访问日志仓储
+│   └── snowflake_migration.go       # ID 迁移脚本
+├── cache/                           # 缓存层
+│   ├── redis.go                     # Redis 客户端
+│   └── subscription_cache.go        # 订阅缓存
+├── config/                          # 配置加载
+├── web-ui/                          # React SPA 前端
+│   ├── build.ts                     # Bun 构建脚本
+│   ├── dev.ts                       # 开发服务器
+│   ├── package.json
+│   ├── src/
+│   │   ├── main.tsx                 # 入口
+│   │   ├── App.tsx                  # 路由 + 布局
+│   │   ├── pages/                   # 页面组件
+│   │   ├── components/              # UI 组件 (shadcn/ui)
+│   │   ├── hooks/                   # React hooks
+│   │   ├── lib/                     # API 客户端等工具
+│   │   └── types/                   # TypeScript 类型
+│   └── dist/                        # 构建产物 → Go embed
+├── rules/                           # 内置规则模板
+│   ├── clash.yaml
+│   ├── surge.conf
+│   └── sing-box.json.template
+├── migrations/                      # 数据库迁移脚本
+├── deploy/                          # 部署配置
+│   └── docker-compose.yaml
+├── Dockerfile
+├── Makefile
+├── go.mod
+└── .env.example
 ```
 
-## 🧪 测试
+---
+
+## 🧪 开发与测试
+
+### 运行测试
 
 ```bash
+make test
+# 或
 GOCACHE=$(pwd)/.cache/go-build go test ./...
 ```
 
+### 开发命令
+
+```bash
+make help        # 查看所有可用命令
+make migrate     # 初始化数据库
+make build       # 编译程序（含前端构建）
+make run         # 启动服务（读取 .env）
+
+# 前端开发
+cd web-ui
+bun install      # 安装依赖
+bun run dev      # 启动开发服务器（代理 API 到后端）
+bun run build    # 生产构建 → dist/
+```
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+### 开发建议
+
+1. 遵循现有代码风格
+2. 添加测试覆盖新功能
+3. 更新相关文档
+
+---
+
 ## 📄 许可证
 
-MIT License
+本项目采用 [MIT License](LICENSE) 开源协议。
+
+Copyright (c) 2026 [ablate-ai](https://github.com/ablate-ai)
+
+---
+
+## 📮 联系方式
+
+- **问题反馈**: [GitHub Issues](https://github.com/ablate-ai/RuleFlow/issues)
+- **功能建议**: [GitHub Discussions](https://github.com/ablate-ai/RuleFlow/discussions)

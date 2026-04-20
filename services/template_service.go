@@ -3,9 +3,32 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"github.com/c.chen/ruleflow/database"
+	"github.com/ablate-ai/RuleFlow/database"
 )
+
+// normalizeTemplateTarget 将旧版 target 值规范化为数据库约束允许的值
+func normalizeTemplateTarget(target string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(target))
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+	switch normalized {
+	case "clash", "clash-meta", "clash-mihomo":
+		return "clash-mihomo", nil
+	case "stash":
+		return "stash", nil
+	case "surge":
+		return "surge", nil
+	case "sing-box", "singbox":
+		return "sing-box", nil
+	case "loon":
+		return "loon", nil
+	case "shadowrocket":
+		return "shadowrocket", nil
+	default:
+		return "", fmt.Errorf("不支持的 target: %s", target)
+	}
+}
 
 // TemplateService 模板服务
 type TemplateService struct {
@@ -21,6 +44,12 @@ func NewTemplateService(templateRepo *database.TemplateRepo) *TemplateService {
 
 // CreateTemplate 创建模板
 func (s *TemplateService) CreateTemplate(ctx context.Context, tpl *database.Template) error {
+	normalized, err := normalizeTemplateTarget(tpl.Target)
+	if err != nil {
+		return err
+	}
+	tpl.Target = normalized
+
 	// 检查名称是否已存在
 	exists, err := s.templateRepo.Exists(ctx, tpl.Name)
 	if err != nil {
@@ -29,19 +58,6 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, tpl *database.Temp
 	if exists {
 		return fmt.Errorf("模板名称已存在: %s", tpl.Name)
 	}
-
-	// 如果是第一个模板，自动设置为默认
-	if tpl.IsDefault {
-		return s.templateRepo.Create(ctx, tpl)
-	}
-
-	// 检查是否已有默认模板
-	_, err = s.templateRepo.GetDefault(ctx)
-	if err != nil && err.Error() == "未找到默认模板" {
-		// 没有默认模板，将此模板设为默认
-		tpl.IsDefault = true
-	}
-
 	return s.templateRepo.Create(ctx, tpl)
 }
 
@@ -50,9 +66,9 @@ func (s *TemplateService) GetTemplateByName(ctx context.Context, name string) (*
 	return s.templateRepo.GetByName(ctx, name)
 }
 
-// GetDefaultTemplate 获取默认模板
-func (s *TemplateService) GetDefaultTemplate(ctx context.Context) (*database.Template, error) {
-	return s.templateRepo.GetDefault(ctx)
+// GetTemplateByID 根据 ID 获取模板
+func (s *TemplateService) GetTemplateByID(ctx context.Context, id int64) (*database.Template, error) {
+	return s.templateRepo.GetByID(ctx, id)
 }
 
 // ListTemplates 列出所有模板
@@ -61,13 +77,43 @@ func (s *TemplateService) ListTemplates(ctx context.Context) ([]database.Templat
 }
 
 // UpdateTemplate 更新模板
-func (s *TemplateService) UpdateTemplate(ctx context.Context, tpl *database.Template) error {
-	return s.templateRepo.Update(ctx, tpl)
+func (s *TemplateService) UpdateTemplate(ctx context.Context, id int64, tpl *database.Template) error {
+	normalized, err := normalizeTemplateTarget(tpl.Target)
+	if err != nil {
+		return err
+	}
+	tpl.Target = normalized
+
+	current, err := s.templateRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if current.Name != tpl.Name {
+		exists, err := s.templateRepo.Exists(ctx, tpl.Name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return fmt.Errorf("模板名称已存在: %s", tpl.Name)
+		}
+	}
+	tpl.ID = id
+	return s.templateRepo.Update(ctx, id, tpl)
+}
+
+// GetPublicTemplateByID 获取公开模板内容（仅限 is_public = true）
+func (s *TemplateService) GetPublicTemplateByID(ctx context.Context, id int64) (*database.Template, error) {
+	return s.templateRepo.GetPublicByID(ctx, id)
+}
+
+// ListPublicTemplates 列出所有公开模板
+func (s *TemplateService) ListPublicTemplates(ctx context.Context) ([]database.Template, error) {
+	return s.templateRepo.ListPublic(ctx)
 }
 
 // DeleteTemplate 删除模板
-func (s *TemplateService) DeleteTemplate(ctx context.Context, name string) error {
-	return s.templateRepo.Delete(ctx, name)
+func (s *TemplateService) DeleteTemplate(ctx context.Context, id int64) error {
+	return s.templateRepo.Delete(ctx, id)
 }
 
 // Health 检查服务健康状态

@@ -2,10 +2,15 @@ package app
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // 多协议 URL 匹配模式
@@ -14,12 +19,18 @@ var (
 	vmessURLPattern     = regexp.MustCompile(`vmess://[a-zA-Z0-9_=]+`)
 	vlessURLPattern     = regexp.MustCompile(`vless://[^\s]+`)
 	ssURLPattern        = regexp.MustCompile(`ss://[^\s]+`)
+	anytlsURLPattern    = regexp.MustCompile(`anytls://[^\s]+`)
 	hysteria2URLPattern = regexp.MustCompile(`(?:hysteria2|hy2)://[^\s]+`)
 	tuicURLPattern      = regexp.MustCompile(`tuic://[^\s]+`)
-	allProtocolPattern  = regexp.MustCompile(`(trojan|vmess|vless|ss|hysteria2|hy2|tuic)://[^\s]+`)
+	allProtocolPattern  = regexp.MustCompile(`(trojan|vmess|vless|ss|anytls|hysteria2|hy2|tuic)://[^\s]+`)
 )
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;:]*[A-Za-z]`)
+
+// ParseNodeURL 解析任意协议的节点 URL（导出版本）
+func ParseNodeURL(nodeURL string) (*ProxyNode, error) {
+	return parseNodeURL(nodeURL)
+}
 
 // parseNodeURL 解析任意协议的节点 URL
 func parseNodeURL(nodeURL string) (*ProxyNode, error) {
@@ -42,6 +53,8 @@ func parseNodeURL(nodeURL string) (*ProxyNode, error) {
 		return parseVLESSNode(nodeURL)
 	case "ss":
 		return parseShadowsocksNode(nodeURL)
+	case "anytls":
+		return parseAnyTLSNode(nodeURL)
 	case "hysteria2", "hy2":
 		return parseHysteria2Node(nodeURL)
 	case "tuic":
@@ -49,6 +62,62 @@ func parseNodeURL(nodeURL string) (*ProxyNode, error) {
 	default:
 		return nil, fmt.Errorf("不支持的协议: %s", u.Scheme)
 	}
+}
+
+func parseAnyTLSNode(nodeURL string) (*ProxyNode, error) {
+	nodeURL = strings.TrimSpace(nodeURL)
+	if !strings.HasPrefix(nodeURL, "anytls://") {
+		return nil, fmt.Errorf("无效的 AnyTLS 链接格式")
+	}
+
+	u, err := url.Parse(nodeURL)
+	if err != nil {
+		return nil, fmt.Errorf("解析 URL 失败: %w", err)
+	}
+
+	password := u.User.Username()
+	if password == "" {
+		return nil, fmt.Errorf("未找到密码")
+	}
+
+	server := u.Hostname()
+	if server == "" {
+		return nil, fmt.Errorf("未找到服务器地址")
+	}
+
+	port, err := parsePortWithDefault(u.Port(), 443)
+	if err != nil {
+		return nil, fmt.Errorf("无效端口: %w", err)
+	}
+
+	query := u.Query()
+	name := query.Get("name")
+	if name == "" {
+		name = decodeURLFragment(u)
+	}
+	if name == "" {
+		name = server
+	}
+
+	sni := query.Get("sni")
+	if sni == "" {
+		sni = server
+	}
+
+	insecure := queryBool(query, "insecure", "allowInsecure")
+
+	opts := map[string]interface{}{
+		"password": password,
+		"tls":      buildTLSOptions(true, sni, insecure, parseALPN(query), query.Get("fp")),
+	}
+
+	return &ProxyNode{
+		Protocol: "anytls",
+		Name:     name,
+		Server:   server,
+		Port:     port,
+		Options:  opts,
+	}, nil
 }
 
 // parseTrojanNode 解析 Trojan 节点
@@ -69,22 +138,15 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 	}
 
 	server := u.Hostname()
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
 	name := query.Get("name")
 	if name == "" {
 		name = query.Get("hash")
 	}
-	if name == "" && u.Fragment != "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
-			name = decoded
-		} else {
-			name = u.Fragment
-		}
+	if name == "" {
+		name = decodeURLFragment(u)
 	}
 	if name == "" {
 		name = server
@@ -95,18 +157,22 @@ func parseTrojanNode(nodeURL string) (*ProxyNode, error) {
 		sni = server
 	}
 
-	skipCertVerify := query.Get("allowInsecure") == "1" || query.Get("allowInsecure") == "true"
+	skipCertVerify := queryBool(query, "allowInsecure")
+
+	opts := map[string]interface{}{
+		"password": password,
+		"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
+	}
+	if transport := parseTransportOptions(query); transport != nil {
+		opts["transport"] = transport
+	}
 
 	return &ProxyNode{
 		Protocol: "trojan",
 		Name:     name,
 		Server:   server,
 		Port:     port,
-		Options: map[string]interface{}{
-			"password":       password,
-			"sni":            sni,
-			"skipCertVerify": skipCertVerify,
-		},
+		Options:  opts,
 	}, nil
 }
 
@@ -154,18 +220,10 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 
 	uuid := u.User.Username()
 	server := u.Hostname()
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
-	name := u.Fragment
-	if name == "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil {
-			name = decoded
-		}
-	}
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
 	}
@@ -180,29 +238,41 @@ func parseVLESSNode(nodeURL string) (*ProxyNode, error) {
 	tls := security == "tls" || security == "reality"
 
 	opts := map[string]interface{}{
-		"uuid":    uuid,
-		"network": network,
-		"tls":     tls,
+		"uuid": uuid,
 	}
 
 	if flow := query.Get("flow"); flow != "" {
 		opts["flow"] = flow
 	}
-	if sni := query.Get("sni"); sni != "" {
-		opts["sni"] = sni
-	}
+	alpn := parseALPN(query)
+	tlsObj := map[string]interface{}{}
 	if fingerprint := query.Get("fp"); fingerprint != "" {
-		opts["fingerprint"] = fingerprint
+		tlsObj = buildTLSOptions(tls, query.Get("sni"), false, alpn, fingerprint)
+	} else if tls || len(alpn) > 0 || query.Get("sni") != "" {
+		tlsObj = buildTLSOptions(tls, query.Get("sni"), false, alpn, "")
 	}
-	if wsPath := query.Get("path"); wsPath != "" {
-		opts["wsPath"] = wsPath
+	if len(tlsObj) > 0 {
+		opts["tls"] = tlsObj
+	} else {
+		opts["tls"] = false
+	}
+	if transport := parseTransportOptions(query); transport != nil {
+		opts["transport"] = transport
 	}
 
 	// Reality 配置
 	if security == "reality" {
-		opts["reality"] = &RealityConfig{
+		reality := &RealityConfig{
 			PublicKey: query.Get("pbk"),
 			ShortID:   query.Get("sid"),
+		}
+		if tlsMap, ok := opts["tls"].(map[string]interface{}); ok {
+			tlsMap["enabled"] = true
+			tlsMap["reality"] = map[string]interface{}{
+				"enabled":    true,
+				"public_key": reality.PublicKey,
+				"short_id":   reality.ShortID,
+			}
 		}
 	}
 
@@ -222,25 +292,26 @@ func parseShadowsocksNode(nodeURL string) (*ProxyNode, error) {
 		return nil, fmt.Errorf("无效的 Shadowsocks 链接格式")
 	}
 
-	// 移除 ss:// 前缀
-	base64Part := strings.TrimPrefix(nodeURL, "ss://")
-
-	// 提取 fragment（名称）
-	fragment := ""
-	hashIndex := strings.Index(base64Part, "#")
-	if hashIndex > 0 {
-		fragment = base64Part[hashIndex+1:]
-		base64Part = base64Part[:hashIndex]
+	u, err := url.Parse(nodeURL)
+	if err != nil {
+		return nil, fmt.Errorf("解析 URL 失败: %w", err)
 	}
 
 	// 查找 @ 分隔符
+	base64Part := strings.TrimPrefix(nodeURL, "ss://")
+	if hashIndex := strings.Index(base64Part, "#"); hashIndex > 0 {
+		base64Part = base64Part[:hashIndex]
+	}
+	if queryIndex := strings.Index(base64Part, "?"); queryIndex > 0 {
+		base64Part = base64Part[:queryIndex]
+	}
+
 	atIndex := strings.Index(base64Part, "@")
 	if atIndex <= 0 {
 		return nil, fmt.Errorf("无效的 Shadowsocks 格式：缺少 @ 分隔符")
 	}
 
 	userInfo := base64Part[:atIndex]
-	serverPart := base64Part[atIndex+1:]
 
 	// 尝试解码用户信息（可能是 Base64）
 	var cipher, password string
@@ -265,20 +336,19 @@ func parseShadowsocksNode(nodeURL string) (*ProxyNode, error) {
 		password = userInfo[colonIndex+1:]
 	}
 
-	// 解析服务器部分
-	server, port, err := parseServerPartSimple(serverPart)
+	server := u.Hostname()
+	if server == "" {
+		return nil, fmt.Errorf("未找到服务器地址")
+	}
+	port, err := parsePortWithDefault(u.Port(), 8388)
 	if err != nil {
-		return nil, fmt.Errorf("解析服务器部分失败: %w", err)
+		return nil, fmt.Errorf("无效端口: %w", err)
 	}
 
 	// 处理名称
-	name := fragment
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
-	} else {
-		if decoded, err := url.PathUnescape(name); err == nil && decoded != "" {
-			name = decoded
-		}
 	}
 
 	return &ProxyNode{
@@ -291,34 +361,6 @@ func parseShadowsocksNode(nodeURL string) (*ProxyNode, error) {
 			"password": password,
 		},
 	}, nil
-}
-
-// parseServerPartSimple 简化版服务器部分解析
-func parseServerPartSimple(serverPart string) (server string, port int, err error) {
-	// 查找端口
-	colonIndex := strings.LastIndex(serverPart, ":")
-	if colonIndex <= 0 {
-		return "", 0, fmt.Errorf("无效的服务器格式：缺少端口")
-	}
-
-	server = serverPart[:colonIndex]
-	portStr := serverPart[colonIndex+1:]
-
-	// 移除可能的路径参数
-	if slashIndex := strings.Index(portStr, "/"); slashIndex > 0 {
-		portStr = portStr[:slashIndex]
-	}
-
-	if server == "" {
-		return "", 0, fmt.Errorf("服务器地址为空")
-	}
-
-	port = 8388 // 默认端口
-	if portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
-
-	return server, port, nil
 }
 
 // parseHysteria2Node 解析 Hysteria2 节点
@@ -342,16 +384,13 @@ func parseHysteria2Node(nodeURL string) (*ProxyNode, error) {
 	}
 
 	server := u.Hostname()
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
 	sni := query.Get("sni")
-	skipCertVerify := query.Get("insecure") == "1" || query.Get("insecure") == "true"
+	skipCertVerify := queryBool(query, "allow_insecure", "insecure")
 
-	name := u.Fragment
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
 	}
@@ -362,9 +401,8 @@ func parseHysteria2Node(nodeURL string) (*ProxyNode, error) {
 		Server:   server,
 		Port:     port,
 		Options: map[string]interface{}{
-			"password":       password,
-			"sni":            sni,
-			"skipCertVerify": skipCertVerify,
+			"password": password,
+			"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
 		},
 	}, nil
 }
@@ -404,20 +442,13 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 		return nil, fmt.Errorf("未找到服务器地址")
 	}
 
-	port := 443
-	if portStr := u.Port(); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
+	port, _ := parsePortWithDefault(u.Port(), 443)
 
 	query := u.Query()
 	sni := query.Get("sni")
+	skipCertVerify := queryBool(query, "allow_insecure", "insecure")
 
-	name := u.Fragment
-	if name == "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
-			name = decoded
-		}
-	}
+	name := decodeURLFragment(u)
 	if name == "" {
 		name = server
 	}
@@ -430,15 +461,144 @@ func parseTUICNode(nodeURL string) (*ProxyNode, error) {
 		Options: map[string]interface{}{
 			"uuid":     uuid,
 			"password": password,
-			"sni":      sni,
+			"tls":      buildTLSOptions(true, sni, skipCertVerify, parseALPN(query), ""),
 		},
 	}, nil
 }
 
 // ========== 辅助函数 ==========
 
-// decodeVMessBase64 解码 VMess Base64
-func decodeVMessBase64(s string) (string, error) {
+func parseTransportOptions(query url.Values) map[string]interface{} {
+	transportType := strings.TrimSpace(query.Get("type"))
+	if transportType == "" {
+		return nil
+	}
+
+	transport := map[string]interface{}{
+		"type": transportType,
+	}
+	if path := query.Get("path"); path != "" {
+		transport["path"] = path
+	}
+	host := query.Get("host")
+	if host == "" {
+		host = query.Get("authority")
+	}
+	if host != "" {
+		transport["host"] = host
+		transport["headers"] = map[string]string{"Host": host}
+	}
+	if serviceName := query.Get("serviceName"); serviceName != "" {
+		transport["service_name"] = serviceName
+	}
+
+	return transport
+}
+
+func parseVMessTransportOptions(network, path, host, serviceName string) map[string]interface{} {
+	network = strings.TrimSpace(network)
+	if network == "" || network == "tcp" {
+		return nil
+	}
+
+	transport := map[string]interface{}{
+		"type": network,
+	}
+	if path != "" {
+		transport["path"] = path
+	}
+	if host != "" {
+		transport["host"] = host
+		transport["headers"] = map[string]string{"Host": host}
+	}
+	if serviceName != "" {
+		transport["service_name"] = serviceName
+	}
+	return transport
+}
+
+func parseALPN(query url.Values) []string {
+	return splitAndTrim(query.Get("alpn"))
+}
+
+func decodeURLFragment(u *url.URL) string {
+	if u == nil || u.Fragment == "" {
+		return ""
+	}
+	// 优先用 RawFragment 解码，支持订阅源用 + 代替空格的编码方式
+	raw := u.RawFragment
+	if raw == "" {
+		raw = u.Fragment
+	}
+	if decoded, err := url.QueryUnescape(raw); err == nil && decoded != "" {
+		return decoded
+	}
+	return u.Fragment
+}
+
+func parsePortWithDefault(portStr string, defaultPort int) (int, error) {
+	if portStr == "" {
+		return defaultPort, nil
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return defaultPort, err
+	}
+	return port, nil
+}
+
+func queryBool(query url.Values, keys ...string) bool {
+	for _, key := range keys {
+		if value := strings.TrimSpace(query.Get(key)); value != "" {
+			return value == "1" || strings.EqualFold(value, "true")
+		}
+	}
+	return false
+}
+
+func splitAndTrim(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == '|'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func buildTLSOptions(enabled bool, serverName string, insecure bool, alpn []string, fingerprint string) map[string]interface{} {
+	tlsObj := map[string]interface{}{
+		"enabled": enabled,
+	}
+	if serverName != "" {
+		tlsObj["server_name"] = serverName
+	}
+	if insecure {
+		tlsObj["insecure"] = true
+	}
+	if len(alpn) > 0 {
+		tlsObj["alpn"] = alpn
+	}
+	if fingerprint != "" {
+		tlsObj["utls"] = map[string]interface{}{
+			"enabled":     true,
+			"fingerprint": fingerprint,
+		}
+	}
+	return tlsObj
+}
+
+func decodeURLSafeBase64String(s string) (string, error) {
 	// URL 安全的 Base64 可能包含 - 和 _
 	s = strings.NewReplacer("-", "+", "_", "/").Replace(s)
 
@@ -454,6 +614,11 @@ func decodeVMessBase64(s string) (string, error) {
 	return string(decoded), nil
 }
 
+// decodeVMessBase64 解码 VMess Base64
+func decodeVMessBase64(s string) (string, error) {
+	return decodeURLSafeBase64String(s)
+}
+
 // decodeSSBase64 解码 Shadowsocks Base64
 func decodeSSBase64(s string) (string, error) {
 	// 移除可能存在的 fragment
@@ -461,73 +626,70 @@ func decodeSSBase64(s string) (string, error) {
 		s = s[:idx]
 	}
 
-	s = strings.NewReplacer("-", "+", "_", "/").Replace(s)
-
-	if rem := len(s) % 4; rem != 0 {
-		s += strings.Repeat("=", 4-rem)
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return "", fmt.Errorf("Base64 解码失败: %w", err)
-	}
-
-	return string(decoded), nil
+	return decodeURLSafeBase64String(s)
 }
 
 // parseVMessJSON 解析 VMess JSON 配置（简化版）
 func parseVMessJSON(jsonStr string) (*ProxyNode, error) {
-	// 简化的 JSON 解析，实际应该使用 encoding/json
-	// 这里使用字符串匹配来提取关键字段
-
-	pswd := extractJSONField(jsonStr, "id")
-	if pswd == "" {
-		return nil, fmt.Errorf("未找到 UUID")
+	type vmessConfig struct {
+		ID      string `json:"id"`
+		Add     string `json:"add"`
+		Port    int    `json:"port"`
+		PS      string `json:"ps"`
+		Aid     int    `json:"aid"`
+		Net     string `json:"net"`
+		TLS     string `json:"tls"`
+		SNI     string `json:"sni"`
+		Path    string `json:"path"`
+		Host    string `json:"host"`
+		ALPN    string `json:"alpn"`
+		Service string `json:"serviceName"`
 	}
 
-	addrs := extractJSONField(jsonStr, "add")
-	if addrs == "" {
+	var cfg vmessConfig
+	if err := json.Unmarshal([]byte(jsonStr), &cfg); err != nil {
+		return nil, fmt.Errorf("解析 VMess JSON 失败: %w", err)
+	}
+
+	if cfg.ID == "" {
+		return nil, fmt.Errorf("未找到 UUID")
+	}
+	if cfg.Add == "" {
 		return nil, fmt.Errorf("未找到服务器地址")
 	}
 
-	port := 80
-	if portStr := extractJSONField(jsonStr, "port"); portStr != "" {
-		fmt.Sscanf(portStr, "%d", &port)
-	}
-
-	name := extractJSONField(jsonStr, "ps")
+	name := cfg.PS
 	if name == "" {
-		name = addrs
+		name = cfg.Add
 	}
 
-	alterID := 0
-	if alterIDStr := extractJSONField(jsonStr, "aid"); alterIDStr != "" {
-		fmt.Sscanf(alterIDStr, "%d", &alterID)
-	}
-
-	network := extractJSONField(jsonStr, "net")
+	network := cfg.Net
 	if network == "" {
 		network = "tcp"
 	}
 
-	tls := extractJSONField(jsonStr, "tls") == "true"
+	tls := cfg.TLS == "tls" || cfg.TLS == "true"
 
-	sni := extractJSONField(jsonStr, "sni")
-	wsPath := extractJSONField(jsonStr, "path")
+	opts := map[string]interface{}{
+		"uuid":    cfg.ID,
+		"alterID": cfg.Aid,
+	}
+	alpn := splitAndTrim(cfg.ALPN)
+	if tls {
+		opts["tls"] = buildTLSOptions(true, cfg.SNI, false, alpn, "")
+	} else {
+		opts["tls"] = false
+	}
+	if transport := parseVMessTransportOptions(cfg.Net, cfg.Path, cfg.Host, cfg.Service); transport != nil {
+		opts["transport"] = transport
+	}
 
 	return &ProxyNode{
 		Protocol: "vmess",
 		Name:     name,
-		Server:   addrs,
-		Port:     port,
-		Options: map[string]interface{}{
-			"uuid":    pswd,
-			"alterID": alterID,
-			"network": network,
-			"tls":     tls,
-			"sni":     sni,
-			"wsPath":  wsPath,
-		},
+		Server:   cfg.Add,
+		Port:     cfg.Port,
+		Options:  opts,
 	}, nil
 }
 
@@ -562,7 +724,7 @@ func parseServerPart(serverPart string) (server string, port int, fragment strin
 	fragmentIndex := strings.Index(serverPart, "#")
 	if fragmentIndex > 0 {
 		fragment = serverPart[fragmentIndex+1:]
-		if decoded, err := url.PathUnescape(fragment); err == nil {
+		if decoded, err := url.QueryUnescape(fragment); err == nil {
 			fragment = decoded
 		}
 		serverPart = serverPart[:fragmentIndex]
@@ -620,7 +782,11 @@ func parseTrojanURL(trojanURL string) (*TrojanNode, error) {
 		name = query.Get("hash")
 	}
 	if name == "" && u.Fragment != "" {
-		if decoded, err := url.PathUnescape(u.Fragment); err == nil && decoded != "" {
+		raw := u.RawFragment
+		if raw == "" {
+			raw = u.Fragment
+		}
+		if decoded, err := url.QueryUnescape(raw); err == nil && decoded != "" {
 			name = decoded
 		} else {
 			name = u.Fragment
@@ -644,6 +810,76 @@ func parseTrojanURL(trojanURL string) (*TrojanNode, error) {
 	}, nil
 }
 
+// parseClashYAML 解析 Clash YAML 格式的订阅内容（含 proxies: 段）
+func parseClashYAML(content string) ([]*ProxyNode, error) {
+	var cfg struct {
+		Proxies []map[string]interface{} `yaml:"proxies"`
+	}
+	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
+		return nil, fmt.Errorf("YAML 解析失败: %w", err)
+	}
+	if len(cfg.Proxies) == 0 {
+		return nil, fmt.Errorf("YAML 中未找到 proxies 字段")
+	}
+
+	nodes := make([]*ProxyNode, 0, len(cfg.Proxies))
+	for _, p := range cfg.Proxies {
+		name, _ := p["name"].(string)
+		rawProxyType, _ := p["type"].(string)
+		proxyType, ok := normalizeProxyProtocol(rawProxyType)
+		server, _ := p["server"].(string)
+		if !ok {
+			if name == "" {
+				name = server
+			}
+			log.Printf("[parse] 跳过不支持的 YAML 节点协议: name=%q type=%q server=%q", name, rawProxyType, server)
+			continue
+		}
+
+		var port int
+		switch v := p["port"].(type) {
+		case int:
+			port = v
+		case float64:
+			port = int(v)
+		}
+
+		if proxyType == "" || server == "" || port == 0 {
+			continue
+		}
+		if name == "" {
+			name = server
+		}
+
+		options := make(map[string]interface{})
+		for k, v := range p {
+			if k != "type" && k != "name" && k != "server" && k != "port" {
+				options[k] = v
+			}
+		}
+
+		nodes = append(nodes, &ProxyNode{
+			Protocol: proxyType,
+			Name:     name,
+			Server:   server,
+			Port:     port,
+			Options:  options,
+		})
+	}
+	return nodes, nil
+}
+
+func normalizeProxyProtocol(protocol string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(protocol)) {
+	case "trojan", "vmess", "vless", "ss", "wireguard", "anytls", "hysteria2", "tuic":
+		return strings.ToLower(strings.TrimSpace(protocol)), true
+	case "hy2":
+		return "hysteria2", true
+	default:
+		return "", false
+	}
+}
+
 // ParseSubscription 解析订阅内容，支持多种协议
 func ParseSubscription(content string) ([]*ProxyNode, error) {
 	lowerContent := strings.ToLower(content)
@@ -656,12 +892,25 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 		return nil, fmt.Errorf("订阅服务器返回了空内容")
 	}
 
+	// 优先尝试 Clash YAML 格式
+	if strings.Contains(originalContent, "proxies:") {
+		if nodes, err := parseClashYAML(originalContent); err == nil && len(nodes) > 0 {
+			return nodes, nil
+		}
+	}
+
 	candidates := []string{originalContent}
 	// 如果没有直接找到协议链接，尝试 Base64 解码
 	if !allProtocolPattern.MatchString(originalContent) {
 		compact := strings.NewReplacer("\n", "", "\r", "", "\t", "", " ", "").Replace(originalContent)
 		if decoded, ok := decodeSubscriptionBase64(compact); ok {
 			candidates = append(candidates, decoded)
+			// base64 解码结果也可能是 Clash YAML
+			if strings.Contains(decoded, "proxies:") {
+				if nodes, err := parseClashYAML(decoded); err == nil && len(nodes) > 0 {
+					return nodes, nil
+				}
+			}
 		}
 		if decoded, ok := decodeSubscriptionBase64ByLine(originalContent); ok {
 			candidates = append(candidates, decoded)
@@ -671,7 +920,6 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 	// 收集所有协议的链接
 	allURLs := []string{}
 	for _, candidate := range candidates {
-		// 使用通用协议匹配模式
 		matches := allProtocolPattern.FindAllString(candidate, -1)
 		for _, m := range matches {
 			link := strings.TrimSpace(m)
@@ -682,7 +930,7 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 	}
 
 	// 去重
-	allURLs = dedupeStrings(allURLs)
+	allURLs = DedupeStrings(allURLs)
 
 	if len(allURLs) == 0 {
 		lines := strings.Split(originalContent, "\n")
@@ -693,70 +941,28 @@ func ParseSubscription(content string) ([]*ProxyNode, error) {
 	nodes := make([]*ProxyNode, 0, len(allURLs))
 	parseErrors := []string{}
 
-	for _, url := range allURLs {
-		node, err := parseNodeURL(url)
+	for _, u := range allURLs {
+		node, err := parseNodeURL(u)
 		if err != nil {
-			// 记录警告但继续处理
-			parseErrors = append(parseErrors, fmt.Sprintf("解析失败: %s - %v", url, err))
+			parseErrors = append(parseErrors, fmt.Sprintf("%s: %v", u, err))
 			continue
 		}
 		nodes = append(nodes, node)
 	}
 
-	// 如果有解析错误，可以选择记录日志（这里暂时忽略）
-	_ = parseErrors
-
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf("未能成功解析任何节点")
+		return nil, fmt.Errorf("未能成功解析任何节点（%d 个链接均失败，第一个错误: %s）",
+			len(parseErrors), firstOrEmpty(parseErrors))
 	}
 
 	return nodes, nil
 }
 
-// parseSubscriptionToURLs 解析订阅内容返回 URL 字符串（向后兼容）
-func parseSubscriptionToURLs(content string) ([]string, error) {
-	lowerContent := strings.ToLower(content)
-	if strings.Contains(lowerContent, "<!doctype html>") || strings.Contains(lowerContent, "<html") {
-		return nil, fmt.Errorf("订阅服务器返回了 HTML 页面（可能是访问被拒绝或错误），请检查订阅地址是否正确")
+func firstOrEmpty(s []string) string {
+	if len(s) == 0 {
+		return ""
 	}
-
-	originalContent := strings.TrimSpace(content)
-	if originalContent == "" {
-		return nil, fmt.Errorf("订阅服务器返回了空内容")
-	}
-
-	candidates := []string{originalContent}
-	if !strings.Contains(originalContent, "trojan://") {
-		compact := strings.NewReplacer("\n", "", "\r", "", "\t", "", " ", "").Replace(originalContent)
-		if decoded, ok := decodeSubscriptionBase64(compact); ok {
-			candidates = append(candidates, decoded)
-		}
-		if decoded, ok := decodeSubscriptionBase64ByLine(originalContent); ok {
-			candidates = append(candidates, decoded)
-		}
-	}
-
-	bestURLs := []string{}
-	for _, candidate := range candidates {
-		matches := trojanURLPattern.FindAllString(candidate, -1)
-		urls := make([]string, 0, len(matches))
-		for _, m := range matches {
-			link := strings.TrimSpace(m)
-			if link != "" {
-				urls = append(urls, link)
-			}
-		}
-		if len(urls) > len(bestURLs) {
-			bestURLs = urls
-		}
-	}
-
-	if len(bestURLs) == 0 {
-		lines := strings.Split(originalContent, "\n")
-		return nil, fmt.Errorf("未找到有效的 Trojan 链接（共 %d 行内容，请确认订阅地址是否有效）", len(lines))
-	}
-
-	return bestURLs, nil
+	return s[0]
 }
 
 func decodeSubscriptionBase64(content string) (string, bool) {
