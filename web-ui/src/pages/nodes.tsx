@@ -147,8 +147,8 @@ export default function NodesPage() {
 
   async function copyShareUrl(id: number) {
     try {
-      const data = await get<{ url: string }>(`/api/nodes/${id}/share`);
-      await navigator.clipboard.writeText(data.url);
+      const data = await get<{ share_url: string }>(`/api/nodes/${id}/share`);
+      await navigator.clipboard.writeText(data.share_url);
       toast.success("Share URL copied");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed");
