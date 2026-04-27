@@ -30,7 +30,7 @@ function timeAgo(d: string | null) {
 
 export default function NodesPage() {
   const qc = useQueryClient();
-  const [filter, setFilter] = useState({ protocol: "", enabled: "", search: "" });
+  const [filter, setFilter] = useState({ protocol: "", enabled: "", search: "", source: "" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -55,6 +55,8 @@ export default function NodesPage() {
       if (filter.enabled === "true" && !n.enabled) return false;
       if (filter.enabled === "false" && n.enabled) return false;
       if (filter.search && !n.name.toLowerCase().includes(filter.search.toLowerCase()) && !n.server.toLowerCase().includes(filter.search.toLowerCase())) return false;
+      if (filter.source === "manual" && n.source_id !== null) return false;
+      if (filter.source && filter.source !== "manual" && n.source_name !== filter.source) return false;
       return true;
     });
   }, [nodes, filter]);
@@ -62,6 +64,11 @@ export default function NodesPage() {
   const protocols = useMemo(() => {
     if (!nodes) return [];
     return [...new Set(nodes.map((n) => n.protocol))].sort();
+  }, [nodes]);
+
+  const sources = useMemo(() => {
+    if (!nodes) return [];
+    return [...new Set(nodes.filter((n) => n.source_id !== null).map((n) => n.source_name))].sort();
   }, [nodes]);
 
   const saveMut = useMutation({
@@ -196,6 +203,14 @@ export default function NodesPage() {
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="true">Enabled</SelectItem>
             <SelectItem value="false">Disabled</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filter.source || "all"} onValueChange={(v) => setFilter((f) => ({ ...f, source: v === "all" ? "" : v }))}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Source" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All sources</SelectItem>
+            <SelectItem value="manual">Manual</SelectItem>
+            {sources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
